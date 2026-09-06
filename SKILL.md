@@ -105,6 +105,9 @@ session.export(model, r"C:\temp\cylinder.step")
 | 自然语言到参数化设计计划 / VibeCAD | `subskills/solidworks-vibecad/scripts/plan_from_brief.py` | `subskills/solidworks-vibecad/SKILL.md`、`subskills/solidworks-vibecad/README.md` |
 | 多圆角/倒角 CNC 机加工件 | `subskills/solidworks-fillet-chamfer-cnc/scripts/create_cnc_mount_template.py`；高级圆角用 `verify_advanced_fillets.py` | `subskills/solidworks-fillet-chamfer-cnc/SKILL.md`、`subskills/solidworks-fillet-chamfer-cnc/references/cnc-fillet-chamfer-lessons.md` |
 | 螺丝孔/螺纹孔、攻丝底孔 | `subskills/solidworks-threaded-holes/scripts/create_threaded_hole_template.py` | `subskills/solidworks-threaded-holes/SKILL.md`、`subskills/solidworks-threaded-holes/references/threaded-hole-lessons.md` |
+| 标准件生成：直齿轮/压缩弹簧/滚子链链轮 | `subskills/solidworks-standard-parts/scripts/create_spur_gear.py` 等；几何 `scripts/standard_parts_geometry.py` | `subskills/solidworks-standard-parts/SKILL.md`、`subskills/solidworks-standard-parts/references/standard-parts-lessons.md` |
+| 尺寸公差批量抽取与 CSV | `scripts/sw_tolerance_extract.py` | `capabilities.yaml`（`tolerance_extraction`） |
+| 属性驱动批量文件改名/切割清单改名 | `scripts/sw_file_rename.py` | `capabilities.yaml`（`property_based_file_rename`） |
 | AutoCAD DWG/DXF 二维绘图、线稿转 CAD、批量改图 | `subskills/autocad-automation/scripts/acad_draw.py`、`subskills/autocad-automation/scripts/acad_review.py` | `subskills/autocad-automation/SKILL.md`、`subskills/autocad-automation/references/troubleshooting.md` |
 | 装配体操作、齿轮/铰链/可拖动运动配合 | `scripts/sw_assembly.py` | `references/assembly.md` |
 | Motion Study 运动算例、旋转马达与结果审计 | `scripts/sw_motion.py` | `references/motion-study.md`、`references/complex-mechanical-routing.md` |
@@ -167,6 +170,7 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 15. 遇到钣金、焊件、复杂曲面、模具、Routing、Simulation/FEA、复杂 Motion 或配置族任务，先运行 `sw_capability_probe.py` 并读取 `references/complex-mechanical-routing.md`；Routing 使用 `routing-preflight/check-routing`，FEA 使用 `fea-preflight/prepare-fea/run-fea/run-fea-convergence`，复杂曲面使用 `review-advanced-geometry/create-ocp-loft/create-ocp-surface`。FEA 和高级曲面求解通过仍为 `review_required`。
 16. 需要企业/项目机械知识时读取 `references/enterprise-agent-rag.md`；默认只用本地知识，云 RAG 必须显式启用、声明 `external_network` 并完成人工审批。
 17. 当一个需求同时跨越零件、孔槽/圆角、装配 Mate、Motion、工程图/BOM 和多格式交付中的两个以上工程域时，调用 `apps/desktop/cad_workbench/engineering_orchestrator.py` 生成阶段 DAG。必须按依赖串行执行关键 CAD 写操作，每阶段独立保存产物和验收证据；局部修改只重规划受影响阶段及其后继，禁止把整项工程塞进一条超长 Prompt 后一次性宣称完成。
+18. 用户要“生成一个齿轮/压缩弹簧/滚子链链轮”“按模数齿数/线径中径/链节距出标准件”时，先读取 `subskills/solidworks-standard-parts/SKILL.md`；几何量先用 `scripts/standard_parts_geometry.py` 校验（尖齿、根切、实体长度等会直接报错），再运行对应生成器并做重建回读与自审查，弹簧扫描失败按 `helix-centerline` 证据降级。需要从模型/图纸批量抽取尺寸公差时用 `scripts/sw_tolerance_extract.py` 输出 CSV；需要按自定义属性模板批量改名文件或切割清单条目时用 `scripts/sw_file_rename.py`——默认只出改名计划（dry-run），`--apply` 走原生 Pack and Go 写参照安全的改名副本并核对产物，绝不做破坏外部参照的裸重命名。
 
 ### 机械图纸默认底线
 

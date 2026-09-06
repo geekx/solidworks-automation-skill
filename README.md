@@ -111,6 +111,8 @@ python scripts/cad_studio.py create-ocp-surface --input .\smooth-loft.json --out
 - 🔩 **装配体操作** - 添加组件、配合关系、干涉检查、爆炸视图
 - 📐 **工程图出图** - 三视图、剖视图、尺寸标注、BOM 表
 - 🧾 **工程图专业子技能** - `solidworks-engineering-drawing` 独立负责 GB/T 第一角工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视，可由根技能或任意相关子技能按需连接
+- ⚙️ **标准件生成子技能** - `solidworks-standard-parts` 按工程参数生成渐开线直齿轮、圆柱压缩弹簧、滚子链链轮；分度圆/弹簧刚度/链轮节圆等几何量由纯函数离线单测，真实特征落盘与啮合精度按 pilot 真机复核
+- 🎯 **公差抽取与批量改名** - `sw_tolerance_extract.py` 从模型/图纸批量抽取尺寸公差并导出 CSV；`sw_file_rename.py` 按自定义属性模板规划文件与切割清单改名，默认 dry-run，执行走参照安全的原生 Pack and Go
 - 💾 **文件导出** - STEP、STL、IGES、PDF、DXF/DWG、Parasolid；SW2026 SP01.1 基础装配已通过原生 Pack and Go 连续回归，复杂引用缺失时仍按门禁生成带哈希清单的 `pilot` 暂存包
 - 🧩 **网格参考导入** - 将公开 GLB/OBJ/STL 外观参考模型缩放、转换并导入为 SolidWorks 参考零件
 - 🎨 **外观材质** - 文档、特征、组件级颜色设置，支持装配体分色建模
@@ -295,6 +297,7 @@ solidworks-automation-skill/
 │   ├── solidworks-fillet-chamfer-cnc/   # CNC 多圆角/倒角机加工件
 │   ├── solidworks-threaded-holes/       # 螺纹孔、攻丝底孔和孔口倒角
 │   ├── solidworks-engineering-drawing/  # GB/T 工程图生成与制造交付审视
+│   ├── solidworks-standard-parts/       # 直齿轮/压缩弹簧/滚子链链轮参数化生成
 │   └── autocad-automation/              # AutoCAD DWG/DXF 二维绘图和线稿矢量化
 ├── docs/                # 产品化、市场调研和技能地图
 │   ├── market-research-2026.md          # 市场调研与产品定位
@@ -341,6 +344,7 @@ npm run desktop:bundle
 | [`solidworks-fillet-chamfer-cnc`](subskills/solidworks-fillet-chamfer-cnc/README.md) | stable | CNC 安装座、语义选边、有界降级、三控制点可变半径、face/full-round/setback、G2 曲面组合、宽度-宽度倒角及开源复杂件回归 |
 | [`solidworks-threaded-holes`](subskills/solidworks-threaded-holes/README.md) | stable | ISO 公制内螺纹、Metric Tap 真实 Thread、贯穿/盲孔语义、参数校验和重建后证据 |
 | [`solidworks-engineering-drawing`](subskills/solidworks-engineering-drawing/README.md) | pilot | GB/T 第一角零件/装配工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视 |
+| [`solidworks-standard-parts`](subskills/solidworks-standard-parts/README.md) | pilot | 渐开线直齿轮、圆柱压缩弹簧、滚子链链轮参数化生成；几何/力学纯函数离线单测，真实特征落盘与啮合精度须真机复核 |
 | [`autocad-automation`](subskills/autocad-automation/README.md) | verified / pilot / blocked | DXF 无头预览与结构审查；AutoCAD 2024 .NET 白名单后端须经最近连续三次证据复验后为 verified；COM 原生写入仍受门禁 |
 
 更多路由说明见 [`SUBSKILLS.md`](SUBSKILLS.md)。

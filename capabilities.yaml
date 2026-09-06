@@ -465,6 +465,36 @@
       "dependencies": ["python", "可选 SolidWorks Routing 类型库和加载项许可证"],
       "limitations": ["当前支持中性 Routing 端点、分段、长度、弯曲半径、碰撞/间隙、支撑间距和 BOM 复核；不生成 SOLIDWORKS Routing 原生特征", "本机 SW2026 可发现 SWRoutingLib.tlb 和核心接口，但未检测到 Routing AddIn 注册或许可证证据时原生写入必须 blocked"],
       "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "standard_parts_generation",
+      "label": "标准件生成（直齿轮/压缩弹簧/滚子链链轮）",
+      "level": "pilot",
+      "backends": ["solidworks-com", "local-python"],
+      "verified_versions": [],
+      "dependencies": ["python", "可选 SolidWorks", "pywin32"],
+      "limitations": ["渐开线直齿轮分度/基/齿顶/齿根圆、变位与齿厚、压缩弹簧弹簧指数/实体长度/刚度、滚子链链轮节圆 PD=P/sin(π/N)/齿顶圆 OD 已离线单测；真实 SolidWorks 特征落盘、齿轮啮合精度与根切、弹簧端圈并紧磨平与压并高度、链轮精确啮合齿形仍需真机与工程复核", "压缩弹簧优先圆形轮廓扫描成实体，InsertProtrusionSwept4 版本敏感，失败时降级为螺旋中心线证据且不导出 STEP", "不覆盖斜齿/锥齿/蜗轮蜗杆、拉伸/扭转弹簧、双节距链与非标齿形"],
+      "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "tolerance_extraction",
+      "label": "尺寸公差批量抽取与 CSV",
+      "level": "pilot",
+      "backends": ["solidworks-com", "local-filesystem"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", "pywin32"],
+      "limitations": ["公差分类、显示格式化（对称/双向/限制/最小/最大/配合）与汇总统计已离线单测；IDisplayDimension/IDimension/ITolerance 遍历与读取需真机验证，CSV 必须与图纸人工核对", "配合公差仅按上下偏差呈现，不解析配合代号 H7/g6"],
+      "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "property_based_file_rename",
+      "label": "属性驱动批量文件改名与切割清单改名",
+      "level": "pilot",
+      "backends": ["solidworks-com", "local-filesystem"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", "pywin32"],
+      "limitations": ["模板渲染、文件名净化、冲突/空操作检测和改名计划已离线单测；默认只生成计划与 CSV（dry-run），不改动文件", "真正改名通过原生 Pack and Go 写参照安全的改名副本并逐个核对产物，找不到产物即 blocked，绝不做会破坏外部参照的裸文件系统重命名", "切割清单条目改名依赖焊件特征遍历，需真机验证"],
+      "allowed_modes": ["interactive", "reviewed"]
     }
   ]
 }
