@@ -38,6 +38,9 @@ metadata: { "openclaw": { "os": ["win32"], "requires": { "anyBins": ["python", "
 当用户要“一块布满孔的台面板/钻孔面板从 3D 自动出图”“孔位自动规整”“基准自动推测”“GD&T 自动给出”时，
 先读取 [钻孔面板 GD&T](references/drilling-panel-gdt.md)，用 `scripts/drilling_panel_gdt.py`：
 
+0. **打通真机 3D（pilot）**：直接从活动零件抽取用 `analyze_model(model)` 或 CLI `--from-model panel.SLDPRT`；
+   它复用根技能已验证的 `sw_review.collect_geometry_measurements`（GetPartBox + 内部圆柱孔壁，已滤除外圆柱/凸台/圆角），
+   再走纯函数适配层 `holes_from_geometry_measurements`（法向自动判定、侧壁过滤、沉孔合并取最小径、板尺寸/原点）。
 1. 从 NeutralCadDocument（或真机模型抽取，pilot）拿到孔列表，`analyze_drilling_panel()` 一次给出
    孔位阵列（栅格/线性/离散）、3-2-1 基准体系（A|B|C，含定位销候选）、GB/T 位置度与平面度 GD&T、
    孔表与从基准原点的坐标标注。

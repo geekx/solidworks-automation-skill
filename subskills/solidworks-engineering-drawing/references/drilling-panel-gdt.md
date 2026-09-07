@@ -32,6 +32,38 @@ python subskills/solidworks-engineering-drawing/scripts/drilling_panel_gdt.py \
 datums、geometricTolerances、holeCallouts、centerMarks，holeRequirements 精确孔位，requiredDimensions
 坐标基线与 GD&T）。
 
+## 打通真机 3D → 分析（pilot）
+
+除了中性文档，还可直接从活动 SolidWorks 零件抽取孔位快照，打通「3D → 孔位规整 → 基准 → GD&T →
+drawing_spec」这一段：
+
+```python
+from drilling_panel_gdt import analyze_model
+result = analyze_model(model)          # model 为 IModelDoc2/IPartDoc
+result["snapshot"]["holes"]            # 抽取到的孔（去重后的功能孔径）
+result["analysis"], result["drawingSpec"]
+```
+
+CLI：
+
+```bash
+python subskills/solidworks-engineering-drawing/scripts/drilling_panel_gdt.py \
+  --from-model C:\path\panel.SLDPRT --spec-out out/panel_spec.json
+```
+
+抽取机制复用根技能已验证的 `sw_review.collect_geometry_measurements`（`GetPartBox(True)` 包围盒 +
+B-Rep 内部圆柱孔壁，`FaceInSurfaceSense=True` 已滤除外圆柱、凸台与圆角），再走纯函数适配层
+`holes_from_geometry_measurements`：
+
+- **面板法向**取包围盒最薄方向；只保留轴向与法向平行的圆柱（滤掉侧壁/斜孔）。
+- **平面内坐标**由投影掉法向轴得到 `(x, y)`。
+- **沉孔/阶梯孔**同位置的多段孔壁合并为一孔，取**最小直径**为功能孔径。
+- **板尺寸/基准原点**优先用 `GetPartBox` 角点，缺失时按孔范围外扩估算（会给 warning）。
+
+适配层是纯函数、离线单测（含法向 z/y、侧壁过滤、沉孔合并、板尺寸回退等用例）；`collect_geometry_measurements`
+与 `analyze_model` 的 COM 读取为 pilot，须真机验证。孔型（tapped/clearance/dowel）无法从纯几何判定，
+默认 clearance；定位销识别交给下游 `infer_datums`，需要精确孔型时用中性文档路径显式提供 `holeKind`。
+
 ## 与渲染器的分工
 
 - 分析/规划为纯函数，离线单测（`tests/test_drilling_panel_gdt.py`），并且生成的 `drawing_spec`

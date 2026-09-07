@@ -513,7 +513,7 @@
       "backends": ["local-python", "solidworks-com"],
       "verified_versions": [],
       "dependencies": ["python", "可选 SolidWorks"],
-      "limitations": ["孔位阵列识别（栅格/线性/离散、节距/行列/规整度）、3-2-1 基准推测（A|B|C 与定位销候选）、GB/T 1182 位置度/平面度 GD&T 生成、孔表与坐标标注规划均为纯函数并离线单测；生成的 drawing_spec 已通过工程图子技能 schema 校验", "把基准标签、位置度框、孔表与坐标标注真正落到 SLDDRW 由工程图子技能专项 COM 脚本执行，为 pilot，须真机与工程复核；分析结果不得当作已自动交付图纸", "斜向/极坐标阵列、沉头阶梯孔多段标注暂按离散簇处理；位置度/平面度默认值只是首版建议，最终公差须按功能与配合由工程师确认"],
+      "limitations": ["孔位阵列识别（栅格/线性/离散、节距/行列/规整度）、3-2-1 基准推测（A|B|C 与定位销候选）、GB/T 1182 位置度/平面度 GD&T 生成、孔表与坐标标注规划、以及真机 B-Rep 证据到孔列表的适配层均为纯函数并离线单测；生成的 drawing_spec 已通过工程图子技能 schema 校验", "已打通真机 3D→分析：analyze_model()/--from-model 复用 sw_review.collect_geometry_measurements（GetPartBox + FaceInSurfaceSense 内部孔壁）抽取孔位快照，该 COM 抽取为 pilot；把基准标签、位置度框、孔表与坐标标注真正落到 SLDDRW 由工程图子技能专项 COM 脚本执行，同为 pilot，须真机与工程复核，分析结果不得当作已自动交付图纸", "孔型无法从纯几何判定默认 clearance（需精确孔型走中性文档 holeKind）；斜向/极坐标阵列、沉头阶梯孔多段标注暂按离散簇/最小径处理；位置度/平面度默认值只是首版建议，最终公差须按功能与配合由工程师确认"],
       "allowed_modes": ["interactive", "reviewed"]
     }
   ]

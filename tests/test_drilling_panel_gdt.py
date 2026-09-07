@@ -159,3 +159,78 @@ def test_holes_from_neutral_document_unit_conversion():
 def test_empty_holes_rejected():
     with pytest.raises(ValueError):
         dpg.analyze_drilling_panel([])
+
+
+# ---- 打通真机 3D -> 分析：几何证据适配层（纯函数） ----
+
+
+def _measurements():
+    return {
+        "envelope_mm": {"length": 300.0, "width": 200.0, "height": 25.0, "axis_order": "model_xyz"},
+        "holes": [
+            {"diameter_mm": 6.0, "position_mm": [25, 25, 12.5], "axis": [0, 0, 1]},
+            {"diameter_mm": 6.0, "position_mm": [75, 25, 12.5], "axis": [0, 0, 1]},
+            {"diameter_mm": 6.0, "position_mm": [25, 65, 12.5], "axis": [0, 0, 1]},
+            {"diameter_mm": 6.0, "position_mm": [75, 65, 12.5], "axis": [0, 0, 1]},
+            {"diameter_mm": 12.0, "position_mm": [25, 25, 2.0], "axis": [0, 0, 1]},  # 沉孔叠层
+            {"diameter_mm": 8.0, "position_mm": [150, 100, 12.5], "axis": [1, 0, 0]},  # 侧壁
+        ],
+    }
+
+
+def test_adapter_detects_normal_axis_and_filters_side_walls():
+    res = dpg.holes_from_geometry_measurements(_measurements(), part_box_mm=[0, 0, 0, 300, 200, 25])
+    assert res["normalAxis"] == "z"
+    # 4 个通孔；侧壁圆柱被滤除
+    assert len(res["holes"]) == 4
+
+
+def test_adapter_merges_counterbore_to_min_diameter():
+    res = dpg.holes_from_geometry_measurements(_measurements(), part_box_mm=[0, 0, 0, 300, 200, 25])
+    at_corner = [h for h in res["holes"] if abs(h.x - 25) < 0.1 and abs(h.y - 25) < 0.1]
+    assert len(at_corner) == 1
+    assert at_corner[0].diameter == pytest.approx(6.0)  # 取最小直径为功能孔径
+
+
+def test_adapter_plate_from_part_box():
+    res = dpg.holes_from_geometry_measurements(_measurements(), part_box_mm=[0, 0, 0, 300, 200, 25])
+    plate = res["plate"]
+    assert plate["widthMm"] == 300.0 and plate["heightMm"] == 200.0 and plate["thicknessMm"] == 25.0
+    assert plate["originXMm"] == 0.0 and plate["originYMm"] == 0.0
+
+
+def test_adapter_plate_fallback_from_holes_when_no_box():
+    res = dpg.holes_from_geometry_measurements(_measurements())
+    assert any("外扩" in w for w in res["warnings"])
+    assert res["plate"]["thicknessMm"] == 25.0  # 厚度仍来自包围盒最薄方向
+
+
+def test_adapter_end_to_end_to_grid():
+    res = dpg.holes_from_geometry_measurements(_measurements(), part_box_mm=[0, 0, 0, 300, 200, 25])
+    analysis = dpg.analyze_drilling_panel(res["holes"], plate=res["plate"])
+    grid = next(p for p in analysis["patterns"] if p["kind"] == "grid")
+    assert grid["count"] == 4
+    assert grid["pitchXMm"] == pytest.approx(50.0)
+    assert grid["pitchYMm"] == pytest.approx(40.0)
+
+
+def test_adapter_normal_axis_y_plate():
+    # 面板法向沿 Y（厚度在 width 方向最薄）
+    meas = {
+        "envelope_mm": {"length": 300.0, "width": 20.0, "height": 200.0, "axis_order": "model_xyz"},
+        "holes": [
+            {"diameter_mm": 6.0, "position_mm": [25, 10, 25], "axis": [0, 1, 0]},
+            {"diameter_mm": 6.0, "position_mm": [75, 10, 25], "axis": [0, 1, 0]},
+        ],
+    }
+    res = dpg.holes_from_geometry_measurements(meas, part_box_mm=[0, 0, 0, 300, 20, 200])
+    assert res["normalAxis"] == "y"
+    # 平面内坐标取 x,z
+    assert res["holes"][0].x == pytest.approx(25.0)
+    assert res["holes"][0].y == pytest.approx(25.0)
+
+
+def test_adapter_empty_measurements_warns():
+    res = dpg.holes_from_geometry_measurements({"envelope_mm": {"length": 100, "width": 100, "height": 10}, "holes": []})
+    assert res["holes"] == []
+    assert res["warnings"]

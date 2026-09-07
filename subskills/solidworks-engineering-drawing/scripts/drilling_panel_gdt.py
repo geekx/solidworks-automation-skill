@@ -636,26 +636,195 @@ def holes_from_neutral_document(document: Mapping[str, Any]) -> list[Hole]:
     return holes
 
 
+# ---------------------------------------------------------------------------
+# 打通真机 3D -> 分析：从活动 SolidWorks 模型抽取孔位快照（pilot）
+# ---------------------------------------------------------------------------
+
+_AXIS_IN_PLANE = {0: (1, 2), 1: (0, 2), 2: (0, 1)}
+_AXIS_NAME = {0: "x", 1: "y", 2: "z"}
+
+
+def _thinnest_axis(envelope: Mapping[str, Any]) -> int:
+    """@brief 由包围盒最薄方向判定面板法向轴（0=x,1=y,2=z）。"""
+    sizes = [
+        _finite(envelope.get("length")) or 0.0,
+        _finite(envelope.get("width")) or 0.0,
+        _finite(envelope.get("height")) or 0.0,
+    ]
+    return min(range(3), key=lambda i: sizes[i])
+
+
+def holes_from_geometry_measurements(
+    measurements: Mapping[str, Any],
+    *,
+    part_box_mm: Sequence[float] | None = None,
+    normal_axis: int | None = None,
+    dedupe_tol_mm: float = 0.5,
+    default_kind: str = "clearance",
+    axis_parallel_tol: float = 0.02,
+) -> dict[str, Any]:
+    """@brief 把 sw_review.collect_geometry_measurements 的内部孔壁转成面板孔 + 板尺寸。
+
+    这是“真机 3D -> 分析”的纯函数适配层，可离线单测。输入是已验证的 B-Rep 证据
+    （envelope_mm + 内部圆柱孔壁 holes[{diameter_mm, position_mm, axis}]）：
+
+    - 面板法向取包围盒最薄方向；只保留轴向与法向平行的圆柱（滤掉侧壁/斜孔）。
+    - 法向坐标投影掉，得到孔在面板平面的 (x, y)。
+    - 同一 (x, y) 的多段孔壁（沉孔/阶梯孔叠层）合并为一孔，取最小直径为功能孔径。
+    - 孔型无法从纯几何判定，默认 clearance；定位销识别交给下游 infer_datums。
+
+    @return {"holes": [Hole], "plate": {...}, "warnings": [...]}。
+    """
+    envelope = measurements.get("envelope_mm") if isinstance(measurements.get("envelope_mm"), Mapping) else {}
+    axis = normal_axis if normal_axis is not None else (_thinnest_axis(envelope) if envelope else 2)
+    u_index, v_index = _AXIS_IN_PLANE[axis]
+    warnings: list[str] = []
+
+    raw: list[tuple[float, float, float]] = []
+    for record in measurements.get("holes", []):
+        if not isinstance(record, Mapping):
+            continue
+        position = record.get("position_mm")
+        diameter = _finite(record.get("diameter_mm"))
+        hole_axis = record.get("axis")
+        if not isinstance(position, (list, tuple)) or len(position) < 3 or diameter is None:
+            continue
+        if isinstance(hole_axis, (list, tuple)) and len(hole_axis) >= 3:
+            if abs(abs(float(hole_axis[axis])) - 1.0) > axis_parallel_tol:
+                continue  # 轴向不与面板法向平行，非通面板孔
+        raw.append((float(position[u_index]), float(position[v_index]), diameter))
+
+    # 合并同位置的多段孔壁，取最小直径。
+    merged: list[list[float]] = []
+    for x, y, diameter in raw:
+        for slot in merged:
+            if abs(slot[0] - x) <= dedupe_tol_mm and abs(slot[1] - y) <= dedupe_tol_mm:
+                slot[2] = min(slot[2], diameter)
+                break
+        else:
+            merged.append([x, y, diameter])
+
+    holes = [Hole(id=f"H{i + 1}", x=round(x, 4), y=round(y, 4), diameter=round(d, 4), kind=default_kind) for i, (x, y, d) in enumerate(merged)]
+
+    plate = _plate_from_box(part_box_mm, envelope, axis, holes, warnings)
+    if not holes:
+        warnings.append("未从模型抽取到与面板法向平行的内部孔；请确认模型为带孔面板且法向正确")
+    return {"holes": holes, "plate": plate, "normalAxis": _AXIS_NAME[axis], "warnings": warnings}
+
+
+def _plate_from_box(part_box_mm, envelope, axis, holes, warnings) -> dict[str, Any]:
+    """@brief 由 GetPartBox 精确尺寸或孔范围推面板宽/高/厚与基准原点。"""
+    u_index, v_index = _AXIS_IN_PLANE[axis]
+    thickness = None
+    if isinstance(envelope, Mapping):
+        thickness = [envelope.get("length"), envelope.get("width"), envelope.get("height")][axis]
+        thickness = _finite(thickness)
+    if part_box_mm and len(part_box_mm) >= 6:
+        lo = [float(part_box_mm[i]) for i in range(3)]
+        hi = [float(part_box_mm[i + 3]) for i in range(3)]
+        return {
+            "widthMm": round(hi[u_index] - lo[u_index], 4),
+            "heightMm": round(hi[v_index] - lo[v_index], 4),
+            "thicknessMm": round(hi[axis] - lo[axis], 4),
+            "originXMm": round(lo[u_index], 4),
+            "originYMm": round(lo[v_index], 4),
+        }
+    if holes:
+        xs = [h.x for h in holes]
+        ys = [h.y for h in holes]
+        margin = 10.0
+        warnings.append("未提供 GetPartBox 角点，按孔范围外扩 10mm 估算板尺寸")
+        return {
+            "widthMm": round(max(xs) - min(xs) + 2 * margin, 4),
+            "heightMm": round(max(ys) - min(ys) + 2 * margin, 4),
+            "thicknessMm": round(thickness, 4) if thickness else 20.0,
+            "originXMm": round(min(xs) - margin, 4),
+            "originYMm": round(min(ys) - margin, 4),
+        }
+    return {"widthMm": 100.0, "heightMm": 100.0, "thicknessMm": round(thickness, 4) if thickness else 20.0, "originXMm": 0.0, "originYMm": 0.0}
+
+
+def snapshot_holes_from_model(model, **adapter_kwargs) -> dict[str, Any]:
+    """@brief pilot：从活动 SolidWorks 零件模型抽取孔位快照（holes + plate）。
+
+    复用根技能已验证的 `sw_review.collect_geometry_measurements`（GetPartBox + 内部圆柱孔壁，
+    FaceInSurfaceSense 已滤除外圆柱/凸台/圆角），再走纯函数适配层。COM 读取失败不抛出。
+    """
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    parent_scripts = str(_Path(__file__).resolve().parents[3] / "scripts")
+    if parent_scripts not in _sys.path:
+        _sys.path.insert(0, parent_scripts)
+    from sw_review import collect_geometry_measurements  # noqa: E402
+    from sw_connect import get_com_member  # noqa: E402
+
+    measurements = collect_geometry_measurements(model)
+    part_box = None
+    try:
+        box = list(get_com_member(model, "GetPartBox", True) or [])
+        if len(box) >= 6:
+            part_box = [float(v) * 1000.0 for v in box[:6]]
+    except Exception:  # noqa: BLE001
+        part_box = None
+    result = holes_from_geometry_measurements(measurements, part_box_mm=part_box, **adapter_kwargs)
+    result["measurementErrors"] = measurements.get("errors", [])
+    return result
+
+
+def analyze_model(model, *, profile: Mapping[str, Any] | None = None, **adapter_kwargs) -> dict[str, Any]:
+    """@brief pilot：一键打通真机 3D -> 孔位规整/基准/GD&T -> drawing_spec。"""
+    snapshot = snapshot_holes_from_model(model, **adapter_kwargs)
+    holes = snapshot["holes"]
+    if not holes:
+        return {"status": "blocked", "reason": "未抽取到面板孔", "snapshot": snapshot}
+    plate = snapshot["plate"]
+    analysis = analyze_drilling_panel(holes, plate=plate, profile=profile)
+    spec = build_drawing_spec(analysis, source_model="panel.SLDPRT", thickness_mm=plate.get("thicknessMm", 20.0))
+    return {"status": "ok", "snapshot": snapshot, "analysis": analysis, "drawingSpec": spec}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """@brief 命令行入口：读中性文档，输出分析 + drawing_spec。"""
     import argparse
     import json
 
     parser = argparse.ArgumentParser(description="非标钻孔面板：孔位规整 + 基准推测 + GD&T + drawing_spec 生成。")
-    parser.add_argument("input", help="NeutralCadDocument (.cadstudio.json) 路径。")
+    parser.add_argument("input", nargs="?", help="NeutralCadDocument (.cadstudio.json) 路径。")
+    parser.add_argument("--from-model", help="打通真机：打开该 SLDPRT 路径，直接从 3D 抽取孔位快照（pilot）。")
     parser.add_argument("--source-model", default="panel.SLDPRT", help="drawing_spec.sourceModel。")
     parser.add_argument("--analysis-out", help="分析 JSON 输出路径。")
     parser.add_argument("--spec-out", help="drawing_spec JSON 输出路径。")
     args = parser.parse_args(argv)
 
-    document = json.loads(Path(args.input).read_text(encoding="utf-8"))
-    holes = holes_from_neutral_document(document)
-    plate = document.get("metadata", {}).get("plate") if isinstance(document.get("metadata"), Mapping) else None
-    analysis = analyze_drilling_panel(holes, plate=plate)
-    thickness = 20.0
-    if isinstance(plate, Mapping) and _finite(plate.get("thicknessMm")) is not None:
-        thickness = float(plate["thicknessMm"])
-    spec = build_drawing_spec(analysis, source_model=args.source_model, thickness_mm=thickness)
+    if args.from_model:
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[3] / "scripts"))
+        from sw_session import SolidWorksSession  # noqa: E402
+
+        session = SolidWorksSession(visible=True)
+        model = session.open(args.from_model)
+        if model is None:
+            raise SystemExit(f"无法打开模型: {args.from_model}")
+        result = analyze_model(model)
+        analysis = result.get("analysis")
+        spec = result.get("drawingSpec")
+        if analysis is None:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 1
+    else:
+        if not args.input:
+            parser.error("需要提供 NeutralCadDocument 路径，或使用 --from-model 从真机抽取")
+        document = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        holes = holes_from_neutral_document(document)
+        plate = document.get("metadata", {}).get("plate") if isinstance(document.get("metadata"), Mapping) else None
+        analysis = analyze_drilling_panel(holes, plate=plate)
+        thickness = 20.0
+        if isinstance(plate, Mapping) and _finite(plate.get("thicknessMm")) is not None:
+            thickness = float(plate["thicknessMm"])
+        spec = build_drawing_spec(analysis, source_model=args.source_model, thickness_mm=thickness)
 
     if args.analysis_out:
         Path(args.analysis_out).write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
