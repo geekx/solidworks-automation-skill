@@ -33,6 +33,20 @@ metadata: { "openclaw": { "os": ["win32"], "requires": { "anyBins": ["python", "
 5. 保存 `.slddrw`，导出 PDF 和 BMP/PNG。
 6. 运行 `drawing_review.py`，生成机器证据和人工复核门禁。
 
+## 非标钻孔台面板自动出图（GD&T）
+
+当用户要“一块布满孔的台面板/钻孔面板从 3D 自动出图”“孔位自动规整”“基准自动推测”“GD&T 自动给出”时，
+先读取 [钻孔面板 GD&T](references/drilling-panel-gdt.md)，用 `scripts/drilling_panel_gdt.py`：
+
+1. 从 NeutralCadDocument（或真机模型抽取，pilot）拿到孔列表，`analyze_drilling_panel()` 一次给出
+   孔位阵列（栅格/线性/离散）、3-2-1 基准体系（A|B|C，含定位销候选）、GB/T 位置度与平面度 GD&T、
+   孔表与从基准原点的坐标标注。
+2. `build_drawing_spec()` 把结果组装成本子技能 schema 的 `drawing_spec`（已用 `validate_drawing_spec`
+   通过 schema 校验），再走标准工作流第 3~6 步落图与审查。
+
+分析/规划为纯函数、离线单测；把基准标签、位置度框、孔表和坐标标注真正落到 SLDDRW 仍是 pilot，
+须真机与工程复核，不得凭分析结果宣称已自动交付图纸。
+
 ## 能力边界
 
 - 零件和装配工程图为 pilot：跨版本真机回归仍在持续；但在 PDF 尺寸文字框、视图边界、尺寸链、孔表和 BOM 证据全部通过时，工具会返回 `pass`，不会因 COM 缺少原生文字框而无条件降级。

@@ -98,6 +98,7 @@ subskills/autocad-automation/SKILL.md
 - “按 GB/T、第一角投影出图”
 - “补齐尺寸链、孔表、BOM、标题栏”
 - “审查工程图是否能交付制造”
+- “非标钻孔台面板/布满孔的面板从 3D 自动出图”“孔位自动规整、基准自动推测、GD&T 自动给出”（用 `scripts/drilling_panel_gdt.py`）
 
 使用：
 

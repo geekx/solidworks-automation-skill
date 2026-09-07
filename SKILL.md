@@ -112,6 +112,7 @@ session.export(model, r"C:\temp\cylinder.step")
 | 装配体操作、齿轮/铰链/可拖动运动配合 | `scripts/sw_assembly.py` | `references/assembly.md` |
 | Motion Study 运动算例、旋转马达与结果审计 | `scripts/sw_motion.py` | `references/motion-study.md`、`references/complex-mechanical-routing.md` |
 | 工程图出图 | `scripts/sw_drawing.py` | `references/drawing.md` |
+| 非标钻孔面板孔位规整/基准推测/GD&T 自动出图 | `subskills/solidworks-engineering-drawing/scripts/drilling_panel_gdt.py` | `subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md` |
 | 文件导出 | `scripts/sw_export.py` | `references/export.md` |
 | 配置族创建/激活、参数修改与自定义属性 | `scripts/sw_document_data.py` | `references/advanced.md` |
 | 装配 BOM CSV 与 Pack and Go | `scripts/sw_delivery.py` | `references/export.md` |
@@ -172,7 +173,8 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 16. 需要企业/项目机械知识时读取 `references/enterprise-agent-rag.md`；默认只用本地知识，云 RAG 必须显式启用、声明 `external_network` 并完成人工审批。
 17. 当一个需求同时跨越零件、孔槽/圆角、装配 Mate、Motion、工程图/BOM 和多格式交付中的两个以上工程域时，调用 `apps/desktop/cad_workbench/engineering_orchestrator.py` 生成阶段 DAG。必须按依赖串行执行关键 CAD 写操作，每阶段独立保存产物和验收证据；局部修改只重规划受影响阶段及其后继，禁止把整项工程塞进一条超长 Prompt 后一次性宣称完成。
 18. 用户要“生成一个齿轮/压缩弹簧/滚子链链轮”“按模数齿数/线径中径/链节距出标准件”时，先读取 `subskills/solidworks-standard-parts/SKILL.md`；几何量先用 `scripts/standard_parts_geometry.py` 校验（尖齿、根切、实体长度等会直接报错），再运行对应生成器并做重建回读与自审查，弹簧扫描失败按 `helix-centerline` 证据降级。需要从模型/图纸批量抽取尺寸公差时用 `scripts/sw_tolerance_extract.py` 输出 CSV；需要按自定义属性模板批量改名文件或切割清单条目时用 `scripts/sw_file_rename.py`——默认只出改名计划（dry-run），`--apply` 走原生 Pack and Go 写参照安全的改名副本并核对产物，绝不做破坏外部参照的裸重命名。
-19. 用户要“做设计审计/设计规则检查/DRC”“检查这个设计有没有问题”“按我们的设计规范审一遍”时，读取 `references/design-rule-check.md`，用 `scripts/design_rule_check.py`（或 `cad_studio.py check-drc`、MCP `cadstudio_check_drc`）在 NeutralCadDocument 上运行。它与 `dfm_review.py`（制造性）分工：DRC 审查设计意图层的几何健全性、孔位、齿轮/弹簧/链轮标准件合理性、装配约束和图纸完整性，按严重度聚合。要按用户的自然语言设计规范配置或补充规则时，先 `list-drc-rules`/`cadstudio_list_drc_rules` 了解可配置项，再把自然语言翻译成声明式 DRC Profile（阈值/停用规则/数据驱动自定义规则）传入——Profile 是纯数据、绝不执行代码；报告始终 `reviewRequired=true`，fail/warning 都要工程复核。
+19. 用户要“非标钻孔台面板/布满孔的面板从 3D 自动出图”“孔位自动规整”“基准自动推测”“GD&T 自动给出”时，先读取 `subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md`，用 `drilling_panel_gdt.py`：`analyze_drilling_panel()` 一次给出孔位阵列（栅格/线性/离散）、3-2-1 基准 A|B|C（含定位销候选）、GB/T 位置度/平面度 GD&T、孔表与坐标标注；`build_drawing_spec()` 组装成通过 schema 校验的 drawing_spec 后走工程图子技能落图。分析为纯函数离线可验证，真正把 GD&T/孔表落到 SLDDRW 为 pilot，须真机复核。
+20. 用户要“做设计审计/设计规则检查/DRC”“检查这个设计有没有问题”“按我们的设计规范审一遍”时，读取 `references/design-rule-check.md`，用 `scripts/design_rule_check.py`（或 `cad_studio.py check-drc`、MCP `cadstudio_check_drc`）在 NeutralCadDocument 上运行。它与 `dfm_review.py`（制造性）分工：DRC 审查设计意图层的几何健全性、孔位、齿轮/弹簧/链轮标准件合理性、装配约束和图纸完整性，按严重度聚合。要按用户的自然语言设计规范配置或补充规则时，先 `list-drc-rules`/`cadstudio_list_drc_rules` 了解可配置项，再把自然语言翻译成声明式 DRC Profile（阈值/停用规则/数据驱动自定义规则）传入——Profile 是纯数据、绝不执行代码；报告始终 `reviewRequired=true`，fail/warning 都要工程复核。
 
 ### 机械图纸默认底线
 
