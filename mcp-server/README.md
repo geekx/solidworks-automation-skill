@@ -119,6 +119,8 @@ claude mcp add --scope user solidworks -- python C:\path\to\solidworks-automatio
 | `cadstudio_build_dxf_preview_scene` | 只读 DXF 白名单转换为不覆盖旧文件的 `.scene.json` | 否 |
 | `cadstudio_check_dfm` | 对 NeutralCadDocument 执行机加工、钣金、激光切割或 3D 打印 DFM 规则检查，支持 supplier profile 与 B-Rep 证据；缺关键输入返回 blocked，规则通过仍需人工复核 | 否 |
 | `cadstudio_check_routing` | 校验中性 Routing 端点、分段、长度、弯曲半径、碰撞/间隙、支撑和 Routing BOM | 否 |
+| `cadstudio_check_drc` | 对 NeutralCadDocument 执行设计规则检查（设计审计）：几何健全性、孔位规则、齿轮/弹簧/链轮标准件合理性、装配约束、工程图完整性，按严重度聚合；可用声明式 Profile（阈值/停用规则/数据驱动自定义规则）配置与补充，代理可从自然语言生成，不执行任何代码；制造性仍走 `cadstudio_check_dfm` | 否 |
+| `cadstudio_list_drc_rules` | 列出内置 DRC 规则、默认阈值与自定义规则 schema，供代理据此把自然语言翻译成 DRC Profile | 否 |
 | `cadstudio_routing_preflight` | 探测 SOLIDWORKS Routing 类型库、加载项注册和许可证证据；缺证据返回 blocked | 否 |
 | `solidworks_addin_host_status` | 只读检查 C# Add-in 程序集、HKCU/HKLM 注册层级、进程内 UI/事件诊断和阻塞码 | 否 |
 | `cadstudio_fea_preflight` | 探测 CalculiX/Elmer 求解器，不执行任意命令 | 否 |

@@ -495,6 +495,16 @@
       "dependencies": ["SolidWorks", "pywin32"],
       "limitations": ["模板渲染、文件名净化、冲突/空操作检测和改名计划已离线单测；默认只生成计划与 CSV（dry-run），不改动文件", "真正改名通过原生 Pack and Go 写参照安全的改名副本并逐个核对产物，找不到产物即 blocked，绝不做会破坏外部参照的裸文件系统重命名", "切割清单条目改名依赖焊件特征遍历，需真机验证"],
       "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "design_rule_check",
+      "label": "设计规则检查（DRC/设计审计）",
+      "level": "pilot",
+      "backends": ["local-python", "solidworks-com"],
+      "verified_versions": [],
+      "dependencies": ["python", "可选 SolidWorks"],
+      "limitations": ["规则引擎与标准规则集（几何健全性、孔位、齿轮/弹簧/链轮标准件、装配约束、工程图完整性）与声明式 Profile 校验/合并已离线单测；制造性检查仍由 dfm_review 负责，本能力不重复", "通过 cadstudio_check_drc / cadstudio_list_drc_rules 暴露给 MCP，规则可用声明式 Profile（阈值/停用规则/数据驱动自定义规则）配置与补充，代理可从自然语言生成，绝不执行 Profile 中的字符串为代码或路径", "只审查中性文档已提供的证据，缺失截面按 info 跳过不代表合格；从活动 SolidWorks 模型抽取快照为 pilot；报告始终 reviewRequired=true，不得作为无人值守放行依据"],
+      "allowed_modes": ["interactive", "reviewed"]
     }
   ]
 }

@@ -119,6 +119,7 @@ session.export(model, r"C:\temp\cylinder.step")
 | 结果自审查 | `scripts/sw_review.py` | `references/review.md` |
 | 语义实体引用 | `scripts/sw_entity_reference.py` | 逐步替代 Face1/Edge1 和屏幕坐标 |
 | DFM 制造风险复核 | `scripts/dfm_review.py`、`scripts/dfm_profiles.py`、`scripts/cad_studio.py check-dfm` | 供应商 profile、B-Rep 证据、机加工、钣金、激光切割和 3D 打印的结构化规则检查 |
+| DRC 设计规则检查/设计审计 | `scripts/design_rule_check.py`、`scripts/design_rule_profiles.py`、`scripts/cad_studio.py check-drc`/`list-drc-rules` | 几何/孔位/标准件/装配/图纸规则按严重度聚合；声明式 Profile 可用自然语言配置与补充；MCP `cadstudio_check_drc`/`cadstudio_list_drc_rules` |
 | Routing 中性复核与前置 | `scripts/routing_review.py`、`scripts/cad_studio.py check-routing`、`scripts/cad_studio.py routing-preflight` | 端点、分段、长度、弯曲半径、碰撞/间隙、支撑、Routing BOM；原生写入必须等加载项/许可证证据 |
 | FEA 前置、输入与受限求解 | `scripts/fea_analysis.py`、`scripts/fea_convergence.py`、`scripts/cad_studio.py fea-preflight/prepare-fea/run-fea/run-fea-convergence` | CalculiX 2.23 已验证线性/非线性静力、塑性、面接触、最终步 COPEN/CPRESS/CSLIP 与线性/非线性网格收敛；全部仍需工程复核 |
 | 复杂曲面与模具 | `scripts/advanced_geometry.py`、`scripts/advanced_geometry_ocp.py`、`scripts/advanced_surface_ocp.py`、`scripts/cad_studio.py review-advanced-geometry/create-ocp-loft/create-ocp-surface` | 直纹/平滑 Loft、受限 Sweep/Knit/Thicken 可写并重开 B-Rep；G1/G2 和曲率半径只返回离散采样证据 |
@@ -171,6 +172,7 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 16. 需要企业/项目机械知识时读取 `references/enterprise-agent-rag.md`；默认只用本地知识，云 RAG 必须显式启用、声明 `external_network` 并完成人工审批。
 17. 当一个需求同时跨越零件、孔槽/圆角、装配 Mate、Motion、工程图/BOM 和多格式交付中的两个以上工程域时，调用 `apps/desktop/cad_workbench/engineering_orchestrator.py` 生成阶段 DAG。必须按依赖串行执行关键 CAD 写操作，每阶段独立保存产物和验收证据；局部修改只重规划受影响阶段及其后继，禁止把整项工程塞进一条超长 Prompt 后一次性宣称完成。
 18. 用户要“生成一个齿轮/压缩弹簧/滚子链链轮”“按模数齿数/线径中径/链节距出标准件”时，先读取 `subskills/solidworks-standard-parts/SKILL.md`；几何量先用 `scripts/standard_parts_geometry.py` 校验（尖齿、根切、实体长度等会直接报错），再运行对应生成器并做重建回读与自审查，弹簧扫描失败按 `helix-centerline` 证据降级。需要从模型/图纸批量抽取尺寸公差时用 `scripts/sw_tolerance_extract.py` 输出 CSV；需要按自定义属性模板批量改名文件或切割清单条目时用 `scripts/sw_file_rename.py`——默认只出改名计划（dry-run），`--apply` 走原生 Pack and Go 写参照安全的改名副本并核对产物，绝不做破坏外部参照的裸重命名。
+19. 用户要“做设计审计/设计规则检查/DRC”“检查这个设计有没有问题”“按我们的设计规范审一遍”时，读取 `references/design-rule-check.md`，用 `scripts/design_rule_check.py`（或 `cad_studio.py check-drc`、MCP `cadstudio_check_drc`）在 NeutralCadDocument 上运行。它与 `dfm_review.py`（制造性）分工：DRC 审查设计意图层的几何健全性、孔位、齿轮/弹簧/链轮标准件合理性、装配约束和图纸完整性，按严重度聚合。要按用户的自然语言设计规范配置或补充规则时，先 `list-drc-rules`/`cadstudio_list_drc_rules` 了解可配置项，再把自然语言翻译成声明式 DRC Profile（阈值/停用规则/数据驱动自定义规则）传入——Profile 是纯数据、绝不执行代码；报告始终 `reviewRequired=true`，fail/warning 都要工程复核。
 
 ### 机械图纸默认底线
 
@@ -212,7 +214,7 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 1. 读取 `mcp-server/README.md`。
 2. 若用户要求自动配置 MCP，优先运行多客户端注册器：`powershell -ExecutionPolicy Bypass -File mcp-server/register_all_ai_mcp.ps1 -InstallDependencies`；它会尝试注册 Codex、Claude Code、Claude Desktop、Cursor、Windsurf。
 3. 使用本地 `stdio` MCP server：`python mcp-server/server.py`。
-4. 无 CAD 开放格式写入优先调用 `cadstudio_write_open_format`；DFM、Routing、FEA 和复杂几何分别调用 `cadstudio_check_dfm`、`cadstudio_check_routing`、`cadstudio_routing_preflight`、`cadstudio_fea_preflight`、`cadstudio_prepare_fea`、`cadstudio_run_fea`、`cadstudio_run_fea_convergence`、`cadstudio_review_advanced_geometry`、`cadstudio_create_ocp_loft`、`cadstudio_create_ocp_surface`；SolidWorks 原生操作再调用白名单 `solidworks_*` 工具。
+4. 无 CAD 开放格式写入优先调用 `cadstudio_write_open_format`；DFM、DRC、Routing、FEA 和复杂几何分别调用 `cadstudio_check_dfm`、`cadstudio_check_drc`/`cadstudio_list_drc_rules`、`cadstudio_check_routing`、`cadstudio_routing_preflight`、`cadstudio_fea_preflight`、`cadstudio_prepare_fea`、`cadstudio_run_fea`、`cadstudio_run_fea_convergence`、`cadstudio_review_advanced_geometry`、`cadstudio_create_ocp_loft`、`cadstudio_create_ocp_surface`；设计审计规则可用声明式 Profile 从自然语言配置与补充；SolidWorks 原生操作再调用白名单 `solidworks_*` 工具。
 5. 不要暴露任意 Python/VBA 执行工具；新增 MCP 工具时应复用 `scripts/sw_*.py` 中已验证封装。
 6. SolidWorks COM 操作必须串行执行；MCP server 内部已使用全局锁降低桌面会话冲突。
 7. 基准 demo 使用 `examples/08_mini_fan_motion_assembly.py`；它验证自动建模、装配、Mate 和 Motion Study，不承诺圆角/倒角外观完美。

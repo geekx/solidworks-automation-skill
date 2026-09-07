@@ -113,6 +113,7 @@ python scripts/cad_studio.py create-ocp-surface --input .\smooth-loft.json --out
 - 🧾 **工程图专业子技能** - `solidworks-engineering-drawing` 独立负责 GB/T 第一角工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视，可由根技能或任意相关子技能按需连接
 - ⚙️ **标准件生成子技能** - `solidworks-standard-parts` 按工程参数生成渐开线直齿轮、圆柱压缩弹簧、滚子链链轮；分度圆/弹簧刚度/链轮节圆等几何量由纯函数离线单测，真实特征落盘与啮合精度按 pilot 真机复核
 - 🎯 **公差抽取与批量改名** - `sw_tolerance_extract.py` 从模型/图纸批量抽取尺寸公差并导出 CSV；`sw_file_rename.py` 按自定义属性模板规划文件与切割清单改名，默认 dry-run，执行走参照安全的原生 Pack and Go
+- 🛡️ **设计规则检查（DRC / 设计审计）** - `design_rule_check.py` 在中性文档上审查几何健全性、孔位、齿轮/弹簧/链轮标准件合理性、装配约束和图纸完整性，按严重度聚合；与 DFM 制造性检查分工。通过 MCP `cadstudio_check_drc` / `cadstudio_list_drc_rules` 供 harness 调用，规则可用**声明式 Profile**（阈值/停用规则/数据驱动自定义规则）从自然语言配置与补充，绝不执行代码
 - 💾 **文件导出** - STEP、STL、IGES、PDF、DXF/DWG、Parasolid；SW2026 SP01.1 基础装配已通过原生 Pack and Go 连续回归，复杂引用缺失时仍按门禁生成带哈希清单的 `pilot` 暂存包
 - 🧩 **网格参考导入** - 将公开 GLB/OBJ/STL 外观参考模型缩放、转换并导入为 SolidWorks 参考零件
 - 🎨 **外观材质** - 文档、特征、组件级颜色设置，支持装配体分色建模

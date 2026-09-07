@@ -142,6 +142,11 @@ def main(argv: list[str] | None = None) -> int:
     routing.add_argument("--input", type=Path, required=True, help="Routing 中性 JSON 输入")
     routing.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的 Routing report JSON 输出")
     sub.add_parser("routing-preflight")
+    drc = sub.add_parser("check-drc")
+    drc.add_argument("--input", type=Path, required=True, help="NeutralCadDocument .cadstudio.json")
+    drc.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的 DRC report JSON 输出")
+    drc.add_argument("--profile", action="append", default=[], help="可重复指定 DRC Profile JSON，用于配置阈值/停用规则/补充声明式自定义规则")
+    sub.add_parser("list-drc-rules")
     fea_preflight = sub.add_parser("fea-preflight")
     fea_preflight.add_argument("--solver", choices=("auto", "calculix", "elmer"), default="auto")
     fea_prepare = sub.add_parser("prepare-fea")
@@ -235,6 +240,17 @@ def main(argv: list[str] | None = None) -> int:
         result = review_routing_file(args.input, args.output)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if result.get("status") in {"blocked", "failed"} else 0
+    if args.command == "check-drc":
+        from design_rule_check import write_drc_report
+
+        result = write_drc_report(args.input, args.output, profiles=args.profile or None)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1 if result.get("status") in {"blocked", "fail"} else 0
+    if args.command == "list-drc-rules":
+        from design_rule_check import list_rules
+
+        print(json.dumps(list_rules(), ensure_ascii=False, indent=2))
+        return 0
     if args.command == "routing-preflight":
         from routing_review import probe_solidworks_routing
 
