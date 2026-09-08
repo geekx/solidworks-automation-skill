@@ -111,6 +111,10 @@ python scripts/cad_studio.py create-ocp-surface --input .\smooth-loft.json --out
 - 🔩 **装配体操作** - 添加组件、配合关系、干涉检查、爆炸视图
 - 📐 **工程图出图** - 三视图、剖视图、尺寸标注、BOM 表
 - 🧾 **工程图专业子技能** - `solidworks-engineering-drawing` 独立负责 GB/T 第一角工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视，可由根技能或任意相关子技能按需连接
+- ⚙️ **标准件生成子技能** - `solidworks-standard-parts` 按工程参数生成渐开线直齿轮、圆柱压缩弹簧、滚子链链轮；分度圆/弹簧刚度/链轮节圆等几何量由纯函数离线单测，真实特征落盘与啮合精度按 pilot 真机复核
+- 🎯 **公差抽取与批量改名** - `sw_tolerance_extract.py` 从模型/图纸批量抽取尺寸公差并导出 CSV；`sw_file_rename.py` 按自定义属性模板规划文件与切割清单改名，默认 dry-run，执行走参照安全的原生 Pack and Go
+- 🕳️ **非标钻孔面板自动出图（GD&T）** - `drilling_panel_gdt.py` 针对布满孔的非标台面板：自动**孔位规整**（栅格/线性/离散阵列 + 节距/行列）、**基准自动推测**（3-2-1 的 A|B|C + 定位销候选）、**GD&T 自动给出**（GB/T 位置度 ⌖⌀t Ⓜ|A|B|C + 基准平面度），生成通过 schema 校验的 drawing_spec 交现有渲染器落图；分析纯函数离线单测，落 SLDDRW 为 pilot
+- 🛡️ **设计规则检查（DRC / 设计审计）** - `design_rule_check.py` 在中性文档上审查几何健全性、孔位（含**实测孔间腹板**、**螺纹啮合-板厚**）、标准件合理性、装配约束、图纸完整性和**关系型规则**（GD&T 基准存在/孔表覆盖/BOM 一致性），按严重度聚合；与 DFM 制造性检查分工。**审计工作流**：finding 指纹 + 基线 diff（new/fixed/persisting）+ 让步单（理由/责任人/有效期，退出门禁）+ 加权风险评分 + 每条规则标准条款出处。四个**行业规则包**（机加工支架/注塑外壳/钣金面板/钻孔面板）开箱即用。**3D 配合务实审计**：沉头有效性、头部容纳（GB/T 头型表）、**沉头朝向**（朝配合面报错）、朝向一致性、跨零件**头部避让**（pilot）。通过 MCP `cadstudio_check_drc`/`cadstudio_list_drc_rules`/`cadstudio_list_drc_rule_packs` 供 harness 调用，规则可用**声明式 Profile**从自然语言配置与补充，绝不执行代码
 - 💾 **文件导出** - STEP、STL、IGES、PDF、DXF/DWG、Parasolid；SW2026 SP01.1 基础装配已通过原生 Pack and Go 连续回归，复杂引用缺失时仍按门禁生成带哈希清单的 `pilot` 暂存包
 - 🧩 **网格参考导入** - 将公开 GLB/OBJ/STL 外观参考模型缩放、转换并导入为 SolidWorks 参考零件
 - 🎨 **外观材质** - 文档、特征、组件级颜色设置，支持装配体分色建模
@@ -295,6 +299,7 @@ solidworks-automation-skill/
 │   ├── solidworks-fillet-chamfer-cnc/   # CNC 多圆角/倒角机加工件
 │   ├── solidworks-threaded-holes/       # 螺纹孔、攻丝底孔和孔口倒角
 │   ├── solidworks-engineering-drawing/  # GB/T 工程图生成与制造交付审视
+│   ├── solidworks-standard-parts/       # 直齿轮/压缩弹簧/滚子链链轮参数化生成
 │   └── autocad-automation/              # AutoCAD DWG/DXF 二维绘图和线稿矢量化
 ├── docs/                # 产品化、市场调研和技能地图
 │   ├── market-research-2026.md          # 市场调研与产品定位
@@ -340,7 +345,8 @@ npm run desktop:bundle
 | [`solidworks-vibecad`](subskills/solidworks-vibecad/README.md) | experimental | 自然语言需求 -> 参数化设计计划、制造规则检查、执行摘要、审查门禁 |
 | [`solidworks-fillet-chamfer-cnc`](subskills/solidworks-fillet-chamfer-cnc/README.md) | stable | CNC 安装座、语义选边、有界降级、三控制点可变半径、face/full-round/setback、G2 曲面组合、宽度-宽度倒角及开源复杂件回归 |
 | [`solidworks-threaded-holes`](subskills/solidworks-threaded-holes/README.md) | stable | ISO 公制内螺纹、Metric Tap 真实 Thread、贯穿/盲孔语义、参数校验和重建后证据 |
-| [`solidworks-engineering-drawing`](subskills/solidworks-engineering-drawing/README.md) | pilot | GB/T 第一角零件/装配工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视 |
+| [`solidworks-engineering-drawing`](subskills/solidworks-engineering-drawing/README.md) | pilot | GB/T 第一角零件/装配工程图、尺寸链、孔表、BOM、PDF/BMP 证据和制造交付审视；含非标钻孔面板孔位规整/基准推测/GD&T 自动出图规划 |
+| [`solidworks-standard-parts`](subskills/solidworks-standard-parts/README.md) | pilot | 渐开线直齿轮、圆柱压缩弹簧、滚子链链轮参数化生成；几何/力学纯函数离线单测，真实特征落盘与啮合精度须真机复核 |
 | [`autocad-automation`](subskills/autocad-automation/README.md) | verified / pilot / blocked | DXF 无头预览与结构审查；AutoCAD 2024 .NET 白名单后端须经最近连续三次证据复验后为 verified；COM 原生写入仍受门禁 |
 
 更多路由说明见 [`SUBSKILLS.md`](SUBSKILLS.md)。
