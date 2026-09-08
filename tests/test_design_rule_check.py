@@ -237,6 +237,29 @@ def test_bad_rule_pack_name_blocks():
     assert report["status"] == "blocked"
 
 
+def test_fastener_countersink_rules_integrated():
+    doc = {
+        "documentId": "csk",
+        "units": "mm",
+        "features": [
+            {"id": "C1", "type": "hole", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 9.0, "depth": 5.0, "side": "back"}, "matingSide": "back"}},
+        ],
+        "metadata": {"fastenerStacks": [{"id": "S1", "holeId": "C1", "protrudes": True, "matingHasRelief": False, "gapMm": 0.0}]},
+    }
+    checks = _by_id(drc.build_drc_report(doc))
+    assert checks["DRC-CSK-002"]["status"] == "fail"   # 头径不容纳
+    assert checks["DRC-CSK-004"]["status"] == "fail"   # 沉头朝配合面
+    assert checks["DRC-FIT-001"]["status"] == "fail"   # 跨零件无避让
+    assert checks["DRC-CSK-004"].get("clause")         # 带条款出处
+
+
+def test_no_countersink_skips_fastener_rules():
+    report = drc.build_drc_report(_doc())
+    checks = _by_id(report)
+    # _doc() 的孔无沉头 -> DRC-CSK-000 info 跳过
+    assert checks.get("DRC-CSK-000", {}).get("status") == "info"
+
+
 def test_write_report_versions_and_hashes(tmp_path):
     doc_path = tmp_path / "d.json"
     doc_path.write_text(json.dumps(_doc()), encoding="utf-8")

@@ -30,9 +30,11 @@ from typing import Any, Callable, Mapping, Sequence
 try:
     from .design_rule_profiles import DrcProfileError, list_rule_packs, load_profile, load_rule_pack, merge_profiles
     from .design_audit import summarize_audit
+    from .fastener_audit import audit_fastener_holes, parse_fastener_hole
 except ImportError:
     from design_rule_profiles import DrcProfileError, list_rule_packs, load_profile, load_rule_pack, merge_profiles
     from design_audit import summarize_audit
+    from fastener_audit import audit_fastener_holes, parse_fastener_hole
 
 UNIT_TO_MM = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "inch": 25.4}
 
@@ -165,6 +167,10 @@ def _extract_context(document: Mapping[str, Any]) -> dict[str, Any]:
     bom = [b for b in bom if isinstance(b, Mapping)]
     hole_callouts = drawing.get("holeCallouts") if isinstance(drawing.get("holeCallouts"), list) else None
 
+    fastener_holes = [parsed for f in features if (parsed := parse_fastener_hole(f)) is not None]
+    fastener_stacks = metadata.get("fastenerStacks") if isinstance(metadata.get("fastenerStacks"), list) else []
+    fastener_stacks = [s for s in fastener_stacks if isinstance(s, Mapping)]
+
     return {
         "documentId": str(document.get("documentId")),
         "units": units,
@@ -180,6 +186,8 @@ def _extract_context(document: Mapping[str, Any]) -> dict[str, Any]:
         "datums_declared": [str(d.get("id") if isinstance(d, Mapping) else d) for d in datums_declared],
         "bom": bom,
         "hole_callouts": hole_callouts,
+        "fastener_holes": fastener_holes,
+        "fastener_stacks": fastener_stacks,
     }
 
 
@@ -430,6 +438,11 @@ def rule_relations(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict
     return checks
 
 
+def rule_fastener(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str, Any]]:
+    """@brief 3D 配合：沉头有效性/头部容纳/朝向 + 跨零件避让(pilot)。"""
+    return audit_fastener_holes(ctx.get("fastener_holes", []), stacks=ctx.get("fastener_stacks", []))
+
+
 BUILTIN_RULES: list[Callable[[Mapping[str, Any], Mapping[str, float]], list[dict[str, Any]]]] = [
     rule_geometry,
     rule_holes,
@@ -439,6 +452,7 @@ BUILTIN_RULES: list[Callable[[Mapping[str, Any], Mapping[str, float]], list[dict
     rule_assembly,
     rule_drawing,
     rule_relations,
+    rule_fastener,
 ]
 
 RULE_CATALOG = [
@@ -461,6 +475,12 @@ RULE_CATALOG = [
     {"id": "DRC-REL-001", "category": "relations", "title": "GD&T 基准存在性", "thresholds": [], "severity": "major"},
     {"id": "DRC-REL-002", "category": "relations", "title": "孔表/孔标注覆盖度", "thresholds": [], "severity": "warning"},
     {"id": "DRC-REL-003", "category": "relations", "title": "BOM 与特征数一致性", "thresholds": [], "severity": "warning"},
+    {"id": "DRC-CSK-001", "category": "fastener", "title": "沉头几何有效性", "thresholds": [], "severity": "major"},
+    {"id": "DRC-CSK-002", "category": "fastener", "title": "沉孔直径容纳螺栓头", "thresholds": [], "severity": "major"},
+    {"id": "DRC-CSK-003", "category": "fastener", "title": "沉孔深度容纳头高", "thresholds": [], "severity": "warning"},
+    {"id": "DRC-CSK-004", "category": "fastener", "title": "沉头朝向配合面", "thresholds": [], "severity": "critical"},
+    {"id": "DRC-CSK-005", "category": "fastener", "title": "同组沉头朝向一致性", "thresholds": [], "severity": "warning"},
+    {"id": "DRC-FIT-001", "category": "fastener", "title": "跨零件沉头/头部避让(pilot)", "thresholds": [], "severity": "major"},
 ]
 
 # 每条规则的标准/条款出处，便于审计时追溯依据（非强制法规，供工程复核参考）。
@@ -484,6 +504,12 @@ RULE_CLAUSES = {
     "DRC-REL-001": {"standard": "GB/T 1182", "clause": "基准要素引用"},
     "DRC-REL-002": {"standard": "GB/T 4458.4", "clause": "孔表/孔标注完整"},
     "DRC-REL-003": {"standard": "GB/T 10609.2", "clause": "明细栏与零件一致"},
+    "DRC-CSK-001": {"standard": "GB/T 152.2/152.3/152.4", "clause": "沉头/锪孔尺寸"},
+    "DRC-CSK-002": {"standard": "GB/T 70.1 / GB/T 70.3", "clause": "螺栓头径容纳"},
+    "DRC-CSK-003": {"standard": "GB/T 70.1", "clause": "柱形沉孔深度/头高"},
+    "DRC-CSK-004": {"standard": "装配设计", "clause": "沉头朝向/结合面"},
+    "DRC-CSK-005": {"standard": "装配设计", "clause": "紧固方向一致性"},
+    "DRC-FIT-001": {"standard": "装配设计", "clause": "紧固件头部避让"},
 }
 
 
@@ -504,7 +530,7 @@ def list_rules() -> dict[str, Any]:
         "rules": [dict(rule, **{"clause": RULE_CLAUSES.get(rule["id"])}) for rule in RULE_CATALOG],
         "defaultThresholds": dict(DEFAULT_THRESHOLDS),
         "customRule": {
-            "categories": sorted({"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "custom"}),
+            "categories": sorted({"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "fastener", "custom"}),
             "severities": ["info", "minor", "warning", "major", "critical"],
             "operators": ["lt", "lte", "gt", "gte", "eq", "ne"],
             "appliesTo": ["hole", "feature", "standard_part", "document"],

@@ -503,7 +503,7 @@
       "backends": ["local-python", "solidworks-com"],
       "verified_versions": [],
       "dependencies": ["python", "可选 SolidWorks"],
-      "limitations": ["规则引擎与标准规则集（几何健全性、孔位含实测孔间腹板与螺纹啮合-板厚、齿轮/弹簧/链轮标准件、装配约束、工程图完整性、关系型 GD&T 基准存在/孔表覆盖/BOM 一致性）与声明式 Profile 校验/合并、以及审计工作流（finding 指纹、基线 diff、让步单、加权风险评分）均已离线单测；制造性检查仍由 dfm_review 负责，本能力不重复", "通过 cadstudio_check_drc / cadstudio_list_drc_rules / cadstudio_list_drc_rule_packs 暴露给 MCP；规则可用声明式 Profile 与行业规则包（机加工支架/注塑外壳/钣金面板/钻孔面板）配置与补充，代理可从自然语言生成，绝不执行 Profile/规则包中的字符串为代码或路径", "报告 status 为门禁状态（忽略已签署 waiver）、rawStatus 为原始状态；让步单需理由/责任人/有效期，过期不生效；风险评分与让步单不替代工程签署，报告始终 reviewRequired=true", "只审查中性文档已提供的证据，缺失截面按 info 跳过不代表合格；实测孔间腹板/基准/BOM 等依赖上游（可来自真机 collect_geometry_measurements 的 pilot 抽取）"],
+      "limitations": ["规则引擎与标准规则集（几何健全性、孔位含实测孔间腹板与螺纹啮合-板厚、齿轮/弹簧/链轮标准件、装配约束、工程图完整性、关系型 GD&T 基准存在/孔表覆盖/BOM 一致性、3D 配合沉头有效性/头部容纳(GB/T 头型表)/朝配合面/朝向一致性）与声明式 Profile 校验/合并、以及审计工作流（finding 指纹、基线 diff、让步单、加权风险评分）均已离线单测；跨零件沉头/头部避让 DRC-FIT-001 依赖装配元数据为 pilot；制造性检查仍由 dfm_review 负责，本能力不重复", "通过 cadstudio_check_drc / cadstudio_list_drc_rules / cadstudio_list_drc_rule_packs 暴露给 MCP；规则可用声明式 Profile 与行业规则包（机加工支架/注塑外壳/钣金面板/钻孔面板）配置与补充，代理可从自然语言生成，绝不执行 Profile/规则包中的字符串为代码或路径", "报告 status 为门禁状态（忽略已签署 waiver）、rawStatus 为原始状态；让步单需理由/责任人/有效期，过期不生效；风险评分与让步单不替代工程签署，报告始终 reviewRequired=true", "只审查中性文档已提供的证据，缺失截面按 info 跳过不代表合格；实测孔间腹板/基准/BOM 等依赖上游（可来自真机 collect_geometry_measurements 的 pilot 抽取）"],
       "allowed_modes": ["interactive", "reviewed"]
     },
     {

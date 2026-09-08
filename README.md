@@ -114,7 +114,7 @@ python scripts/cad_studio.py create-ocp-surface --input .\smooth-loft.json --out
 - ⚙️ **标准件生成子技能** - `solidworks-standard-parts` 按工程参数生成渐开线直齿轮、圆柱压缩弹簧、滚子链链轮；分度圆/弹簧刚度/链轮节圆等几何量由纯函数离线单测，真实特征落盘与啮合精度按 pilot 真机复核
 - 🎯 **公差抽取与批量改名** - `sw_tolerance_extract.py` 从模型/图纸批量抽取尺寸公差并导出 CSV；`sw_file_rename.py` 按自定义属性模板规划文件与切割清单改名，默认 dry-run，执行走参照安全的原生 Pack and Go
 - 🕳️ **非标钻孔面板自动出图（GD&T）** - `drilling_panel_gdt.py` 针对布满孔的非标台面板：自动**孔位规整**（栅格/线性/离散阵列 + 节距/行列）、**基准自动推测**（3-2-1 的 A|B|C + 定位销候选）、**GD&T 自动给出**（GB/T 位置度 ⌖⌀t Ⓜ|A|B|C + 基准平面度），生成通过 schema 校验的 drawing_spec 交现有渲染器落图；分析纯函数离线单测，落 SLDDRW 为 pilot
-- 🛡️ **设计规则检查（DRC / 设计审计）** - `design_rule_check.py` 在中性文档上审查几何健全性、孔位（含**实测孔间腹板**、**螺纹啮合-板厚**）、标准件合理性、装配约束、图纸完整性和**关系型规则**（GD&T 基准存在/孔表覆盖/BOM 一致性），按严重度聚合；与 DFM 制造性检查分工。**审计工作流**：finding 指纹 + 基线 diff（new/fixed/persisting）+ 让步单（理由/责任人/有效期，退出门禁）+ 加权风险评分 + 每条规则标准条款出处。四个**行业规则包**（机加工支架/注塑外壳/钣金面板/钻孔面板）开箱即用。通过 MCP `cadstudio_check_drc`/`cadstudio_list_drc_rules`/`cadstudio_list_drc_rule_packs` 供 harness 调用，规则可用**声明式 Profile**从自然语言配置与补充，绝不执行代码
+- 🛡️ **设计规则检查（DRC / 设计审计）** - `design_rule_check.py` 在中性文档上审查几何健全性、孔位（含**实测孔间腹板**、**螺纹啮合-板厚**）、标准件合理性、装配约束、图纸完整性和**关系型规则**（GD&T 基准存在/孔表覆盖/BOM 一致性），按严重度聚合；与 DFM 制造性检查分工。**审计工作流**：finding 指纹 + 基线 diff（new/fixed/persisting）+ 让步单（理由/责任人/有效期，退出门禁）+ 加权风险评分 + 每条规则标准条款出处。四个**行业规则包**（机加工支架/注塑外壳/钣金面板/钻孔面板）开箱即用。**3D 配合务实审计**：沉头有效性、头部容纳（GB/T 头型表）、**沉头朝向**（朝配合面报错）、朝向一致性、跨零件**头部避让**（pilot）。通过 MCP `cadstudio_check_drc`/`cadstudio_list_drc_rules`/`cadstudio_list_drc_rule_packs` 供 harness 调用，规则可用**声明式 Profile**从自然语言配置与补充，绝不执行代码
 - 💾 **文件导出** - STEP、STL、IGES、PDF、DXF/DWG、Parasolid；SW2026 SP01.1 基础装配已通过原生 Pack and Go 连续回归，复杂引用缺失时仍按门禁生成带哈希清单的 `pilot` 暂存包
 - 🧩 **网格参考导入** - 将公开 GLB/OBJ/STL 外观参考模型缩放、转换并导入为 SolidWorks 参考零件
 - 🎨 **外观材质** - 文档、特征、组件级颜色设置，支持装配体分色建模

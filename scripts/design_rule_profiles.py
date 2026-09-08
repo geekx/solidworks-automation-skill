@@ -44,7 +44,7 @@ THRESHOLD_FIELDS: dict[str, str] = {
 }
 
 CUSTOM_RULE_FIELDS = {"id", "category", "severity", "appliesTo", "field", "operator", "value", "message"}
-RULE_CATEGORIES = {"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "custom"}
+RULE_CATEGORIES = {"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "fastener", "custom"}
 RULE_SEVERITIES = {"info", "minor", "warning", "major", "critical"}
 RULE_OPERATORS = {"lt", "lte", "gt", "gte", "eq", "ne"}
 APPLIES_TO = {"hole", "feature", "standard_part", "document"}

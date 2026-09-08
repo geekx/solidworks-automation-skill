@@ -112,6 +112,28 @@ CLI：`check-drc --baseline prev.json --waivers waivers.json --as-of 2026-09-08`
 
 这些规则天然衔接“真机 3D→分析”打通链路：孔位/孔径来自 `sw_review.collect_geometry_measurements`。
 
+## 深化四：3D 配合务实审计（沉头/紧固）
+
+`scripts/fastener_audit.py` 面向“沉头装反/头部装不平/配合件没让位”这类真实装配会翻车的问题。
+单件沉头判据为纯函数离线单测，跨零件避让依赖装配元数据为 pilot。规则族 DRC-CSK-* / DRC-FIT-*：
+
+- **DRC-CSK-001 沉头几何有效性**：沉孔直径 > 主孔径、柱形沉孔深度 > 0。
+- **DRC-CSK-002 头部直径容纳**：沉孔直径 ≥ 头径 + 余量（内置 GB/T 70.1 内六角圆柱头、GB/T 70.3 沉头尺寸表）。
+- **DRC-CSK-003 深度容纳头高**：柱形沉孔深度 ≥ 头高，否则螺栓头不齐平。
+- **DRC-CSK-004 沉头朝向（务实）**：沉头开口不应朝向配合(贴合)面——朝配合面则螺钉头顶在结合面上装不平（critical）。
+- **DRC-CSK-005 朝向一致性**：同一紧固组的沉头应朝同一侧。
+- **DRC-FIT-001 跨零件避让（pilot）**：柱头/沉头凸出侧的配合件应有避让特征或足够间隙，否则顶死/干涉。
+
+中性文档约定（hole.parameters）：
+```json
+{"diameter": 6.6, "thread": "M6",
+ "counterbore": {"diameter": 11.0, "depth": 6.5, "side": "front"},
+ "matingSide": "back", "headType": "socket_cap", "fastenerGroup": "top-cover"}
+```
+锪埋头用 `"countersink": {"diameter": 12, "angle": 90, "side": "front"}`。跨零件避让走
+`metadata.fastenerStacks: [{"id","holeId","protrudes":true,"matingHasRelief":false,"gapMm":0}]`。
+真机可用 `counterbores_from_cylinders`（pilot）把同轴两级圆柱配成沉头特征，朝向仍需结合面法向复核。
+
 ## 深化三：行业规则包（开箱即用）
 
 `profiles/drc/*.json` 预置四个行业规则包，用 `rule_packs` 叠加（可与内联 profile 合并，profile 覆盖包）：
