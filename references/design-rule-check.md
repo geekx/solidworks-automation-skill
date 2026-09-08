@@ -87,6 +87,40 @@ python scripts/cad_studio.py check-drc --input part.cadstudio.json --output out/
 
 缺失的截面按 `info` 跳过，**不代表合格**。报告始终 `reviewRequired=true`。
 
+## 深化一：审计工作流（可追溯门禁）
+
+`scripts/design_audit.py` 把 DRC 从一次性 linter 升级为可复核、可签署、可回归的过程，`build_drc_report`
+默认集成，报告新增 `audit` 块与 `riskScore`，每条 finding 带 `fingerprint` 与标准条款出处：
+
+- **指纹**：每条 finding 一个稳定 id（规则+类别+目标），跨多次运行追踪同一问题。
+- **基线 diff**：传 `baseline`（上一版报告），报告 `audit.diff` 给出 new / fixed / persisting，评审只看增量。
+- **让步单 waiver**：传 `waivers`（每条含 `fingerprint` 或 `ruleId`[+`target`]、`reason`、`owner`、可选
+  `expiresOn`）。命中且未过期的 finding 打 `waived` 标记、退出门禁但留痕；过期/未用的让步单单列。
+  `status` 是**门禁状态**（忽略 waived），`rawStatus` 是原始状态。
+- **风险评分**：`riskScore` 按严重度加权（critical 10 / major 5 / warning 2 / minor 1）汇总未让步的
+  finding，给出分数与等级（none/low/medium/high），可用 `risk_weights` 覆盖。
+
+CLI：`check-drc --baseline prev.json --waivers waivers.json --as-of 2026-09-08`。
+
+## 深化二：实测（B-Rep）与关系型规则
+
+- **DRC-HOLE-005 孔间腹板厚度（实测）**：腹板=中心距−半径a−半径b，由真实孔位/孔径算出面板最薄材料桥。
+- **DRC-HOLE-006 螺纹啮合 vs 实际板厚**：贯穿攻丝孔在薄板上啮合不足（用 `metadata.plate.thicknessMm`）。
+- **DRC-REL-001 GD&T 基准存在性**：`metadata.gdt` 引用的基准必须在 `metadata.datums` 声明。
+- **DRC-REL-002 孔表/孔标注覆盖度**：每种孔规格都应被 `metadata.drawing.holeCallouts` 覆盖。
+- **DRC-REL-003 BOM 与特征数一致性**：`metadata.bom[].featureType/quantity` 与实际特征数一致。
+
+这些规则天然衔接“真机 3D→分析”打通链路：孔位/孔径来自 `sw_review.collect_geometry_measurements`。
+
+## 深化三：行业规则包（开箱即用）
+
+`profiles/drc/*.json` 预置四个行业规则包，用 `rule_packs` 叠加（可与内联 profile 合并，profile 覆盖包）：
+
+- `machined_bracket` 机加工支架、`injection_shell` 注塑外壳、`sheet_metal_panel` 钣金面板、`drilling_panel` 钻孔面板。
+
+发现可配置项：`list-drc-rule-packs` / MCP `cadstudio_list_drc_rule_packs`；用法
+`check-drc --rule-pack drilling_panel`。规则包本身也是声明式数据，可复制改成企业自有包。
+
 ## 边界
 
 - 从活动 SolidWorks 模型抽取快照为 pilot，需真机验证。

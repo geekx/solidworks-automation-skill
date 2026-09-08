@@ -25,6 +25,7 @@ REQUIRED_TOOLS = {
     "cadstudio_check_routing",
     "cadstudio_check_drc",
     "cadstudio_list_drc_rules",
+    "cadstudio_list_drc_rule_packs",
     "cadstudio_routing_preflight",
     "solidworks_addin_host_status",
     "cadstudio_fea_preflight",

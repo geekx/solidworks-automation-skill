@@ -146,7 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     drc.add_argument("--input", type=Path, required=True, help="NeutralCadDocument .cadstudio.json")
     drc.add_argument("--output", type=Path, required=True, help="不覆盖旧文件的 DRC report JSON 输出")
     drc.add_argument("--profile", action="append", default=[], help="可重复指定 DRC Profile JSON，用于配置阈值/停用规则/补充声明式自定义规则")
+    drc.add_argument("--rule-pack", action="append", default=[], help="行业规则包名，可重复：machined_bracket/injection_shell/sheet_metal_panel/drilling_panel")
+    drc.add_argument("--baseline", type=Path, help="上一版 DRC 报告 JSON，用于 new/fixed/persisting 增量 diff")
+    drc.add_argument("--waivers", type=Path, help="让步单 JSON 数组文件（fingerprint 或 ruleId + reason + owner，可选 expiresOn）")
+    drc.add_argument("--as-of", help="让步单过期判定的当前日期 ISO")
     sub.add_parser("list-drc-rules")
+    sub.add_parser("list-drc-rule-packs")
     fea_preflight = sub.add_parser("fea-preflight")
     fea_preflight.add_argument("--solver", choices=("auto", "calculix", "elmer"), default="auto")
     fea_prepare = sub.add_parser("prepare-fea")
@@ -241,15 +246,31 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if result.get("status") in {"blocked", "failed"} else 0
     if args.command == "check-drc":
+        import json as _json
+
         from design_rule_check import write_drc_report
 
-        result = write_drc_report(args.input, args.output, profiles=args.profile or None)
+        waivers = _json.loads(Path(args.waivers).read_text(encoding="utf-8")) if args.waivers else None
+        result = write_drc_report(
+            args.input,
+            args.output,
+            profiles=args.profile or None,
+            rule_packs=args.rule_pack or None,
+            baseline=args.baseline,
+            waivers=waivers,
+            as_of_date=args.as_of,
+        )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1 if result.get("status") in {"blocked", "fail"} else 0
     if args.command == "list-drc-rules":
         from design_rule_check import list_rules
 
         print(json.dumps(list_rules(), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "list-drc-rule-packs":
+        from design_rule_profiles import list_rule_packs
+
+        print(json.dumps({"rulePacks": list_rule_packs()}, ensure_ascii=False, indent=2))
         return 0
     if args.command == "routing-preflight":
         from routing_review import probe_solidworks_routing

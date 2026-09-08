@@ -363,6 +363,10 @@ class CadStudioDrcCheckInput(BaseInput):
         description="Optional inline declarative DRC profiles (schema cadstudio.drc-profile): thresholds, disabledRules, and data-driven customRules. Build these from the user's natural language to configure or extend the checker; no code is executed.",
     )
     profile_paths: list[str] = Field(default_factory=list, max_length=8, description="Optional DRC profile JSON file paths, merged with inline profiles.")
+    rule_packs: list[str] = Field(default_factory=list, max_length=8, description="Industry rule pack names to layer on (machined_bracket, injection_shell, sheet_metal_panel, drilling_panel).")
+    baseline_path: Optional[str] = Field(default=None, description="Optional prior DRC report JSON for new/fixed/persisting diff.")
+    waivers: list[dict[str, Any]] = Field(default_factory=list, max_length=256, description="Waivers (fingerprint or ruleId + reason + owner, optional expiresOn) to exclude accepted findings from the gate.")
+    as_of_date: Optional[str] = Field(default=None, description="ISO date used to expire waivers, e.g. 2026-09-08.")
     response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
 
     @field_validator("input_path")
@@ -1213,7 +1217,16 @@ def cadstudio_check_drc(params: CadStudioDrcCheckInput) -> str:
         output_path = Path(os.path.expandvars(params.output_path)).expanduser().resolve()
         profiles: list[Any] = list(params.profiles)
         profiles.extend(Path(os.path.expandvars(value)).expanduser().resolve() for value in params.profile_paths)
-        return write_drc_report(input_path, output_path, profiles=profiles or None)
+        baseline = Path(os.path.expandvars(params.baseline_path)).expanduser().resolve() if params.baseline_path else None
+        return write_drc_report(
+            input_path,
+            output_path,
+            profiles=profiles or None,
+            rule_packs=params.rule_packs or None,
+            baseline=baseline,
+            waivers=params.waivers or None,
+            as_of_date=params.as_of_date,
+        )
 
     return _run_locked(op, params.response_format, load_automation=False)
 
@@ -1239,6 +1252,31 @@ def cadstudio_list_drc_rules(params: CadStudioDrcRulesInput) -> str:
         from scripts.design_rule_check import list_rules
 
         return list_rules()
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="cadstudio_list_drc_rule_packs",
+    title="List Design Rule Check Industry Packs",
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def cadstudio_list_drc_rule_packs(params: CadStudioDrcRulesInput) -> str:
+    """List built-in industry DRC rule packs (machined bracket, injection shell, sheet metal panel, drilling panel).
+
+    Layer one or more onto cadstudio_check_drc via its rule_packs argument, optionally with an inline
+    profile that overrides thresholds or adds custom rules from the user's natural language.
+    """
+
+    def op():
+        from scripts.design_rule_profiles import list_rule_packs
+
+        return {"rulePacks": list_rule_packs()}
 
     return _run_locked(op, params.response_format, load_automation=False)
 

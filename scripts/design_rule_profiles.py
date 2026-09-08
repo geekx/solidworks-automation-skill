@@ -33,6 +33,7 @@ THRESHOLD_FIELDS: dict[str, str] = {
     "holeEdgeDistanceRatio": "minimum",
     "holeEdgeDistanceMinMm": "minimum",
     "holeSpacingRatio": "minimum",
+    "ligamentMinMm": "minimum",
     "threadEngagementRatio": "minimum",
     "gearMinTeeth": "minimum",
     "sprocketMinTeeth": "minimum",
@@ -43,7 +44,7 @@ THRESHOLD_FIELDS: dict[str, str] = {
 }
 
 CUSTOM_RULE_FIELDS = {"id", "category", "severity", "appliesTo", "field", "operator", "value", "message"}
-RULE_CATEGORIES = {"geometry", "holes", "standard_parts", "assembly", "drawing", "custom"}
+RULE_CATEGORIES = {"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "custom"}
 RULE_SEVERITIES = {"info", "minor", "warning", "major", "critical"}
 RULE_OPERATORS = {"lt", "lte", "gt", "gte", "eq", "ne"}
 APPLIES_TO = {"hole", "feature", "standard_part", "document"}
@@ -151,6 +152,41 @@ def load_profile(source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
     _require(path.stat().st_size <= MAX_PROFILE_BYTES, "Profile 文件过大")
     payload = json.loads(path.read_text(encoding="utf-8"))
     return validate_profile(payload)
+
+
+RULE_PACKS_DIR = Path(__file__).resolve().parents[1] / "profiles" / "drc"
+_PACK_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def list_rule_packs() -> list[dict[str, Any]]:
+    """@brief 列出内置行业规则包（profiles/drc/*.json）。"""
+    packs: list[dict[str, Any]] = []
+    if not RULE_PACKS_DIR.is_dir():
+        return packs
+    for path in sorted(RULE_PACKS_DIR.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        packs.append(
+            {
+                "name": path.stem,
+                "id": str(payload.get("id") or path.stem),
+                "description": str(payload.get("description") or ""),
+                "thresholdKeys": sorted((payload.get("thresholds") or {}).keys()),
+                "customRuleCount": len(payload.get("customRules") or []),
+            }
+        )
+    return packs
+
+
+def load_rule_pack(name: str) -> dict[str, Any]:
+    """@brief 按名装载并校验一个行业规则包；名称受正则约束，防止路径穿越。"""
+    safe = str(name).strip()
+    _require(bool(_PACK_NAME.match(safe)), f"非法规则包名: {name!r}")
+    path = RULE_PACKS_DIR / f"{safe}.json"
+    _require(path.is_file(), f"规则包不存在: {safe}")
+    return load_profile(path)
 
 
 def merge_profiles(profiles: Iterable[Mapping[str, Any]]) -> dict[str, Any]:

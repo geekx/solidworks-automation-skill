@@ -120,7 +120,8 @@ claude mcp add --scope user solidworks -- python C:\path\to\solidworks-automatio
 | `cadstudio_check_dfm` | 对 NeutralCadDocument 执行机加工、钣金、激光切割或 3D 打印 DFM 规则检查，支持 supplier profile 与 B-Rep 证据；缺关键输入返回 blocked，规则通过仍需人工复核 | 否 |
 | `cadstudio_check_routing` | 校验中性 Routing 端点、分段、长度、弯曲半径、碰撞/间隙、支撑和 Routing BOM | 否 |
 | `cadstudio_check_drc` | 对 NeutralCadDocument 执行设计规则检查（设计审计）：几何健全性、孔位规则、齿轮/弹簧/链轮标准件合理性、装配约束、工程图完整性，按严重度聚合；可用声明式 Profile（阈值/停用规则/数据驱动自定义规则）配置与补充，代理可从自然语言生成，不执行任何代码；制造性仍走 `cadstudio_check_dfm` | 否 |
-| `cadstudio_list_drc_rules` | 列出内置 DRC 规则、默认阈值与自定义规则 schema，供代理据此把自然语言翻译成 DRC Profile | 否 |
+| `cadstudio_list_drc_rules` | 列出内置 DRC 规则（含实测孔间腹板/螺纹啮合-板厚、关系型 GD&T 基准/孔表/BOM 一致性）、默认阈值、条款出处与自定义规则 schema | 否 |
+| `cadstudio_list_drc_rule_packs` | 列出内置行业规则包（机加工支架/注塑外壳/钣金面板/钻孔面板），供 cadstudio_check_drc 的 rule_packs 叠加 | 否 |
 | `cadstudio_routing_preflight` | 探测 SOLIDWORKS Routing 类型库、加载项注册和许可证证据；缺证据返回 blocked | 否 |
 | `solidworks_addin_host_status` | 只读检查 C# Add-in 程序集、HKCU/HKLM 注册层级、进程内 UI/事件诊断和阻塞码 | 否 |
 | `cadstudio_fea_preflight` | 探测 CalculiX/Elmer 求解器，不执行任意命令 | 否 |
@@ -301,10 +302,15 @@ DRC 面向 harness 通过 MCP 使用，用于**设计意图层**审计，与 `ca
 - `profiles` 是**纯声明式数据**：`thresholds` 覆盖内置规则阈值，`disabledRules` 停用规则，
   `customRules` 补充数据驱动的新规则（`appliesTo` ∈ hole/feature/standard_part/document，
   `operator` ∈ lt/lte/gt/gte/eq/ne）。Server 只做数据校验，**绝不执行 Profile 中的字符串为代码或路径**。
-- 也可用 `profile_paths` 传入 Profile 文件路径，与内联 `profiles` 合并。
-- 报告按严重度聚合（`status` ∈ pass/warning/fail），始终 `reviewRequired=true`；写出版本化 JSON 并附 SHA-256。
-- 内置规则覆盖几何健全性、孔位（边距/间距/螺纹啮合）、齿轮/弹簧/链轮标准件合理性、装配干涉/欠约束、
-  工程图完整性。详见 [`references/design-rule-check.md`](../references/design-rule-check.md)。
+- 也可用 `profile_paths` 传入 Profile 文件路径，与内联 `profiles` 合并；`rule_packs` 叠加行业规则包
+  （先用 `cadstudio_list_drc_rule_packs` 查可用包）。
+- **审计工作流**：传 `baseline_path`（上一版报告）得 new/fixed/persisting 增量 diff；传 `waivers`
+  （每条含 fingerprint 或 ruleId + reason + owner，可选 expiresOn）+ `as_of_date` 让已签署的 finding
+  退出门禁。报告 `status` 是门禁状态（忽略 waiver）、`rawStatus` 是原始状态、`riskScore` 是加权风险、
+  每条 finding 带 `fingerprint` 与标准条款出处。
+- 内置规则覆盖几何健全性、孔位（边距/间距/**实测孔间腹板**/**螺纹啮合-板厚**）、齿轮/弹簧/链轮标准件、
+  装配干涉/欠约束、工程图完整性、**关系型**（GD&T 基准存在/孔表覆盖/BOM 一致性）。始终 `reviewRequired=true`，
+  写出版本化 JSON 并附 SHA-256。详见 [`references/design-rule-check.md`](../references/design-rule-check.md)。
 
 ## 设计原则
 

@@ -149,6 +149,94 @@ def test_list_rules_shape():
     assert "lt" in catalog["customRule"]["operators"]
 
 
+def test_ligament_rule_flags_thin_web():
+    doc = {
+        "documentId": "web",
+        "units": "mm",
+        "features": [
+            {"id": "H1", "type": "hole", "parameters": {"diameter": 6, "x": 0, "y": 0}},
+            {"id": "H2", "type": "hole", "parameters": {"diameter": 6, "x": 7, "y": 0}},
+        ],
+    }
+    checks = _by_id(drc.build_drc_report(doc))
+    # 中心距 7 - 3 - 3 = 1mm < 默认 2mm -> fail
+    assert checks["DRC-HOLE-005"]["status"] == "fail"
+
+
+def test_thread_vs_thickness_rule():
+    doc = {
+        "documentId": "thin",
+        "units": "mm",
+        "features": [{"id": "H1", "type": "hole", "parameters": {"diameter": 6, "x": 0, "y": 0, "thread": "M6", "threadNominal": 6}}],
+        "metadata": {"plate": {"thicknessMm": 4.0}},
+    }
+    checks = _by_id(drc.build_drc_report(doc))
+    # 4mm 板厚 < 1.0*6 默认? threadEngagementRatio 默认 1.0 -> required 6 > 4 -> warning
+    assert checks["DRC-HOLE-006"]["status"] == "warning"
+
+
+def test_relation_rules_datum_bom_coverage():
+    doc = {
+        "documentId": "rel",
+        "units": "mm",
+        "features": [{"id": "H1", "type": "hole", "parameters": {"diameter": 6, "x": 0, "y": 0}}],
+        "metadata": {
+            "gdt": [{"symbol": "position", "datums": ["A", "B", "C"]}],
+            "datums": [{"id": "A"}, {"id": "B"}],
+            "bom": [{"id": "b1", "featureType": "hole", "quantity": 3}],
+            "drawing": {"holeCallouts": ["⌀8"]},
+        },
+    }
+    checks = _by_id(drc.build_drc_report(doc))
+    assert checks["DRC-REL-001"]["status"] == "fail"  # 基准 C 未声明
+    assert checks["DRC-REL-002"]["status"] == "warning"  # ⌀6 未被 ⌀8 覆盖
+    assert checks["DRC-REL-003"]["status"] == "warning"  # BOM 3 vs 特征 1
+
+
+def test_checks_carry_standard_clause():
+    checks = _by_id(drc.build_drc_report(_doc()))
+    assert checks["DRC-GEO-001"].get("standard")
+    assert checks["DRC-HOLE-005"].get("clause")
+
+
+def test_report_has_fingerprint_and_risk():
+    report = drc.build_drc_report(_doc())
+    assert report["riskScore"]["band"] in {"none", "low", "medium", "high"}
+    assert all("fingerprint" in c for c in report["checks"])
+    assert "audit" in report
+
+
+def test_rule_packs_listed_and_applied():
+    from scripts import design_rule_profiles as prof
+
+    names = [p["name"] for p in prof.list_rule_packs()]
+    assert "drilling_panel" in names and "machined_bracket" in names
+    # drilling_panel 把孔边距 ratio 提到 2.0：edge 5 对 ⌀6 -> required 6 -> fail
+    doc = {
+        "documentId": "pack",
+        "units": "mm",
+        "features": [{"id": "H1", "type": "hole", "parameters": {"diameter": 6, "x": 0, "y": 0, "edgeDistance": 5.0}}],
+    }
+    default = _by_id(drc.build_drc_report(doc))
+    packed = _by_id(drc.build_drc_report(doc, rule_packs=["drilling_panel"]))
+    assert "DRC-HOLE-001" not in default  # 默认 ratio 1.0 -> required 3 -> pass(不产生fail项)
+    assert packed["DRC-HOLE-001"]["status"] == "fail"
+
+
+def test_baseline_diff_and_waiver_gate():
+    doc = _doc()
+    base = drc.build_drc_report(doc)
+    waivers = [{"ruleId": "DRC-STD-004", "target": "S1", "reason": "客户签字", "owner": "赵工", "expiresOn": "2026-12-31"}]
+    report = drc.build_drc_report(doc, baseline=base, waivers=waivers, as_of_date="2026-09-08")
+    assert report["summary"]["waived"] >= 1
+    assert report["audit"]["diff"]["counts"]["persisting"] >= 1
+
+
+def test_bad_rule_pack_name_blocks():
+    report = drc.build_drc_report(_doc(), rule_packs=["../evil"])
+    assert report["status"] == "blocked"
+
+
 def test_write_report_versions_and_hashes(tmp_path):
     doc_path = tmp_path / "d.json"
     doc_path.write_text(json.dumps(_doc()), encoding="utf-8")
