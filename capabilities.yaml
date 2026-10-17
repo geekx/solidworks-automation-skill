@@ -71,7 +71,7 @@
     {
       "id": "solidworks_standard_automation",
       "label": "SolidWorks 常规模型、装配、工程图和导出",
-      "capability_ids": ["part_and_features", "holes_and_finishing", "assembly_and_mates", "drawing_dimension_insertion", "export_delivery"],
+      "capability_ids": ["part_and_features", "external_spur_gear_geometry", "holes_and_finishing", "assembly_and_mates", "drawing_dimension_insertion", "export_delivery"],
       "candidates": [
         {"backend": "solidworks-com-pywin32", "semantics": "exact_automation", "priority": 10},
         {"backend": "solidworks-com-comtypes", "semantics": "exact_automation", "priority": 20},
@@ -228,6 +228,16 @@
       "allowed_modes": ["interactive", "reviewed"]
     },
     {
+      "id": "external_spur_gear_geometry",
+      "label": "标准外啮合渐开线直齿轮实体",
+      "level": "pilot",
+      "backends": ["solidworks-com"],
+      "verified_versions": ["2026"],
+      "dependencies": ["SolidWorks", "pywin32"],
+      "limitations": ["SW2026 SP1.1 已真机验证 m2/z24/20°/齿宽10/孔10 的 SLDPRT、STEP、四视图、重开和 B-Rep 尺寸回读", "当前仅支持标准全齿高外啮合直齿轮；齿根为径向过渡+齿根圆弧，不是滚刀生成的精确 trochoid", "齿廓在 SolidWorks 中为弦线离散近似；高采样密度会显著增加建模、导出和 B-Rep 复核时间", "不包含斜齿、锥齿、内齿、齿条、蜗轮蜗杆、变位、侧隙、修形、公差、材料或强度校核"],
+      "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
       "id": "holes_and_finishing",
       "label": "孔槽、螺纹、圆角与倒角",
       "level": "verified",
@@ -345,13 +355,14 @@
     },
     {
       "id": "dfm_checks",
-      "label": "机加工、钣金、激光切割与 3D 打印 DFM 复核",
+      "label": "机加工、钣金、激光切割、3D 打印与注塑 DFM 复核",
       "level": "pilot",
       "backends": ["local-python"],
       "verified_versions": [],
       "dependencies": ["python"],
       "limitations": [
         "支持供应商 DFM Profile 能力交集、单位归一和 SolidWorks/OCCT B-Rep 证据绑定；缺失或伪造关键证据会返回 blocked",
+        "注塑分支是声明型 pilot 筛查，支持拔模、筋厚、壁厚变化、倒扣方案、浇口及顶针/水路间距；不自动识别倒扣或进行模流认证",
         "机器规则全部通过仍必须人工确认材料、公差、载荷、装配、刀具/模具、打印方向和供应商能力",
         "DFM 报告是风险复核，不是制造认证；缺少材料、壁厚、K 因子、割缝或成型空间等关键输入时返回 blocked"
       ],

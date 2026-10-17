@@ -1,19 +1,28 @@
 """
 SolidWorks MCP Server.
 
-This stdio MCP server wraps the existing solidworks-automation skill scripts so
-MCP clients can operate a local Windows SolidWorks desktop session through
-Python COM. It intentionally serializes all tool calls because SolidWorks COM is
-a single-user desktop automation surface.
+This MCP server wraps the existing solidworks-automation skill scripts so MCP
+clients can operate a local Windows SolidWorks desktop session through Python
+COM. It intentionally serializes all tool calls because SolidWorks COM is a
+single-user desktop automation surface.
+
+It speaks MCP over ``stdio`` by default. Pass ``--transport streamable-http`` to
+serve the same tools over HTTP instead, so a client running on another machine
+can connect without spawning a local child process.
 """
 from __future__ import annotations
 
+import argparse
+import base64
 import importlib
+import importlib.util
 import json
+import math
 import os
 import platform
 import sys
 import threading
+import time
 from contextlib import redirect_stdout
 from enum import Enum
 from pathlib import Path
@@ -32,6 +41,8 @@ if __name__ == "__main__":
 
 
 SERVER_DIR = Path(__file__).resolve().parent
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
 REPO_DIR = SERVER_DIR.parent
 SCRIPTS_DIR = REPO_DIR / "scripts"
 if str(REPO_DIR) not in sys.path:
@@ -40,6 +51,8 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from scripts.sw_preflight import missing_com_dependencies, solidworks_installed  # noqa: E402
+from scripts.core.execution import normalize_tool_payload  # noqa: E402
+from artifact_access import ArtifactAccess, MAX_INLINE  # noqa: E402
 
 
 pythoncom = None
@@ -51,6 +64,8 @@ def _load_automation_modules() -> None:
     global pythoncom, _automation_loaded
     if _automation_loaded:
         return
+    from scripts.sw_preflight import import_com_dependencies
+    import_com_dependencies(allow_install=False)
 
     connect = importlib.import_module("scripts.sw_connect")
     part = importlib.import_module("scripts.sw_part")
@@ -65,6 +80,10 @@ def _load_automation_modules() -> None:
     drawing = importlib.import_module("scripts.sw_drawing")
     drawing_review = importlib.import_module("scripts.sw_drawing_review")
     drawing_spec = importlib.import_module("scripts.drawing_spec")
+    edge_select = importlib.import_module("scripts.sw_edge_select")
+    measure = importlib.import_module("scripts.sw_measure")
+    design_spec = importlib.import_module("scripts.design_spec")
+    build_spec = importlib.import_module("scripts.build_from_spec")
 
     exports = {
         "connect_solidworks": connect.connect_solidworks,
@@ -75,9 +94,38 @@ def _load_automation_modules() -> None:
         "open_document": connect.open_document,
         "save_document": connect.save_document,
         "extrude_boss": part.extrude_boss,
+        "extrude_cut": part.extrude_cut,
+        "extrude_midplane": part.extrude_midplane,
+        "revolve_boss": part.revolve_boss,
+        "fillet": part.fillet,
+        "chamfer": part.chamfer,
+        "shell": part.shell,
+        "linear_pattern": part.linear_pattern,
+        "circular_pattern": part.circular_pattern,
+        "mirror_feature": part.mirror_feature,
+        "rib": part.rib,
         "sketch": part.sketch,
         "sketch_circle": part.sketch_circle,
         "sketch_rectangle": part.sketch_rectangle,
+        "sketch_corner_rectangle": part.sketch_corner_rectangle,
+        "sketch_line": part.sketch_line,
+        "sketch_slot": part.sketch_slot,
+        "sketch_polygon": part.sketch_polygon,
+        "sketch_spline": part.sketch_spline,
+        "auto_dimension_sketch": part.auto_dimension_sketch,
+        "clear_sketch_selection_cache": part.clear_sketch_selection_cache,
+        "SketchSelectionRef": part.SketchSelectionRef,
+        "iter_model_edges": edge_select.iter_model_edges,
+        "filter_edges": edge_select.filter_edges,
+        "select_edges": edge_select.select_edges,
+        "describe_convexity": edge_select.describe_convexity,
+        "collect_mass_properties": measure.collect_mass_properties,
+        "collect_bounding_box": measure.collect_bounding_box,
+        "inspect_interference": measure.inspect_interference,
+        "load_design_spec": design_spec.load_design_spec,
+        "validate_design_spec": design_spec.validate_design_spec,
+        "build_from_spec": build_spec.build_from_spec,
+        "expand_hole_patterns": build_spec.expand_hole_patterns,
         "set_component_appearance": appearance.set_component_appearance,
         "set_document_appearance": appearance.set_document_appearance,
         "export_to_dxf": export.export_to_dxf,
@@ -144,6 +192,31 @@ mcp = FastMCP(
 
 _sw_lock = threading.RLock()
 
+# 单个 SolidWorks 操作的持锁上限。超时意味着上一个操作被模态对话框阻塞，
+# 必须让出控制权给调用方，而不是让整个 server 永久挂起。
+DEFAULT_LOCK_TIMEOUT_SECONDS = 300.0
+
+# swUserPreferenceIntegerValue_e：文档单位相关偏好项。
+SW_UNITS_LINEAR_PREF = 46
+SW_UNITS_ANGULAR_PREF = 47
+SW_UNITS_DECIMALS_PREF = 48
+
+# swLengthUnit_e / swAngleUnit_e 枚举值。
+_LINEAR_UNIT_ENUM = {
+    "mm": 0, "cm": 1, "m": 2, "in": 3, "ft": 4, "in_micro": 5, "mil": 6,
+}
+_LINEAR_UNIT_BY_ENUM = {value: key for key, value in _LINEAR_UNIT_ENUM.items()}
+_ANGULAR_UNIT_ENUM = {"deg": 0, "rad": 1}
+_ANGULAR_UNIT_BY_ENUM = {value: key for key, value in _ANGULAR_UNIT_ENUM.items()}
+
+# 供超时诊断使用的锁持有者信息。诊断工具把它原样返回给用户，让工程师能判断
+# 到底是哪个操作卡住了，而不是只看到一句"超时"。
+_lock_state: Dict[str, Any] = {
+    "acquired_at": None,
+    "thread": None,
+    "operation": None,
+}
+
 
 class ResponseFormat(str, Enum):
     """Tool response format."""
@@ -172,7 +245,7 @@ class ExportFormat(str, Enum):
 
 
 HEADLESS_OPEN_FORMATS = {"cadstudio", "step", "iges", "brep", "stl", "obj", "glb", "dxf", "svg", "pdf", "png"}
-DFM_PROCESSES = {"auto", "machining", "sheet_metal", "laser_cutting", "3d_printing", "CNC", "FDM", "SLA"}
+DFM_PROCESSES = {"auto", "machining", "sheet_metal", "laser_cutting", "3d_printing", "injection_molding", "injection", "注塑", "CNC", "FDM", "SLA"}
 FEA_SOLVERS = {"auto", "calculix", "elmer"}
 
 
@@ -538,6 +611,196 @@ class SolidWorksHealthCheckInput(BaseInput):
     start_solidworks: bool = Field(default=False, description="Start/connect SolidWorks for a live COM check.")
     check_motion_type_library: bool = Field(default=True, description="Check for swmotionstudy.tlb availability.")
     response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksSketchOnPlaneInput(BaseInput):
+    """Input for sketching on a plane and creating a boss extrude."""
+
+    plane_name: str = Field(default="Front Plane", description="Sketch plane, English or Chinese name.")
+    shape: Literal["circle", "rectangle", "corner_rectangle", "slot", "polygon"] = Field(
+        default="circle", description="Profile shape to draw."
+    )
+    center_x_mm: float = Field(default=0.0, description="Profile center X on the sketch plane, mm.")
+    center_y_mm: float = Field(default=0.0, description="Profile center Y on the sketch plane, mm.")
+    radius_mm: Optional[float] = Field(default=None, gt=0.0, le=2500.0, description="Circle radius, mm.")
+    width_mm: Optional[float] = Field(default=None, gt=0.0, le=5000.0, description="Rectangle width, mm.")
+    height_mm: Optional[float] = Field(default=None, gt=0.0, le=5000.0, description="Rectangle height, mm.")
+    corner_x2_mm: Optional[float] = Field(default=None, description="Corner rectangle second corner X, mm.")
+    corner_y2_mm: Optional[float] = Field(default=None, description="Corner rectangle second corner Y, mm.")
+    slot_end_x_mm: Optional[float] = Field(default=None, description="Slot end X in sketch coordinates, mm.")
+    slot_end_y_mm: Optional[float] = Field(default=None, description="Slot end Y in sketch coordinates, mm.")
+    sides: int = Field(default=6, ge=3, le=64, description="Polygon side count.")
+    depth_mm: float = Field(..., gt=0.0, le=5000.0, description="Extrude depth, mm.")
+    midplane: bool = Field(default=False, description="Extrude symmetrically about the sketch plane.")
+    cut: bool = Field(default=False, description="Create a cut instead of a boss.")
+    feature_name: Optional[str] = Field(default=None, max_length=120)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksRevolveInput(BaseInput):
+    """Input for a revolve boss from a sketch profile."""
+
+    sketch_name: str = Field(..., min_length=1, description="Profile sketch name.")
+    angle_deg: float = Field(default=360.0, gt=0.0, le=360.0, description="Revolve angle, degrees.")
+    axis_sketch_name: Optional[str] = Field(default=None, max_length=240, description="Optional axis sketch name.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksFilletInput(BaseInput):
+    """Input for a constant-radius fillet on semantically selected edges."""
+
+    radius_mm: float = Field(..., gt=0.0, le=2500.0, description="Fillet radius, mm.")
+    axis: Literal["x", "y", "z", "vertical", "all"] = Field(
+        default="z", description="Only fillet edges parallel to this axis. 'all' skips direction filtering."
+    )
+    min_length_mm: Optional[float] = Field(default=None, gt=0.0, description="Only edges at least this long, mm.")
+    max_length_mm: Optional[float] = Field(default=None, gt=0.0, description="Only edges at most this long, mm.")
+    convex_only: bool = Field(default=False, description="Only convex edges (outer corners).")
+    concave_only: bool = Field(default=False, description="Only concave edges (inner corners).")
+    dry_run: bool = Field(
+        default=False,
+        description="Only report which edges match; do not create the fillet. Use this to verify edge selection first.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksChamferInput(BaseInput):
+    """Input for a chamfer on semantically selected edges."""
+
+    distance_mm: float = Field(..., gt=0.0, le=2500.0, description="Chamfer distance, mm.")
+    angle_deg: float = Field(default=45.0, gt=0.0, lt=90.0, description="Chamfer angle, degrees.")
+    axis: Literal["x", "y", "z", "vertical", "all"] = Field(default="all", description="Edge direction filter.")
+    convex_only: bool = Field(default=False)
+    concave_only: bool = Field(default=False)
+    dry_run: bool = Field(default=False, description="Only report matching edges; do not create the chamfer.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksShellInput(BaseInput):
+    """Input for a shell feature."""
+
+    thickness_mm: float = Field(..., gt=0.0, le=2500.0, description="Wall thickness, mm.")
+    face_to_remove: Optional[str] = Field(
+        default=None, max_length=240, description="Name of the face to remove (open face). Omit for a closed shell."
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksPatternInput(BaseInput):
+    """Input for a linear or circular pattern of an existing feature."""
+
+    feature_name: str = Field(..., min_length=1, max_length=240, description="Name of the feature to pattern.")
+    pattern_type: Literal["linear", "circular"] = Field(default="linear")
+    count: int = Field(default=2, ge=2, le=1000, description="Total instance count including the seed.")
+    spacing_mm: float = Field(default=10.0, gt=0.0, description="Linear spacing between instances, mm.")
+    direction: Literal["x", "y", "z"] = Field(default="x", description="Linear pattern direction.")
+    axis_name: Optional[str] = Field(
+        default=None, max_length=240, description="Circular pattern axis: a reference axis name or edge."
+    )
+    angle_deg: float = Field(default=360.0, gt=0.0, le=360.0, description="Circular pattern total angle, degrees.")
+    equal_spacing: bool = Field(default=True, description="Circular pattern equal spacing.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksMirrorInput(BaseInput):
+    """Input for mirroring a feature about a plane."""
+
+    feature_name: str = Field(..., min_length=1, max_length=240, description="Feature to mirror.")
+    mirror_plane_name: str = Field(default="Right Plane", max_length=240, description="Mirror plane name.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksEdgeInspectionInput(BaseInput):
+    """Input for listing model edges with optional geometric filters."""
+
+    axis: Literal["x", "y", "z", "vertical", "all"] = Field(default="all")
+    circular: Optional[bool] = Field(default=None, description="True = only circular edges, False = only straight.")
+    diameter_mm: Optional[float] = Field(default=None, gt=0.0, description="Filter circular edges by diameter, mm.")
+    diameter_tolerance_mm: float = Field(default=0.05, ge=0.0, le=10.0)
+    min_length_mm: Optional[float] = Field(default=None, gt=0.0)
+    max_length_mm: Optional[float] = Field(default=None, gt=0.0)
+    limit: int = Field(default=100, ge=1, le=2000, description="Maximum edges to return.")
+    include_convexity: bool = Field(
+        default=True, description="Compute convex/concave for each edge. Costs extra B-Rep reads."
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksMassPropertiesInput(BaseInput):
+    """Input for reading mass properties of the active document."""
+
+    density_kg_m3: Optional[float] = Field(
+        default=None, gt=0.0, le=30000.0,
+        description="Override material density. Omit to use the material assigned in the document.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksBoundingBoxInput(BaseInput):
+    """Input for reading the active document bounding box."""
+
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksInterferenceInput(BaseInput):
+    """Input for running interference detection on the active assembly."""
+
+    treat_subassemblies_as_components: bool = Field(default=False)
+    treat_coincidence_as_interference: bool = Field(
+        default=False,
+        description="Off by default: mating faces of bolted joints are coincident and would flood the report.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksUnitsInput(BaseInput):
+    """Input for reading or setting document units."""
+
+    linear_unit: Optional[str] = Field(
+        default=None, pattern="^(mm|cm|m|in|ft|in_micro|mil)$",
+        description="Set the linear unit. Omit to only read current units.",
+    )
+    angular_unit: Optional[str] = Field(
+        default=None, pattern="^(deg|rad)$", description="Set the angular unit."
+    )
+    decimals: Optional[int] = Field(default=None, ge=0, le=8, description="Decimal places for display.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class DesignSpecValidateInput(BaseInput):
+    """Input for validating a design spec file without building anything."""
+
+    spec_path: str = Field(..., min_length=1, description="Absolute path to a design spec .json file.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class DesignSpecBuildInput(BaseInput):
+    """Input for building a part from a design spec."""
+
+    spec_path: str = Field(..., min_length=1, description="Absolute path to a design spec .json file.")
+    output_path: Optional[str] = Field(
+        default=None, description="Absolute .SLDPRT save path. Omit to leave the document unsaved."
+    )
+    template_path: Optional[str] = Field(default=None, description="Optional part template path.")
+    apply_fillets: bool = Field(default=True, description="Apply the fillets section.")
+    verify_geometry: bool = Field(default=True, description="Read back geometry and compare against the verify section.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksRecoverInput(BaseInput):
+    """Input for diagnosing and recovering a blocked SolidWorks session."""
+
+    dismiss_dialogs: bool = Field(
+        default=False,
+        description=(
+            "Send WM_CLOSE to detected SolidWorks modal dialogs. Off by default because "
+            "dismissing a template/overwrite prompt can discard unsaved user changes."
+        ),
+    )
+    probe_timeout_seconds: float = Field(
+        default=15.0, gt=0.0, le=120.0,
+        description="Seconds to wait for the operation lock while probing COM responsiveness.",
+    )
 
 
 class SolidWorksNewDocumentInput(BaseInput):
@@ -1047,6 +1310,7 @@ def _set_component_fixed(asm_model, component, fixed: bool = True) -> bool:
 
 def _result(payload: Dict[str, Any], response_format: ResponseFormat) -> str:
     """Format a tool response as JSON or Markdown."""
+    payload = normalize_tool_payload(payload)
     if response_format == ResponseFormat.JSON:
         return json.dumps(payload, ensure_ascii=False, indent=2)
     lines = [f"# {payload.get('status', 'result')}"]
@@ -1061,6 +1325,15 @@ def _result(payload: Dict[str, Any], response_format: ResponseFormat) -> str:
     return "\n".join(lines)
 
 
+def _artifact_access():
+    """@brief 使用既有 CAD Studio 工作目录存账本；输出根由操作员配置。"""
+    import tempfile
+    from apps.desktop.cad_workbench.queue_worker import default_tauri_queue_dir
+    root = os.environ.get("SW_MCP_OUTPUT_ROOT") or str(Path(tempfile.gettempdir()) / "solidworks-automation-artifacts")
+    queue = os.environ.get("SW_MCP_QUEUE_DIR") or str(default_tauri_queue_dir())
+    return ArtifactAccess(root, queue)
+
+
 def _tool_error(exc: Exception, response_format: ResponseFormat = ResponseFormat.JSON) -> str:
     """Return actionable tool error content."""
     payload = {
@@ -1072,21 +1345,66 @@ def _tool_error(exc: Exception, response_format: ResponseFormat = ResponseFormat
             "components are resolved, and file paths are absolute Windows paths."
         ),
     }
+    code = getattr(exc, "code", None)
+    if code:
+        payload["error_code"] = str(code)
+        payload["retryable"] = False
+        if hasattr(exc, "warnings") and hasattr(exc, "error_code"):
+            payload["file_load_errors"] = exc.error_code
+            payload["file_load_warnings"] = exc.warnings
+        if str(code) in {"SW_DOCUMENT_BUDGET", "SW_DOCUMENT_STATE_UNAVAILABLE", "SW_INSTANCE_NOT_READY", "SW_PROCESS_STATE_UNAVAILABLE", "SW_VERSION_MISMATCH", "SW_INSTANCE_MISMATCH", "SW_PACK_AND_GO_TIMEOUT", "SW_PACK_AND_GO_WORKER_PROTOCOL"}:
+            payload["status"] = "blocked"
     return _result(payload, response_format)
 
 
-def _run_locked(operation, response_format: ResponseFormat, load_automation: bool = True):
-    """Run one SolidWorks COM operation under the global lock."""
-    with _sw_lock:
-        try:
-            if load_automation:
-                _load_automation_modules()
-            _coinitialize()
-            with redirect_stdout(sys.stderr):
-                payload = operation()
-            return _result(payload, response_format)
-        except Exception as exc:
-            return _tool_error(exc, response_format)
+def _run_locked(operation, response_format: ResponseFormat, load_automation: bool = True,
+                timeout_seconds: float = DEFAULT_LOCK_TIMEOUT_SECONDS):
+    """
+    Run one SolidWorks COM operation under the global lock.
+
+    锁带超时：SolidWorks 弹出模态对话框（模板选择、许可证提示、文件覆盖确认）
+    时 COM 调用会永久阻塞，若无超时的锁会让整个 MCP server 变成砖头——所有后
+    续调用都排队等一个永远不会释放的锁。超时后返回结构化错误并提示调用
+    solidworks_recover。
+    """
+    if not _sw_lock.acquire(timeout=timeout_seconds):
+        payload = {
+            "status": "error",
+            "error_type": "SolidWorksBusyTimeout",
+            "message": (
+                f"等待 SolidWorks 操作锁超过 {timeout_seconds:.0f} 秒仍未获得。"
+                f"上一个操作可能被模态对话框阻塞。"
+            ),
+            "holder": dict(_lock_state),
+            "suggestion": (
+                "检查 SolidWorks 主窗口是否有等待确认的对话框（模板选择/许可证/文件覆盖），"
+                "手动关闭后调用 solidworks_recover 复检；必要时重启 SolidWorks。"
+            ),
+        }
+        return _result(payload, response_format)
+
+    _lock_state["acquired_at"] = time.time()
+    _lock_state["thread"] = threading.current_thread().name
+    _lock_state["operation"] = None
+    try:
+        if load_automation:
+            _load_automation_modules()
+        _coinitialize()
+        with redirect_stdout(sys.stderr):
+            payload = operation()
+        payload = normalize_tool_payload(payload)
+        if payload.get("status") not in {"error", "failed", "fail", "blocked"}:
+            refs = _artifact_access().publish(payload)
+            if refs:
+                payload["artifact_refs"] = refs
+        return _result(payload, response_format)
+    except Exception as exc:
+        return _tool_error(exc, response_format)
+    finally:
+        _lock_state["acquired_at"] = None
+        _lock_state["thread"] = None
+        _lock_state["operation"] = None
+        _sw_lock.release()
 
 
 @mcp.tool(
@@ -1603,6 +1921,146 @@ def solidworks_health_check(params: SolidWorksHealthCheckInput = SolidWorksHealt
     return _run_locked(op, params.response_format, load_automation=False)
 
 
+def _enumerate_solidworks_windows():
+    """
+    枚举 SolidWorks 顶层窗口，找出疑似模态对话框。
+
+    返回 (main_window, dialogs)。模态对话框是 COM 调用永久阻塞的根因：SolidWorks
+    在等待用户点击时不会响应 Automation 调用，而且不会超时。这里只枚举和报告，
+    默认不代为点击——自动关闭对话框可能丢弃用户尚未保存的更改或接受错误的模板。
+    """
+    try:
+        import win32gui  # type: ignore
+    except Exception:
+        return None, [], "win32gui 不可用，无法枚举窗口（pywin32 未安装或不完整）"
+
+    dialogs = []
+    main_window = None
+
+    def visit(handle, _param):
+        """@brief EnumWindows 回调，按窗口标题归类。"""
+        nonlocal main_window
+        if not win32gui.IsWindowVisible(handle):
+            return True
+        title = win32gui.GetWindowText(handle)
+        if not title:
+            return True
+        class_name = win32gui.GetClassName(handle)
+        if "SolidWorks" in class_name and "SldWorks" in class_name:
+            main_window = {"handle": handle, "title": title, "class": class_name}
+            return True
+        # SolidWorks 的模态提示多为 #32770 标准对话框，标题常含版本号或功能名。
+        if class_name == "#32770" and (
+            "SolidWorks" in title or "SOLIDWORKS" in title
+        ):
+            dialogs.append({"handle": handle, "title": title, "class": class_name})
+        return True
+
+    try:
+        win32gui.EnumWindows(visit, None)
+    except Exception as exc:
+        return main_window, dialogs, f"枚举窗口失败: {exc}"
+
+    return main_window, dialogs, None
+
+
+@mcp.tool(
+    name="solidworks_recover",
+    title="Diagnose and Recover a Blocked SolidWorks Session",
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+def solidworks_recover(params: SolidWorksRecoverInput = SolidWorksRecoverInput()) -> str:
+    """Diagnose a blocked SolidWorks session and optionally dismiss blocking modal dialogs."""
+
+    def op():
+        probe: Dict[str, Any] = {
+            "lock": {
+                "acquired_at": _lock_state["acquired_at"],
+                "held_seconds": (
+                    round(time.time() - _lock_state["acquired_at"], 1)
+                    if _lock_state["acquired_at"]
+                    else None
+                ),
+                "thread": _lock_state["thread"],
+            },
+            "server_alive": True,
+        }
+
+        main_window, dialogs, window_error = _enumerate_solidworks_windows()
+        probe["main_window"] = main_window
+        probe["blocking_dialogs"] = dialogs
+        if window_error:
+            probe["window_probe_error"] = window_error
+
+        dismissed = []
+        if params.dismiss_dialogs and dialogs:
+            try:
+                import win32con  # type: ignore
+                import win32gui  # type: ignore
+            except Exception as exc:
+                probe["dismiss_error"] = f"无法发送关闭消息: {exc}"
+            else:
+                for dialog in dialogs:
+                    try:
+                        # WM_CLOSE 等价于点击标题栏关闭；不自动按"确定"，
+                        # 以免在模板/覆盖确认框上做出用户未授权的选择。
+                        win32gui.PostMessage(dialog["handle"], win32con.WM_CLOSE, 0, 0)
+                        dismissed.append(dialog["title"])
+                    except Exception as exc:
+                        probe["dismiss_error"] = f"{dialog['title']}: {exc}"
+        probe["dismissed_dialogs"] = dismissed
+
+        # 探测 COM 是否恢复响应。
+        com_status = "not_checked"
+        com_detail = None
+        try:
+            if not missing_com_dependencies():
+                if _sw_lock.acquire(timeout=params.probe_timeout_seconds):
+                    try:
+                        _load_automation_modules()
+                        _coinitialize()
+                        sw, model = connect_solidworks(wait_seconds=1)
+                        com_detail = {
+                            "revision": get_com_member(sw, "RevisionNumber"),
+                            "active_document": _model_summary(model) if model else None,
+                        }
+                        com_status = "responsive"
+                    finally:
+                        _sw_lock.release()
+                else:
+                    com_status = "locked"
+                    com_detail = "操作锁仍被占用，说明上一个操作尚未返回。"
+        except Exception as exc:
+            com_status = "error"
+            com_detail = f"{type(exc).__name__}: {exc}"
+        probe["com_status"] = com_status
+        probe["com_detail"] = com_detail
+
+        if com_status == "responsive":
+            next_step = "会话正常，可以继续调用建模工具。"
+        elif com_status == "locked":
+            next_step = (
+                "会话仍被占用。请切到 SolidWorks 窗口手动关闭对话框；若窗口无响应，"
+                "在任务管理器中结束 SolidWorks 进程后重新调用 solidworks_connect。"
+            )
+        else:
+            next_step = "COM 未恢复，建议重启 SolidWorks 后重新连接。"
+
+        return {
+            "status": com_status,
+            "probe": probe,
+            "next_step": next_step,
+        }
+
+    return _run_locked(op, params.response_format, load_automation=False,
+                       timeout_seconds=params.probe_timeout_seconds)
+
+
 @mcp.tool(
     name="solidworks_new_document",
     title="Create SolidWorks Document",
@@ -1647,6 +2105,8 @@ def solidworks_create_basic_part(params: SolidWorksCreateBasicPartInput) -> str:
                 sketch_rectangle(model, 0.0, 0.0, mm(params.width_mm), mm(params.height_mm))
             else:
                 raise ValueError(f"Unsupported shape: {params.shape}")
+            from scripts.sw_sketch_quality import fully_define_sketch
+            sketch_quality = fully_define_sketch(model)
         feature = extrude_boss(model, sketch_name, mm(params.depth_mm))
         appearance_ok = None
         if params.color:
@@ -1654,10 +2114,12 @@ def solidworks_create_basic_part(params: SolidWorksCreateBasicPartInput) -> str:
         save_ok = None
         if params.output_path:
             save_ok = save_document(model, params.output_path)
-        model.ForceRebuild3(False)
+        rebuild_ok = bool(model.ForceRebuild3(False))
         return {
             "status": "ok",
             "shape": params.shape.value,
+            "sketch_quality": sketch_quality,
+            "rebuild_ok": rebuild_ok,
             "feature_created": feature is not None,
             "feature_name": get_com_member(feature, "Name") if feature else None,
             "appearance_ok": appearance_ok,
@@ -1665,6 +2127,656 @@ def solidworks_create_basic_part(params: SolidWorksCreateBasicPartInput) -> str:
             "output_path": str(Path(os.path.expandvars(params.output_path)).expanduser().resolve()) if params.output_path else None,
             "document": _model_summary(model),
         }
+
+    return _run_locked(op, params.response_format)
+
+
+def _edge_spec_from(params) -> Dict[str, Any]:
+    """Build a semantic edge filter spec from a fillet/chamfer input model."""
+    spec: Dict[str, Any] = {"axis": params.axis}
+    if getattr(params, "convex_only", False):
+        spec["convex_only"] = True
+    if getattr(params, "concave_only", False):
+        spec["concave_only"] = True
+    for field in ("min_length_mm", "max_length_mm"):
+        value = getattr(params, field, None)
+        if value is not None:
+            spec[field] = value
+    return spec
+
+
+def _run_feature_with_edges(params, edge_spec, create_feature):
+    """
+    Select edges by geometry, then create an edge-based feature.
+
+    A feature tool must never fall through to "operate on whatever is currently
+    selected": that silently fillets the wrong edges. So this helper refuses to
+    create the feature when nothing matched, and always clears the selection
+    afterwards so the next tool starts from a known state.
+    """
+    sw, model = _active_part_required()
+    selection = select_edges(model, edge_spec)
+
+    payload: Dict[str, Any] = {
+        "status": selection["status"],
+        "edge_spec": edge_spec,
+        "selected_count": selection.get("selected_count", 0),
+        "selected_edges": selection.get("selected", [])[:50],
+    }
+    if selection.get("rejected_count"):
+        payload["rejected_count"] = selection["rejected_count"]
+        payload["rejected_sample"] = selection.get("rejected_sample", [])[:10]
+    if selection.get("errors"):
+        payload["errors"] = selection["errors"][:10]
+
+    if selection["status"] != "ok":
+        payload["suggestion"] = (
+            "No edges matched. Call solidworks_list_edges to see the available edges, "
+            "then widen axis/length/convexity filters."
+        )
+        return payload
+
+    if params.dry_run:
+        payload["dry_run"] = True
+        payload["note"] = "Edges match; no feature was created because dry_run=True."
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+        return payload
+
+    try:
+        feature = create_feature(model, selection)
+    finally:
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+
+    payload["feature_created"] = feature is not None
+    payload["feature_name"] = get_com_member(feature, "Name") if feature else None
+    if feature is None:
+        payload["status"] = "error"
+        payload["suggestion"] = (
+            "Edges were selected but the feature did not build. The most common cause is an "
+            "oversized radius/distance causing self-intersection — reduce the value and retry."
+        )
+    elif payload["status"] != "ok":
+        payload["status"] = "warn"
+    return payload
+
+
+@mcp.tool(
+    name="solidworks_list_edges",
+    title="List SolidWorks Model Edges",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_list_edges(params: SolidWorksEdgeInspectionInput = SolidWorksEdgeInspectionInput()) -> str:
+    """List model edges with geometry (length, midpoint, direction, diameter, convexity).
+
+    Use this before fillet/chamfer to find out what edge filters will match. Do not guess
+    edge names: SelectByID2 edge names depend on coordinates that change whenever the model
+    is edited.
+    """
+
+    def op():
+        sw, model = _active_part_required()
+        descriptors, errors = iter_model_edges(model)
+        if not descriptors:
+            return {
+                "status": "error",
+                "edge_count": 0,
+                "edges": [],
+                "errors": errors + ["No edges found. Confirm the active document is a part with solid geometry."],
+            }
+
+        edge_spec = {"axis": params.axis}
+        if params.circular is not None:
+            edge_spec["circular"] = params.circular
+        if params.diameter_mm is not None:
+            edge_spec["diameter_mm"] = params.diameter_mm
+            edge_spec["diameter_tolerance_mm"] = params.diameter_tolerance_mm
+        if params.min_length_mm is not None:
+            edge_spec["min_length_mm"] = params.min_length_mm
+        if params.max_length_mm is not None:
+            edge_spec["max_length_mm"] = params.max_length_mm
+
+        selected, rejected = filter_edges(descriptors, **edge_spec)
+        if params.include_convexity:
+            for descriptor in selected[: params.limit]:
+                if descriptor.get("convexity") is None:
+                    descriptor["convexity"] = describe_convexity(descriptor.get("edge"))
+
+        edges = [
+            {
+                "index": item["index"],
+                "body_index": item.get("body_index"),
+                "length_mm": item.get("length_mm"),
+                "mid_point_mm": item.get("mid_point_mm"),
+                "direction": [round(value, 6) for value in item["direction"]] if item.get("direction") else None,
+                "is_circle": item.get("is_circle"),
+                "diameter_mm": item.get("diameter_mm"),
+                "convexity": item.get("convexity"),
+            }
+            for item in selected[: params.limit]
+        ]
+
+        return {
+            "status": "ok",
+            "total_edge_count": len(descriptors),
+            "matched_count": len(selected),
+            "returned_count": len(edges),
+            "truncated": len(selected) > params.limit,
+            "filter": edge_spec,
+            "edges": edges,
+            "rejected_sample": rejected[:10],
+            "errors": (errors + [item for descriptor in descriptors for item in descriptor.get("errors", [])])[:10],
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_sketch_and_extrude",
+    title="Sketch a Profile and Extrude It",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_sketch_and_extrude(params: SolidWorksSketchOnPlaneInput) -> str:
+    """Draw a circle, rectangle, slot, or polygon on a plane and extrude it as a boss or cut.
+
+    This is the main modeling entry point: one call creates a sketch and the feature built
+    from it, so the sketch object reference is never lost between calls.
+    """
+
+    def op():
+        sw, model = _active_part_required()
+
+        if params.shape == "circle" and params.radius_mm is None:
+            raise ValueError("shape='circle' requires radius_mm.")
+        if params.shape == "rectangle" and (params.width_mm is None or params.height_mm is None):
+            raise ValueError("shape='rectangle' requires width_mm and height_mm.")
+        if params.shape == "corner_rectangle" and (params.corner_x2_mm is None or params.corner_y2_mm is None):
+            raise ValueError("shape='corner_rectangle' requires corner_x2_mm and corner_y2_mm.")
+        if params.shape == "slot" and (params.slot_end_x_mm is None or params.slot_end_y_mm is None):
+            raise ValueError("shape='slot' requires slot_end_x_mm, slot_end_y_mm and radius_mm.")
+        if params.shape == "slot" and params.radius_mm is None:
+            raise ValueError("shape='slot' requires radius_mm (slot half-width).")
+
+        with sketch(model, params.plane_name) as sketch_ref:
+            if params.shape == "circle":
+                sketch_circle(model, mm(params.center_x_mm), mm(params.center_y_mm), mm(params.radius_mm))
+            elif params.shape == "rectangle":
+                sketch_rectangle(model, mm(params.center_x_mm), mm(params.center_y_mm),
+                                 mm(params.width_mm), mm(params.height_mm))
+            elif params.shape == "corner_rectangle":
+                sketch_corner_rectangle(model, mm(params.center_x_mm), mm(params.center_y_mm),
+                                        mm(params.corner_x2_mm), mm(params.corner_y2_mm))
+            elif params.shape == "slot":
+                sketch_slot(model, mm(params.center_x_mm), mm(params.center_y_mm),
+                            mm(params.slot_end_x_mm), mm(params.slot_end_y_mm), mm(params.radius_mm))
+            elif params.shape == "polygon":
+                sketch_polygon(model, mm(params.center_x_mm), mm(params.center_y_mm),
+                               mm(params.radius_mm or 10.0), params.sides)
+
+        if params.midplane:
+            feature = extrude_midplane(model, sketch_ref, mm(params.depth_mm))
+        elif params.cut:
+            feature = extrude_cut(model, sketch_ref, mm(params.depth_mm))
+        else:
+            feature = extrude_boss(model, sketch_ref, mm(params.depth_mm))
+
+        if feature is None:
+            return {
+                "status": "error",
+                "shape": params.shape,
+                "feature_created": False,
+                "sketch_name": str(sketch_ref),
+                "suggestion": (
+                    "The sketch was created but the feature did not build. Check that the profile is "
+                    "closed and does not self-intersect, and that the depth is non-zero in the "
+                    "extrude direction."
+                ),
+            }
+
+        return {
+            "status": "ok",
+            "shape": params.shape,
+            "feature_created": True,
+            "feature_name": get_com_member(feature, "Name"),
+            "sketch_name": str(sketch_ref),
+            "depth_mm": params.depth_mm,
+            "operation": "cut" if params.cut else ("midplane" if params.midplane else "boss"),
+            "document": _model_summary(model),
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_revolve",
+    title="Revolve a Sketch Profile",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_revolve(params: SolidWorksRevolveInput) -> str:
+    """Revolve a sketch profile about an axis to create a solid of revolution."""
+
+    def op():
+        sw, model = _active_part_required()
+        feature = revolve_boss(model, params.sketch_name, math.radians(params.angle_deg),
+                               params.axis_sketch_name)
+        if feature is None:
+            return {
+                "status": "error",
+                "feature_created": False,
+                "suggestion": (
+                    "Revolve failed. The profile must be closed and must not cross the revolve axis; "
+                    "provide axis_sketch_name or pre-select a centerline/edge."
+                ),
+            }
+        return {
+            "status": "ok",
+            "feature_created": True,
+            "feature_name": get_com_member(feature, "Name"),
+            "angle_deg": params.angle_deg,
+            "document": _model_summary(model),
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_fillet",
+    title="Fillet Edges Selected by Geometry",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_fillet(params: SolidWorksFilletInput) -> str:
+    """Round the edges that match geometric filters (axis, length, convexity).
+
+    Use dry_run=True first to confirm which edges match. Edge names produced by
+    SelectByID2 are coordinate-based and break as soon as the model is edited, so
+    this tool selects by B-Rep geometry instead.
+    """
+
+    def op():
+        edge_spec = _edge_spec_from(params)
+        return _run_feature_with_edges(
+            params, edge_spec,
+            lambda model, selection: fillet(model, mm(params.radius_mm)),
+        )
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_chamfer",
+    title="Chamfer Edges Selected by Geometry",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_chamfer(params: SolidWorksChamferInput) -> str:
+    """Chamfer the edges that match geometric filters (axis, convexity)."""
+
+    def op():
+        edge_spec = _edge_spec_from(params)
+        return _run_feature_with_edges(
+            params, edge_spec,
+            lambda model, selection: chamfer(model, mm(params.distance_mm), params.angle_deg),
+        )
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_shell",
+    title="Shell the Active Part",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_shell(params: SolidWorksShellInput) -> str:
+    """Hollow out the active part with a uniform wall thickness."""
+
+    def op():
+        sw, model = _active_part_required()
+        faces = None
+        if params.face_to_remove:
+            try:
+                model.ClearSelection2(True)
+                model.Extension.SelectByID2(params.face_to_remove, "FACE", 0, 0, 0, False, 0,
+                                            create_empty_dispatch_variant(), 0)
+                faces = None
+            except Exception as exc:
+                return {
+                    "status": "error",
+                    "suggestion": f"Could not select face {params.face_to_remove!r}: {exc}. "
+                                  "Use solidworks_list_edges / the SolidWorks UI to confirm the face name.",
+                }
+        feature = shell(model, mm(params.thickness_mm), faces)
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+        if feature is None:
+            return {
+                "status": "error",
+                "feature_created": False,
+                "suggestion": (
+                    "Shell failed. Thickness is usually too large relative to the smallest local "
+                    "radius or wall; reduce thickness_mm."
+                ),
+            }
+        return {
+            "status": "ok",
+            "feature_created": True,
+            "feature_name": get_com_member(feature, "Name"),
+            "thickness_mm": params.thickness_mm,
+            "open_face": params.face_to_remove,
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_pattern",
+    title="Pattern a Feature",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_pattern(params: SolidWorksPatternInput) -> str:
+    """Create a linear or circular pattern of an existing feature (e.g. a hole or boss)."""
+
+    def op():
+        sw, model = _active_part_required()
+        if params.pattern_type == "linear":
+            direction = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}[params.direction]
+            feature = linear_pattern(
+                model, params.feature_name,
+                direction[0], direction[1], direction[2],
+                mm(params.spacing_mm), params.count,
+            )
+        else:
+            if not params.axis_name:
+                return {
+                    "status": "error",
+                    "suggestion": "Circular pattern requires axis_name (a reference axis or a circular edge).",
+                }
+            feature = circular_pattern(
+                model, params.feature_name, params.axis_name,
+                math.radians(params.angle_deg), params.count, params.equal_spacing,
+            )
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+        if feature is None:
+            return {
+                "status": "error",
+                "feature_created": False,
+                "suggestion": (
+                    f"Pattern failed for feature {params.feature_name!r}. Confirm the feature name exists "
+                    "(solidworks_inspect_configurations or the FeatureManager tree) and that the seed "
+                    "feature has a valid direction/axis."
+                ),
+            }
+        return {
+            "status": "ok",
+            "feature_created": True,
+            "feature_name": get_com_member(feature, "Name"),
+            "pattern_type": params.pattern_type,
+            "count": params.count,
+            "seed_feature": params.feature_name,
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_mirror_feature",
+    title="Mirror a Feature About a Plane",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_mirror_feature(params: SolidWorksMirrorInput) -> str:
+    """Mirror an existing feature about a reference plane."""
+
+    def op():
+        sw, model = _active_part_required()
+        feature = mirror_feature(model, params.feature_name, params.mirror_plane_name)
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+        if feature is None:
+            return {
+                "status": "error",
+                "feature_created": False,
+                "suggestion": (
+                    f"Mirror failed. Confirm {params.feature_name!r} exists and "
+                    f"{params.mirror_plane_name!r} is a valid plane."
+                ),
+            }
+        return {
+            "status": "ok",
+            "feature_created": True,
+            "feature_name": get_com_member(feature, "Name"),
+            "mirror_plane": params.mirror_plane_name,
+            "source_feature": params.feature_name,
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_mass_properties",
+    title="Read Mass Properties",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_mass_properties(params: SolidWorksMassPropertiesInput = SolidWorksMassPropertiesInput()) -> str:
+    """Read mass, volume, surface area, centre of mass, and inertia of the active document.
+
+    If the document has no material assigned, SolidWorks falls back to its default density,
+    so the reported mass is flagged as unreliable rather than silently returned as fact.
+    """
+
+    def op():
+        sw, model = _active_model_required()
+        result = collect_mass_properties(model, density_kg_m3=params.density_kg_m3)
+        result["status"] = "warn" if result.get("errors") else "ok"
+        result["document"] = _model_summary(model)
+        if not result.get("material_assigned"):
+            result["suggestion"] = (
+                "Assign a material in the document (or pass density_kg_m3) before using mass for "
+                "engineering decisions such as motor sizing or shipping weight."
+            )
+        return result
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_bounding_box",
+    title="Read Bounding Box",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_bounding_box(params: SolidWorksBoundingBoxInput = SolidWorksBoundingBoxInput()) -> str:
+    """Read the active document's bounding box in millimetres.
+
+    Useful for checking that a part fits a build envelope, pallet, or shipping box.
+    """
+
+    def op():
+        sw, model = _active_model_required()
+        result = collect_bounding_box(model)
+        result["status"] = "warn" if result.get("errors") else "ok"
+        result["document"] = _model_summary(model)
+        return result
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_interference_check",
+    title="Check Assembly Interference",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_interference_check(params: SolidWorksInterferenceInput = SolidWorksInterferenceInput()) -> str:
+    """Run interference detection on the active assembly and report each interference volume.
+
+    Always requires human review: zero interferences does not prove the assembly is correct
+    (suppressed components are skipped), and non-zero interferences are not always defects
+    (press fits and weldments interfere by design).
+    """
+
+    def op():
+        sw, asm_model = _active_assembly_required()
+        result = inspect_interference(
+            asm_model,
+            treat_subassemblies_as_components=params.treat_subassemblies_as_components,
+            treat_coincidence_as_interference=params.treat_coincidence_as_interference,
+        )
+        result["document"] = _model_summary(asm_model)
+        result["review_note"] = (
+            "Interference results require engineering review: suppression state, press fits, and "
+            "weldments all affect interpretation."
+        )
+        return result
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_document_units",
+    title="Read or Set Document Units",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_document_units(params: SolidWorksUnitsInput = SolidWorksUnitsInput()) -> str:
+    """Read the active document's linear and angular units, and optionally change them.
+
+    Mixed metric/imperial documents are a common source of 25.4x errors. Read the units
+    before trusting any dimension value another tool reports.
+    """
+
+    def op():
+        sw, model = _active_model_required()
+        changes = []
+
+        def read_pref(preference):
+            try:
+                return sw.GetUserPreferenceIntegerValue(preference)
+            except Exception as exc:
+                return f"<unreadable: {exc}>"
+
+        before = {
+            "linear_unit_enum": read_pref(SW_UNITS_LINEAR_PREF),
+            "angular_unit_enum": read_pref(SW_UNITS_ANGULAR_PREF),
+            "decimals": read_pref(SW_UNITS_DECIMALS_PREF),
+        }
+        before["linear_unit"] = _LINEAR_UNIT_BY_ENUM.get(before["linear_unit_enum"])
+        before["angular_unit"] = _ANGULAR_UNIT_BY_ENUM.get(before["angular_unit_enum"])
+
+        if params.linear_unit is not None:
+            enum_value = _LINEAR_UNIT_ENUM.get(params.linear_unit)
+            if enum_value is None:
+                return {"status": "error", "suggestion": f"Unsupported linear_unit {params.linear_unit!r}."}
+            sw.SetUserPreferenceIntegerValue(SW_UNITS_LINEAR_PREF, enum_value)
+            changes.append(f"linear_unit -> {params.linear_unit}")
+
+        if params.angular_unit is not None:
+            enum_value = _ANGULAR_UNIT_ENUM.get(params.angular_unit)
+            if enum_value is None:
+                return {"status": "error", "suggestion": f"Unsupported angular_unit {params.angular_unit!r}."}
+            sw.SetUserPreferenceIntegerValue(SW_UNITS_ANGULAR_PREF, enum_value)
+            changes.append(f"angular_unit -> {params.angular_unit}")
+
+        if params.decimals is not None:
+            sw.SetUserPreferenceIntegerValue(SW_UNITS_DECIMALS_PREF, int(params.decimals))
+            changes.append(f"decimals -> {params.decimals}")
+
+        after = {}
+        if changes:
+            after = {
+                "linear_unit_enum": read_pref(SW_UNITS_LINEAR_PREF),
+                "angular_unit_enum": read_pref(SW_UNITS_ANGULAR_PREF),
+                "decimals": read_pref(SW_UNITS_DECIMALS_PREF),
+            }
+            after["linear_unit"] = _LINEAR_UNIT_BY_ENUM.get(after["linear_unit_enum"])
+            after["angular_unit"] = _ANGULAR_UNIT_BY_ENUM.get(after["angular_unit_enum"])
+
+        return {
+            "status": "ok",
+            "units_before": before,
+            "changes_applied": changes,
+            "units_after": after or None,
+            "document": _model_summary(model),
+            "note": "SolidWorks API calls always use metres and radians; these units affect display and drawings only.",
+        }
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="design_spec_validate",
+    title="Validate a Design Spec",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def design_spec_validate(params: DesignSpecValidateInput) -> str:
+    """Validate a design spec JSON file without touching SolidWorks.
+
+    Returns every problem at once (not just the first) plus manufacturing warnings such as
+    a fillet radius exceeding half the plate thickness.
+    """
+    result = load_design_spec(params.spec_path)
+    return _result(result, params.response_format)
+
+
+@mcp.tool(
+    name="design_spec_build",
+    title="Build a Part From a Design Spec",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def design_spec_build(params: DesignSpecBuildInput) -> str:
+    """Build a SolidWorks part from a validated design spec file.
+
+    This is the reproducible-design entry point: the spec file is the version-controlled
+    source of truth, and each run produces the same feature structure and reports back the
+    measured geometry so the result can be checked against the spec's verify section.
+    """
+
+    def op():
+        validation = load_design_spec(params.spec_path)
+        if validation["status"] != "ok":
+            validation["suggestion"] = (
+                "Fix the spec errors and retry. Call design_spec_validate to iterate without "
+                "creating a document."
+            )
+            return validation
+
+        normalized = validation["normalized"]
+        sw, _ = connect_solidworks(wait_seconds=1)
+        model = new_document(sw, "part", params.template_path)
+
+        try:
+            model.ClearSelection2(True)
+        except Exception:
+            pass
+
+        audit = build_from_spec(
+            model, normalized,
+            apply_fillets=params.apply_fillets,
+            verify_geometry=params.verify_geometry,
+        )
+
+        saved = None
+        resolved_output = None
+        if params.output_path:
+            resolved_output = str(Path(os.path.expandvars(params.output_path)).expanduser().resolve())
+            saved = save_document(model, resolved_output)
+
+        audit["spec_path"] = validation.get("source_path")
+        audit["part_name"] = normalized["part_name"]
+        audit["spec_warnings"] = validation.get("warnings", [])
+        audit["saved"] = saved
+        audit["output_path"] = resolved_output
+        audit["document"] = _model_summary(model)
+        if params.output_path and not saved:
+            audit["errors"].append(f"模型已构建但保存失败: {resolved_output}")
+            audit["status"] = "error"
+        return audit
 
     return _run_locked(op, params.response_format)
 
@@ -1806,9 +2918,13 @@ def solidworks_close_documents(params: SolidWorksCloseDocumentsInput = SolidWork
         sw, model = _active_model_required()
         if params.close_all:
             sw.CloseAllDocuments(bool(params.save_changes))
+            # 文档已关闭，其 ISketch 引用必须立即释放；否则常驻进程会一直持有
+            # 已关闭文档的 COM 对象，导致 SolidWorks 侧无法释放文档。
+            clear_sketch_selection_cache()
             return {"status": "ok", "closed": "all", "save_changes": params.save_changes}
         title = get_com_member(model, "GetTitle")
         sw.CloseDoc(title)
+        clear_sketch_selection_cache(model)
         return {"status": "ok", "closed": title}
 
     return _run_locked(op, params.response_format)
@@ -2210,11 +3326,15 @@ def solidworks_review_active(params: SolidWorksReviewInput) -> str:
     def op():
         _sw, model = _active_model_required()
         report, report_path = run_review(model, params.output_dir, basename=params.basename)
+        evaluation = report.get("evaluation") or {}
         return {
-            "status": "ok",
+            "status": "failed" if evaluation.get("status") == "fail" else "review_required" if evaluation.get("manual_review_required") else "ok",
             "report_path": report_path,
             "evaluation": report.get("evaluation"),
             "checks": report.get("checks"),
+            "previews": report.get("previews", []),
+            "sketch_quality": report.get("sketch_quality"),
+            "manual_review_required": bool(evaluation.get("manual_review_required")),
             "document": _model_summary(model),
         }
 
@@ -2581,11 +3701,117 @@ def solidworks_validate_motion_study(params: SolidWorksMotionValidationInput = S
     return _run_locked(op, params.response_format)
 
 
+class ArtifactReadInput(BaseInput):
+    """@brief 使用交付 ID 取回图片或有界文件块，禁止传任意本地路径。"""
+    artifact_id: str = Field(..., pattern=r"^mcp-[0-9a-f]{32}-[0-9]{1,5}$")
+    offset: int = Field(default=0, ge=0)
+    max_bytes: int = Field(default=1024 * 1024, ge=1, le=MAX_INLINE)
+    as_preview: bool = Field(default=True)
+
+
+@mcp.tool(name="cadstudio_read_artifact", title="Read Verified CAD Artifact",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+def cadstudio_read_artifact(params: ArtifactReadInput):
+    """Return an in-protocol PNG preview or a hashed file chunk for an issued artifact ID."""
+    try:
+        path, data, metadata = _artifact_access().read(params.artifact_id, params.offset, params.max_bytes)
+        if params.as_preview and params.offset == 0 and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"}:
+            path, data, metadata = _artifact_access().read(params.artifact_id, 0, MAX_INLINE)
+            if metadata["next_offset"] is not None:
+                raise ValueError("预览图片超过内联大小上限")
+            import io
+            from PIL import Image as PillowImage
+            from mcp.server.fastmcp import Image
+            with PillowImage.open(io.BytesIO(data)) as source:
+                if source.width * source.height > 20_000_000:
+                    raise ValueError("预览像素数超过上限")
+                converted = io.BytesIO()
+                source.convert("RGB").save(converted, format="PNG")
+            encoded = converted.getvalue()
+            if len(encoded) > MAX_INLINE:
+                raise ValueError("转换后的 PNG 超过内联大小上限，请取回原始文件块")
+            return Image(data=encoded, format="png")
+        return _result({"status": "ok", **metadata, "encoding": "base64",
+            "data": base64.b64encode(data).decode("ascii")}, params.response_format)
+    except Exception as error:
+        return _tool_error(error, params.response_format)
+
+
+@mcp.resource("cad-artifact://delivery/{artifact_id}", mime_type="application/octet-stream")
+def read_artifact_resource(artifact_id: str) -> bytes:
+    """@brief 原始交付文件资源；超大文件通过有界块工具读取。"""
+    _, data, metadata = _artifact_access().read(artifact_id)
+    if metadata["next_offset"] is not None:
+        raise ValueError("文件超过内联资源大小，请使用 cadstudio_read_artifact 分块读取")
+    return data
+
+
 def main() -> None:
-    """Run the SolidWorks MCP server over stdio."""
+    """Run the SolidWorks MCP server.
+
+    ``stdio`` stays the default so existing MCP host configurations keep working
+    unchanged. ``--transport streamable-http`` serves the same tool surface over
+    HTTP for remote clients.
+    """
+    parser = argparse.ArgumentParser(description="SolidWorks MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "streamable-http"),
+        default="stdio",
+        help="MCP transport to serve (default: stdio)",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("SW_MCP_HOST", "127.0.0.1"),
+        help="Bind address for streamable-http (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Bind port for streamable-http (default: 8000)",
+    )
+    parser.add_argument("--allow-host", action="append", default=[], help="允许的远端 Host，例如 cad.example:*，可重复")
+    parser.add_argument("--allow-origin", action="append", default=[], help="允许的浏览器 Origin，可重复")
+    parser.add_argument("--output-root", default=os.environ.get("SW_MCP_OUTPUT_ROOT"), help="允许客户端取回的产物目录")
+    args = parser.parse_args()
+
     if sys.stdout is not _MCP_STDOUT:
         sys.stdout = _MCP_STDOUT
-    mcp.run(transport="stdio")
+    if args.output_root:
+        os.environ["SW_MCP_OUTPUT_ROOT"] = args.output_root
+
+    if args.transport == "stdio":
+        mcp.run(transport="stdio")
+        return
+    try:
+        args.port = args.port if args.port is not None else int(os.environ.get("SW_MCP_PORT", "8000"))
+    except ValueError:
+        parser.error("SW_MCP_PORT 必须是整数")
+    if not 1 <= args.port <= 65535:
+        parser.error("port 必须在 1..65535")
+    token = os.environ.get("SW_MCP_TOKEN")
+    if args.host not in {"127.0.0.1", "localhost", "::1"} and (not token or not args.allow_host):
+        parser.error("远端监听需设置 SW_MCP_TOKEN 并显式指定 --allow-host")
+
+    # streamable-http is served by uvicorn, which FastMCP imports lazily.
+    if importlib.util.find_spec("uvicorn") is None:
+        raise SystemExit(
+            "streamable-http transport requires uvicorn: "
+            "python -m pip install uvicorn"
+        )
+    # FastMCP reads the bind address from its settings, so set them before run().
+    mcp.settings.host = args.host
+    mcp.settings.port = args.port
+    from mcp.server.transport_security import TransportSecuritySettings
+    from http_transport import TokenAuthMiddleware
+    import uvicorn
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", *args.allow_host],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*", *args.allow_origin],
+    )
+    uvicorn.run(TokenAuthMiddleware(mcp.streamable_http_app(), token), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

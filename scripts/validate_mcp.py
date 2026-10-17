@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = ROOT / "mcp-server" / "server.py"
 
 REQUIRED_TOOLS = {
+    "cadstudio_read_artifact",
     "cadstudio_resolve_backend",
     "cadstudio_write_open_format",
     "cadstudio_build_dxf_preview_scene",
@@ -36,10 +37,28 @@ REQUIRED_TOOLS = {
     "cadstudio_create_ocp_loft",
     "cadstudio_create_ocp_surface",
     "solidworks_health_check",
+    "solidworks_recover",
     "solidworks_connect",
     "solidworks_new_document",
     "solidworks_create_basic_part",
     "solidworks_open_document",
+    # 建模工具：这些是机械工程师实际画零件用的入口，回归保护必须覆盖。
+    "solidworks_sketch_and_extrude",
+    "solidworks_revolve",
+    "solidworks_fillet",
+    "solidworks_chamfer",
+    "solidworks_shell",
+    "solidworks_pattern",
+    "solidworks_mirror_feature",
+    "solidworks_list_edges",
+    # 几何自检工具：机械设计必须能回读实测尺寸和质量。
+    "solidworks_mass_properties",
+    "solidworks_bounding_box",
+    "solidworks_interference_check",
+    "solidworks_document_units",
+    # 规格驱动建模：可版本控制、幂等、自带验证。
+    "design_spec_validate",
+    "design_spec_build",
     "solidworks_add_component",
     "solidworks_set_component_fixed",
     "solidworks_save_document",

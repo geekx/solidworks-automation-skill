@@ -42,7 +42,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="solidworks-automation",
-    version="1.2.0",
+    version="2.0.0",
     author="wzyn20051216",
     description="Python automation toolkit for SolidWorks API",
     long_description=long_description,

@@ -1,11 +1,43 @@
-from scripts.release_check import find_bundled_skill_drift, run_release_check
+import pytest
+
+from scripts.release_check import BUNDLED_SKILL, find_bundled_skill_drift, run_release_check
 
 
 def test_release_check_passes_current_tree():
+    """@brief 发布门禁在当前工作树上必须通过。
+
+    桌面内嵌 Skill 目录被 .gitignore 排除，由 scripts/sync_bundled_skill.py 生成。
+    CI 会先执行生成步骤；本地全新克隆时该目录不存在，此时跳过，而不是把"尚未
+    生成"误报成发布缺陷。漂移检测本身的逻辑由下面几个用例独立覆盖。
+    """
+    if not BUNDLED_SKILL.is_dir():
+        pytest.skip(
+            "桌面内嵌 Skill 尚未生成；先运行 python scripts/sync_bundled_skill.py"
+        )
+
     result = run_release_check()
     assert result["status"] == "pass"
     assert result["capabilities"] >= 10
     assert result["bundled_skill_files"] >= 1
+
+
+def test_release_check_still_validates_versions_without_bundle():
+    """@brief 内嵌目录缺失时，版本一致性与能力清单校验仍必须执行。
+
+    否则本地开发会误以为"跳过了发布门禁＝通过"。
+    """
+    from scripts.release_check import _version
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    versions = {
+        _version(root / "apps/workbench-ui/package.json", r'"version"\s*:\s*"([^"]+)"'),
+        _version(root / "apps/workbench-ui/src-tauri/tauri.conf.json", r'"version"\s*:\s*"([^"]+)"'),
+        _version(root / "apps/workbench-ui/src-tauri/Cargo.toml", r'(?m)^version\s*=\s*"([^"]+)"'),
+        _version(root / "apps/workbench-ui/src/App.tsx", r'const APP_VERSION\s*=\s*"([^"]+)"'),
+    }
+
+    assert len(versions) == 1
 
 
 def test_find_bundled_skill_drift_detects_changed_and_missing_sources(tmp_path):
