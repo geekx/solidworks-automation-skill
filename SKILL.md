@@ -113,6 +113,7 @@ session.export(model, r"C:\temp\cylinder.step")
 | Motion Study 运动算例、旋转马达与结果审计 | `scripts/sw_motion.py` | `references/motion-study.md`、`references/complex-mechanical-routing.md` |
 | 工程图出图 | `scripts/sw_drawing.py` | `references/drawing.md` |
 | 非标钻孔面板孔位规整/基准推测/GD&T 自动出图 | `subskills/solidworks-engineering-drawing/scripts/drilling_panel_gdt.py` | `subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md` |
+| 工程图自动出图：.NET C# 执行器（Python 产 spec/分析，C# 落图） | `scripts/sw_drawing_dotnet.py`、`dotnet/CadStudio.SolidWorks.Drawing` | `references/drawing-dotnet-executor.md` |
 | 文件导出 | `scripts/sw_export.py` | `references/export.md` |
 | 配置族创建/激活、参数修改与自定义属性 | `scripts/sw_document_data.py` | `references/advanced.md` |
 | 装配 BOM CSV 与 Pack and Go | `scripts/sw_delivery.py` | `references/export.md` |

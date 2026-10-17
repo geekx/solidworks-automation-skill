@@ -183,6 +183,17 @@
       "requires": ["SolidWorks Routing 加载项", "有效许可证"],
       "review_required": true,
       "notes": ["缺少加载项或许可证时，切换语言无效，必须 blocked"]
+    },
+    {
+      "id": "drawing_dotnet_generation",
+      "label": "工程图自动出图（.NET C# PIA 优先）",
+      "capability_ids": ["drawings_and_bom", "drawing_dimension_insertion"],
+      "candidates": [
+        {"backend": "solidworks-csharp-pia", "semantics": "exact_automation", "priority": 10},
+        {"backend": "solidworks-com-pywin32", "semantics": "exact_automation", "priority": 20}
+      ],
+      "review_required": true,
+      "notes": ["出图封送重（IView/IDisplayDimension/InsertDatumTag2/InsertGtol/IHoleTable 多 out/ref/枚举），优先 C# PIA 强类型执行器 dotnet/CadStudio.SolidWorks.Drawing；Python 只产 drawing_spec/分析/review，经 Python launcher scripts/sw_drawing_dotnet.py 调度。Python COM 为回退。"]
     }
   ],
   "capabilities": [
@@ -514,6 +525,16 @@
       "verified_versions": [],
       "dependencies": ["python", "可选 SolidWorks"],
       "limitations": ["孔位阵列识别（栅格/线性/离散、节距/行列/规整度）、3-2-1 基准推测（A|B|C 与定位销候选）、GB/T 1182 位置度/平面度 GD&T 生成、孔表与坐标标注规划、以及真机 B-Rep 证据到孔列表的适配层均为纯函数并离线单测；生成的 drawing_spec 已通过工程图子技能 schema 校验", "已打通真机 3D→分析：analyze_model()/--from-model 复用 sw_review.collect_geometry_measurements（GetPartBox + FaceInSurfaceSense 内部孔壁）抽取孔位快照，该 COM 抽取为 pilot；把基准标签、位置度框、孔表与坐标标注真正落到 SLDDRW 由工程图子技能专项 COM 脚本执行，同为 pilot，须真机与工程复核，分析结果不得当作已自动交付图纸", "孔型无法从纯几何判定默认 clearance（需精确孔型走中性文档 holeKind）；斜向/极坐标阵列、沉头阶梯孔多段标注暂按离散簇/最小径处理；位置度/平面度默认值只是首版建议，最终公差须按功能与配合由工程师确认"],
+      "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "drawing_dotnet_generation",
+      "label": "工程图自动出图：.NET C# 执行器（Python 产 spec/分析）",
+      "level": "pilot",
+      "backends": ["solidworks-csharp-pia", "local-python"],
+      "verified_versions": [],
+      "dependencies": [".NET Framework 4.8", "SolidWorks PIA（SolidWorksApiDir）", "SolidWorks", "python"],
+      "limitations": ["分工：Python 负责非原生精度（drawing_spec 生成/校验、钻孔面板与 DRC 分析、review、调度），launcher scripts/sw_drawing_dotnet.py 的 spec 门禁/exe 解析/evidence 解析/结果汇总均离线单测；C# 执行器 dotnet/CadStudio.SolidWorks.Drawing 用强类型 PIA 落图，封送比 Python COM 稳", "C# 执行器为 pilot：需 Windows+SolidWorks+PIA 编译与真机运行，本环境无法编译/验证；可靠自动化段（命名视图、模型尺寸导入、中心标记、技术要求注释、保存/导出 PDF）直接执行，依赖具体实体选择的段（某边 GTOL、某面孔表、BOM、剖视/局部视图、投影角切换）标 pilot：尝试并如实回写 evidence，需结合 drilling_panel_gdt 几何证据与语义引用真机落地，绝不谎报已创建", "两端通过中性 drawing_spec JSON（入，已 schema 校验）+ drawing-evidence JSON（出）解耦；报告 reviewRequired=true，不得作为无人值守放行依据"],
       "allowed_modes": ["interactive", "reviewed"]
     }
   ]
