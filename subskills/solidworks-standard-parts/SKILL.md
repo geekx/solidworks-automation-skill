@@ -20,6 +20,19 @@ COM 生成器执行并做重建后回读与自审查。
 不适用：斜齿轮/锥齿轮/蜗轮蜗杆、拉伸/扭转弹簧、双节距链与非标齿形——这些先走
 `solidworks-vibecad` 规划或人工建模，不要用本子技能的直齿/压簧/滚子链公式硬套。
 
+## 与上游已真机验证的齿轮实现的关系
+
+上游 `scripts/sw_gear.py`（`references/gears.md`）已在 SolidWorks 2026 SP1.1 做过真机回归
+（m=2、z=24、α=20°：重开后 B-Rep 回读 52×52×10 mm、内孔 10 mm，单实体，SLDPRT/STEP 落盘，四视图 pass/100），
+与本子技能 `create_spur_gear.py` 覆盖同一类零件。选择建议：
+
+- **标准外啮合直齿轮、要落 SolidWorks 实体** → 优先用上游 `sw_gear.create_external_spur_gear`（有真机证据）。
+- **需要变位系数、非标齿顶/齿根高系数、或离线校验几何/力学量** → 用本子技能的纯函数
+  `standard_parts_geometry.spur_gear_profile`（支持变位 x，不依赖 SolidWorks）。
+- 两套实现的直径/齿厚/包络已由 `tests/test_gear_cross_validation.py` 交叉校验一致，并以上游真机 52 mm 外径为锚点；
+  根切判定统一为 `z_min=2(ha*-x)/sin²α`（20° → 18）。
+- 弹簧、链轮上游没有对应实现，仍以本子技能为准（pilot）。
+
 ## 稳定工作流
 
 1. 从仓库根目录运行 `python scripts/sw_preflight.py`。

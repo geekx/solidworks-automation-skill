@@ -66,7 +66,7 @@ python scripts/cad_studio.py check-drc --input part.cadstudio.json --output out/
 | DRC-HOLE-003 | holes | 螺纹啮合深度 | threadEngagementRatio |
 | DRC-HOLE-004 | holes | 孔尺寸有效性 | — |
 | DRC-STD-001 | standard_parts | 齿轮尖齿 | — |
-| DRC-STD-002 | standard_parts | 齿轮根切齿数 | gearMinTeeth |
+| DRC-STD-002 | standard_parts | 齿轮根切齿数：按压力角/齿顶高系数/变位现算 `z_min=2(ha*-x)/sin²α`（20° 为 17.097→18），`gearMinTeeth` 仅作可选覆盖；与上游真机验证的 `sw_gear` 判定交叉校验一致 | （现算）/ gearMinTeeth 覆盖 |
 | DRC-STD-003 | standard_parts | 弹簧指数范围 | springIndexMin/Max/HardMin/HardMax |
 | DRC-STD-004 | standard_parts | 弹簧实体/自由长度 | — |
 | DRC-STD-005 | standard_parts | 链轮最小齿数 | sprocketMinTeeth |

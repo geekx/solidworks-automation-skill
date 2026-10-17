@@ -22,6 +22,7 @@ NeutralCadDocument 上，按严重度聚合成一份可审计报告。既有 DFM
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,7 +47,6 @@ DEFAULT_THRESHOLDS: dict[str, float] = {
     "holeSpacingRatio": 2.0,            # 相邻孔中心距 >= ratio * 大孔半径
     "ligamentMinMm": 2.0,              # 相邻孔间腹板（边到边）最小厚度
     "threadEngagementRatio": 1.0,       # 螺纹啮合深度 >= ratio * 公称直径
-    "gearMinTeeth": 17,                 # 20° 标准全齿避免根切的最小齿数
     "sprocketMinTeeth": 17,
     "springIndexMin": 4.0,
     "springIndexMax": 12.0,
@@ -259,6 +259,27 @@ def rule_holes(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str
     return checks
 
 
+def gear_min_teeth_without_undercut(
+    pressure_angle_deg: float = 20.0,
+    addendum_coeff: float = 1.0,
+    profile_shift_coeff: float = 0.0,
+    *,
+    override: float | None = None,
+) -> int:
+    """@brief 外啮合渐开线直齿轮理论最小无根切齿数 z_min = 2(ha* - x) / sin²(α)，向上取整。
+
+    20°、ha*=1、x=0 时为 17.097 -> 18（与上游 sw_gear 真机路径一致）；14.5° 约 32；正变位 x>0 可降低下限。
+    override 非空（用户在 Profile 里显式设了 gearMinTeeth）时直接采用，保持向后兼容。
+    """
+    if override is not None:
+        return int(math.ceil(float(override)))
+    alpha = math.radians(pressure_angle_deg)
+    sin2 = math.sin(alpha) ** 2
+    if sin2 <= 0.0:
+        return 0
+    return max(0, int(math.ceil(2.0 * (addendum_coeff - profile_shift_coeff) / sin2 - 1e-9)))
+
+
 def rule_standard_parts(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     parts = ctx.get("standard_parts", [])
@@ -272,8 +293,21 @@ def rule_standard_parts(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list
                 checks.append(_check("DRC-STD-001", "standard_parts", "fail", "major", f"齿轮 {pid} 齿顶尖化（顶隙为 0）", target=pid))
             teeth = _num(part.get("teeth"))
             shift = _num(part.get("profile_shift_coeff")) or 0.0
-            if teeth is not None and teeth < th["gearMinTeeth"] and shift <= 0.0:
-                checks.append(_check("DRC-STD-002", "standard_parts", "warning", "warning", f"齿轮 {pid} 齿数 {teeth:g} 低于 {th['gearMinTeeth']:g} 且无正变位，存在根切风险", target=pid))
+            z_min = gear_min_teeth_without_undercut(
+                _num(part.get("pressure_angle_deg")) or 20.0,
+                _num(part.get("addendum_coeff")) or 1.0,
+                shift,
+                override=th.get("gearMinTeeth"),
+            )
+            if teeth is not None and teeth < z_min:
+                checks.append(
+                    _check(
+                        "DRC-STD-002", "standard_parts", "warning", "warning",
+                        f"齿轮 {pid} 齿数 {teeth:g} 低于无根切下限 {z_min}"
+                        f"（压力角 {_num(part.get('pressure_angle_deg')) or 20.0:g}°、变位 x={shift:g}），存在根切风险",
+                        target=pid, required=z_min,
+                    )
+                )
         elif ptype in {"compression_spring", "spring"}:
             index = _num(part.get("spring_index"))
             if index is not None:

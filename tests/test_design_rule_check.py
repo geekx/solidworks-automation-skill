@@ -269,3 +269,36 @@ def test_write_report_versions_and_hashes(tmp_path):
     assert first["reportPath"].endswith("drc.json")
     second = drc.write_drc_report(doc_path, out)
     assert second["reportPath"].endswith("drc.v1.json")  # 不覆盖旧文件
+
+
+def test_gear_min_teeth_depends_on_pressure_angle_and_shift():
+    f = drc.gear_min_teeth_without_undercut
+    assert f(20.0, 1.0, 0.0) == 18      # 17.097 向上取整
+    assert f(14.5, 1.0, 0.0) == 32      # 旧的固定常数 17 会在此漏报
+    assert f(25.0, 1.0, 0.0) == 12      # 旧的固定常数 17 会在此误报
+    assert f(20.0, 1.0, 0.5) < f(20.0, 1.0, 0.0)  # 正变位降低无根切下限
+    assert f(20.0, 1.0, 0.0, override=20) == 20   # 用户 Profile 显式设置时采用，向后兼容
+
+
+def _gear_doc(teeth, pressure=20.0, shift=0.0):
+    return {
+        "documentId": "g", "units": "mm", "features": [],
+        "standardParts": [{"id": "G1", "type": "spur_gear", "teeth": teeth, "pressure_angle_deg": pressure, "profile_shift_coeff": shift}],
+    }
+
+
+def test_drc_undercut_uses_pressure_angle_not_fixed_17():
+    # 14.5° 压力角、24 齿：旧逻辑(17)判无风险，实际需 >=32
+    checks = _by_id(drc.build_drc_report(_gear_doc(24, pressure=14.5)))
+    assert checks["DRC-STD-002"]["status"] == "warning"
+    # 20°、17 齿：理论 17.097，已有轻微根切
+    assert _by_id(drc.build_drc_report(_gear_doc(17)))["DRC-STD-002"]["status"] == "warning"
+    # 20°、18 齿：刚好无根切 -> 不应产生 DRC-STD-002
+    assert "DRC-STD-002" not in _by_id(drc.build_drc_report(_gear_doc(18)))
+    # 变位 x=0.5 后 12 齿可无根切
+    assert "DRC-STD-002" not in _by_id(drc.build_drc_report(_gear_doc(12, shift=0.5)))
+
+
+def test_drc_gear_min_teeth_profile_override_still_works():
+    report = drc.build_drc_report(_gear_doc(30), profiles=[{"thresholds": {"gearMinTeeth": 40}}])
+    assert _by_id(report)["DRC-STD-002"]["status"] == "warning"
