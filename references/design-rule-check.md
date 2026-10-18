@@ -143,6 +143,15 @@ CLI：`check-drc --baseline prev.json --waivers waivers.json --as-of 2026-09-08`
 发现可配置项：`list-drc-rule-packs` / MCP `cadstudio_list_drc_rule_packs`；用法
 `check-drc --rule-pack drilling_panel`。规则包本身也是声明式数据，可复制改成企业自有包。
 
+## 回归门禁（设计变更把关）
+
+`design_audit.assert_no_regression(baseline, candidate)`：候选版本相对基线**风险分变高**，或**新增 critical**（即使总分因别处改善而下降），即拒绝；已让步(waived)的不计。
+用法：`check-drc --baseline prev.json --fail-on-regression [--regression-tolerance N]`，或 MCP `cadstudio_check_drc` 的 `regression_gate=true`；结果在 `report.regressionGate`，未提供 baseline 时**明确失败**而非静默通过。
+
+## 电机扭矩核验（DRC-DRV-*）
+
+见 [`drive-sizing.md`](drive-sizing.md)。输入为 `metadata.drives[]`，阈值 `driveTorqueSafetyFactor / driveRmsUtilizationMax / driveInertiaRatioWarn / driveInertiaRatioMax` 可经 Profile 覆盖（多 Profile 合并取更严）。
+
 ## 边界
 
 - 从活动 SolidWorks 模型抽取快照为 pilot，需真机验证。

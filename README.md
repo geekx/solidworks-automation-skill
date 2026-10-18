@@ -167,6 +167,7 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 | Drilling Panel | 非标钻孔面板：孔位规整、3-2-1 基准推测、GB/T 位置度/平面度 GD&T、孔表+坐标标注，生成 drawing_spec | `pilot` |
 | Standard Parts | 渐开线直齿轮 / 压缩弹簧 / 滚子链链轮参数化生成（几何纯函数离线单测） | `pilot` |
 | Drawing Backend | Python 规划 + .NET C# PIA 落图（路由 C# 优先、Python COM 兜底） | `pilot` |
+| Drive Sizing | 电机扭矩核验（丝杠/皮带：峰值·RMS 转矩、转速、惯量比、垂直轴抱闸），并入 DRC 的 `DRC-DRV-*`；设计变更回归门禁 | `pilot` |
 | Utilities | 尺寸公差批量抽取→CSV、按属性批量改名（dry-run + 参照安全 Pack and Go） | `pilot` |
 
 状态等级（`capabilities.yaml` 定义）：
@@ -215,6 +216,7 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 | Design Audit (DRC) | [`references/design-rule-check.md`](references/design-rule-check.md) |
 | Drilling Panel GD&T | [`subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md`](subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md) |
 | .NET Drawing Executor | [`references/drawing-dotnet-executor.md`](references/drawing-dotnet-executor.md) |
+| Drive Sizing | [`references/drive-sizing.md`](references/drive-sizing.md) |
 | Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | Subskills | [`SUBSKILLS.md`](SUBSKILLS.md) |
 | API / Backend | [`references/`](references/) |

@@ -302,3 +302,115 @@ def test_drc_undercut_uses_pressure_angle_not_fixed_17():
 def test_drc_gear_min_teeth_profile_override_still_works():
     report = drc.build_drc_report(_gear_doc(30), profiles=[{"thresholds": {"gearMinTeeth": 40}}])
     assert _by_id(report)["DRC-STD-002"]["status"] == "warning"
+
+
+# ---- 回归门禁集成 ----
+
+
+def _regress_doc(edge):
+    return {"documentId": "r", "units": "mm", "features": [{"id": "H1", "type": "hole", "parameters": {"diameter": 6, "x": 0, "y": 0, "edgeDistance": edge}}]}
+
+
+def test_drc_regression_gate_passes_on_improvement_and_fails_on_worse():
+    worse = drc.build_drc_report(_regress_doc(1.0))   # 边距 1mm：fail
+    better = drc.build_drc_report(_regress_doc(10.0))  # 边距充足
+    ok = drc.build_drc_report(_regress_doc(10.0), baseline=worse, regression_gate=True)
+    assert ok["regressionGate"]["passed"] is True
+    bad = drc.build_drc_report(_regress_doc(1.0), baseline=better, regression_gate=True)
+    assert bad["regressionGate"]["passed"] is False
+    assert bad["regressionGate"]["delta"] > 0
+
+
+def test_drc_regression_gate_requires_baseline():
+    report = drc.build_drc_report(_regress_doc(1.0), regression_gate=True)
+    assert report["regressionGate"]["passed"] is False
+    assert report["regressionGate"]["error"] == "baseline_required"
+
+
+def test_drc_without_gate_has_no_regression_key():
+    assert "regressionGate" not in drc.build_drc_report(_regress_doc(1.0))
+
+
+def test_drc_cli_exit_code_follows_regression_gate(tmp_path):
+    import json as _json
+    base = tmp_path / "base.json"
+    base.write_text(_json.dumps(drc.build_drc_report(_regress_doc(10.0))), encoding="utf-8")
+    doc = tmp_path / "d.json"
+    doc.write_text(_json.dumps(_regress_doc(10.0)), encoding="utf-8")  # 与基线同等好 -> 门禁通过
+    assert drc.main([str(doc), "--baseline", str(base), "--fail-on-regression"]) == 0
+    worse = tmp_path / "w.json"
+    worse.write_text(_json.dumps(_regress_doc(1.0)), encoding="utf-8")
+    assert drc.main([str(worse), "--baseline", str(base), "--fail-on-regression"]) == 1
+
+
+# ---- 电机扭矩核验并入 DRC ----
+
+
+def _drive_doc(motor=None, **load):
+    spec = {
+        "id": "X轴",
+        "load": {"mass_kg": 50, "incline_deg": 0, "friction_coeff": 0.1, **load},
+        "motion": {"distance_mm": 500, "max_speed_mm_s": 500, "accel_mm_s2": 2000, "round_trip": False},
+        "transmission": {"type": "lead_screw", "lead_mm": 10, "efficiency": 0.9, "screw_diameter_mm": 20, "screw_length_mm": 600},
+        "motor": motor if motor is not None else {"peak_torque_nm": 1.5, "rated_torque_nm": 0.64, "rated_speed_rpm": 3000, "max_speed_rpm": 5000, "rotor_inertia_kgm2": 0.5e-4},
+    }
+    return {"documentId": "d", "units": "mm", "features": [], "metadata": {"drives": [spec]}}
+
+
+def test_drc_drive_rules_pass_with_adequate_motor():
+    checks = _by_id(drc.build_drc_report(_drive_doc()))
+    for rid in ("DRC-DRV-001", "DRC-DRV-002", "DRC-DRV-003", "DRC-DRV-004"):
+        assert checks[rid]["status"] == "pass", rid
+    assert checks["DRC-DRV-001"]["standard"]  # 带出处
+
+
+def test_drc_drive_rules_fail_with_undersized_motor_and_feed_risk_score():
+    small = {"peak_torque_nm": 0.5, "rated_torque_nm": 0.2, "rated_speed_rpm": 3000, "max_speed_rpm": 5000, "rotor_inertia_kgm2": 0.5e-4}
+    report = drc.build_drc_report(_drive_doc(motor=small))
+    checks = _by_id(report)
+    assert checks["DRC-DRV-001"]["status"] == "fail" and checks["DRC-DRV-002"]["status"] == "fail"
+    assert report["riskScore"]["score"] >= 10.0  # 两个 major
+    assert all("fingerprint" in c for c in report["checks"] if c["id"].startswith("DRC-DRV"))
+
+
+def test_drc_drive_profile_override_flips_result():
+    spec_doc = _drive_doc(motor={"peak_torque_nm": 0.7, "rated_torque_nm": 0.64, "rated_speed_rpm": 3000, "max_speed_rpm": 5000, "rotor_inertia_kgm2": 0.5e-4})
+    assert _by_id(drc.build_drc_report(spec_doc))["DRC-DRV-001"]["status"] == "pass"
+    strict = drc.build_drc_report(spec_doc, profiles=[{"thresholds": {"driveTorqueSafetyFactor": 2.0}}])
+    assert _by_id(strict)["DRC-DRV-001"]["status"] == "fail"
+
+
+def test_drc_drive_maximum_thresholds_merge_to_stricter_value():
+    from scripts import design_rule_profiles as prof
+
+    merged = prof.merge_profiles([
+        {"thresholds": {"driveRmsUtilizationMax": 0.9, "driveInertiaRatioMax": 10}},
+        {"thresholds": {"driveRmsUtilizationMax": 0.7, "driveInertiaRatioMax": 5}},
+    ])
+    assert merged["thresholds"]["driveRmsUtilizationMax"] == 0.7   # 取更小=更严
+    assert merged["thresholds"]["driveInertiaRatioMax"] == 5
+
+
+def test_drc_invalid_drive_spec_is_reported_not_skipped():
+    doc = _drive_doc()
+    doc["metadata"]["drives"][0]["load"]["mass_kg"] = -5
+    checks = _by_id(drc.build_drc_report(doc))
+    assert checks["DRC-DRV-900"]["status"] == "fail"
+    assert "mass_kg" in checks["DRC-DRV-900"]["message"]
+
+
+def test_drc_vertical_axis_without_brake_is_critical_in_report():
+    report = drc.build_drc_report(_drive_doc(incline_deg=90))
+    c = _by_id(report)["DRC-DRV-005"]
+    assert c["status"] == "fail" and c["severity"] == "critical"
+
+
+def test_drc_without_drives_skips_with_info():
+    assert _by_id(drc.build_drc_report(_regress_doc(10.0)))["DRC-DRV-000"]["status"] == "info"
+
+
+def test_drc_drive_regression_gate_catches_weaker_motor():
+    good = drc.build_drc_report(_drive_doc())
+    weak = {"peak_torque_nm": 0.5, "rated_torque_nm": 0.2, "rated_speed_rpm": 3000, "max_speed_rpm": 5000, "rotor_inertia_kgm2": 0.5e-4}
+    swapped = drc.build_drc_report(_drive_doc(motor=weak), baseline=good, regression_gate=True)
+    assert swapped["regressionGate"]["passed"] is False   # 换了更小的电机 = 设计变差，门禁拒绝

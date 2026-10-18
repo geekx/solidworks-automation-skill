@@ -440,6 +440,8 @@ class CadStudioDrcCheckInput(BaseInput):
     baseline_path: Optional[str] = Field(default=None, description="Optional prior DRC report JSON for new/fixed/persisting diff.")
     waivers: list[dict[str, Any]] = Field(default_factory=list, max_length=256, description="Waivers (fingerprint or ruleId + reason + owner, optional expiresOn) to exclude accepted findings from the gate.")
     as_of_date: Optional[str] = Field(default=None, description="ISO date used to expire waivers, e.g. 2026-09-08.")
+    regression_gate: bool = Field(default=False, description="Regression gate (needs baseline_path): reject when the candidate raises the weighted risk score or introduces a new critical finding. Result in report.regressionGate.")
+    regression_tolerance: float = Field(default=0.0, ge=0.0, description="Allowed risk-score increase for the regression gate.")
     response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
 
     @field_validator("input_path")
@@ -1544,6 +1546,8 @@ def cadstudio_check_drc(params: CadStudioDrcCheckInput) -> str:
             baseline=baseline,
             waivers=params.waivers or None,
             as_of_date=params.as_of_date,
+            regression_gate=params.regression_gate,
+            regression_tolerance=params.regression_tolerance,
         )
 
     return _run_locked(op, params.response_format, load_automation=False)

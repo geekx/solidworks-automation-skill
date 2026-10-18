@@ -547,6 +547,16 @@
       "dependencies": [".NET Framework 4.8", "SolidWorks PIA（SolidWorksApiDir）", "SolidWorks", "python"],
       "limitations": ["分工：Python 负责非原生精度（drawing_spec 生成/校验、钻孔面板与 DRC 分析、review、调度），launcher scripts/sw_drawing_dotnet.py 的 spec 门禁/exe 解析/evidence 解析/结果汇总均离线单测；C# 执行器 dotnet/CadStudio.SolidWorks.Drawing 用强类型 PIA 落图，封送比 Python COM 稳", "C# 执行器为 pilot：需 Windows+SolidWorks+PIA 编译与真机运行，本环境无法编译/验证；可靠自动化段（命名视图、模型尺寸导入、中心标记、技术要求注释、保存/导出 PDF）直接执行，依赖具体实体选择的段（某边 GTOL、某面孔表、BOM、剖视/局部视图、投影角切换）标 pilot：尝试并如实回写 evidence，需结合 drilling_panel_gdt 几何证据与语义引用真机落地，绝不谎报已创建", "两端通过中性 drawing_spec JSON（入，已 schema 校验）+ drawing-evidence JSON（出）解耦；报告 reviewRequired=true，不得作为无人值守放行依据"],
       "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "drive_sizing_check",
+      "label": "电机扭矩核验（选型初筛，并入 DRC 的 DRC-DRV-*）",
+      "level": "pilot",
+      "backends": ["local-python"],
+      "verified_versions": [],
+      "dependencies": ["python"],
+      "limitations": ["丝杠/皮带传动的负载折算、加速转矩、峰值与 RMS 转矩、最高转速、惯量比、垂直轴抱闸判据均为纯函数，以事先手算的完整算例为锚点离线单测，并做皮带≡丝杠物理等价、减速比反射、位移守恒、符号等独立检验", "安全系数、RMS 利用率、惯量比阈值是工程惯例的起点而非标准，可经 DRC Profile 覆盖；输出原样给出所用阈值、余量与控制性约束；缺电机数据对应项为 info 不当作通过", "选型初筛与审计辅助，不替代厂商选型软件与工程师签署，报告始终 reviewRequired=true；未覆盖丝杠临界转速/压杆稳定、皮带张力、寿命、转矩-转速曲线、旋转负载直驱；从 3D 自动取质量/行程与带出处的电机目录见 docs/ROADMAP.md"],
+      "allowed_modes": ["interactive", "reviewed"]
     }
   ]
 }

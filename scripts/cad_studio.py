@@ -162,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
     drc.add_argument("--baseline", type=Path, help="上一版 DRC 报告 JSON，用于 new/fixed/persisting 增量 diff")
     drc.add_argument("--waivers", type=Path, help="让步单 JSON 数组文件（fingerprint 或 ruleId + reason + owner，可选 expiresOn）")
     drc.add_argument("--as-of", help="让步单过期判定的当前日期 ISO")
+    drc.add_argument("--fail-on-regression", action="store_true", help="回归门禁：相对 --baseline 风险分变差或新增 critical 即非零退出")
+    drc.add_argument("--regression-tolerance", type=float, default=0.0, help="回归门禁允许的风险分上升容差")
     sub.add_parser("list-drc-rules")
     sub.add_parser("list-drc-rule-packs")
     fea_preflight = sub.add_parser("fea-preflight")
@@ -271,9 +273,12 @@ def main(argv: list[str] | None = None) -> int:
             baseline=args.baseline,
             waivers=waivers,
             as_of_date=args.as_of,
+            regression_gate=args.fail_on_regression,
+            regression_tolerance=args.regression_tolerance,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 1 if result.get("status") in {"blocked", "fail"} else 0
+        gate_failed = isinstance(result.get("regressionGate"), dict) and not result["regressionGate"].get("passed", True)
+        return 1 if result.get("status") in {"blocked", "fail"} or gate_failed else 0
     if args.command == "list-drc-rules":
         from design_rule_check import list_rules
 

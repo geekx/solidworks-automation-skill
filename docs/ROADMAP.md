@@ -41,7 +41,9 @@
 | P2 | 电机→丝杠→滑台、气缸+电磁阀回路两个图，**读数直接取自 §2/§3 的核验结果** | 核验结果变更→图中读数同步变化（单测覆盖） | M |
 | P3 | MCP 工具（候选名 `cadstudio_build_explainer`）+ CAD Studio 预览清单接入（`isDemo:true`） | `validate_mcp` 登记；预览清单不被当作交付证据 | S |
 
-## 2. 电机扭矩核验（`planned`）
+## 2. 电机扭矩核验（P0/P1 已实现为 `pilot`，P2 起 `planned`）
+
+> 已落地：`scripts/drive_sizing.py` + DRC 规则族 `DRC-DRV-001…005/900`，详见 [`references/drive-sizing.md`](../references/drive-sizing.md)。下表 P0、P1 已完成。
 
 目标：给定机构与运动曲线，判断所选电机/减速机**是否满足场景**，并给出余量与最危险的约束项。
 
@@ -99,7 +101,7 @@
 | 项 | 来源 | 说明 | 规模 |
 |---|---|---|---|
 | 收敛到**单一齿轮实现** | 上游 `sw_gear`（有 SW2026 真机证据）与本分支 `create_spur_gear.py` 重叠 | 现已文档化选择建议并交叉校验；下一步让 `create_spur_gear.py` 在 `x=0` 时委托上游路径，仅在需要变位等扩展时走自有路径 | S |
-| **回归门禁** | 对标 `ai-cad-labs/ai-cad`（“修复使评分变差则拒绝”） | 在 `design_audit` 增 `assert_no_regression(baseline, candidate)`，纯函数可测 | S |
+| ~~**回归门禁**~~ ✅ | 对标 `ai-cad-labs/ai-cad`（“修复使评分变差则拒绝”） | 已实现：`design_audit.assert_no_regression`（风险分变差或新增 critical 即拒绝）+ DRC `--fail-on-regression` / MCP `regression_gate` | 完成 |
 | **CadQuery/OCP 高层后端** | 同上 | 我们已依赖同一内核 `cadquery-ocp`；用高层 API 提供可在本地真实 build+回读的 headless 实现，把部分 `pilot` 变为本地可验证 | M |
 | 规则生命周期（proposed/active/retired）与 placeholder 检测、每次运行自动复盘 | 同上 | 轻量治理增量 | S |
 | 孔型来源 | 钻孔面板 | 从 Hole Wizard/装饰螺纹特征名判定 tapped/dowel，提升真机路径孔型准确度 | M |

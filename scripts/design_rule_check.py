@@ -30,12 +30,14 @@ from typing import Any, Callable, Mapping, Sequence
 
 try:
     from .design_rule_profiles import DrcProfileError, list_rule_packs, load_profile, load_rule_pack, merge_profiles
-    from .design_audit import summarize_audit
+    from .design_audit import assert_no_regression, summarize_audit
     from .fastener_audit import audit_fastener_holes, parse_fastener_hole
+    from .drive_sizing import DEFAULT_LIMITS as DRIVE_DEFAULT_LIMITS, evaluate_drive
 except ImportError:
     from design_rule_profiles import DrcProfileError, list_rule_packs, load_profile, load_rule_pack, merge_profiles
-    from design_audit import summarize_audit
+    from design_audit import assert_no_regression, summarize_audit
     from fastener_audit import audit_fastener_holes, parse_fastener_hole
+    from drive_sizing import DEFAULT_LIMITS as DRIVE_DEFAULT_LIMITS, evaluate_drive
 
 UNIT_TO_MM = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "inch": 25.4}
 
@@ -53,6 +55,8 @@ DEFAULT_THRESHOLDS: dict[str, float] = {
     "springIndexHardMin": 3.0,
     "springIndexHardMax": 16.0,
 }
+
+DEFAULT_THRESHOLDS.update(DRIVE_DEFAULT_LIMITS)  # 电机扭矩核验阈值（可经 Profile 覆盖）
 
 _SEVERITY_TO_STATUS = {"critical": "fail", "major": "fail", "warning": "warning", "minor": "warning", "info": "info"}
 
@@ -170,6 +174,8 @@ def _extract_context(document: Mapping[str, Any]) -> dict[str, Any]:
     fastener_holes = [parsed for f in features if (parsed := parse_fastener_hole(f)) is not None]
     fastener_stacks = metadata.get("fastenerStacks") if isinstance(metadata.get("fastenerStacks"), list) else []
     fastener_stacks = [s for s in fastener_stacks if isinstance(s, Mapping)]
+    drives = metadata.get("drives") if isinstance(metadata.get("drives"), list) else []
+    drives = [d for d in drives if isinstance(d, Mapping)]
 
     return {
         "documentId": str(document.get("documentId")),
@@ -188,6 +194,7 @@ def _extract_context(document: Mapping[str, Any]) -> dict[str, Any]:
         "hole_callouts": hole_callouts,
         "fastener_holes": fastener_holes,
         "fastener_stacks": fastener_stacks,
+        "drives": drives,
     }
 
 
@@ -477,6 +484,24 @@ def rule_fastener(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[
     return audit_fastener_holes(ctx.get("fastener_holes", []), stacks=ctx.get("fastener_stacks", []))
 
 
+def rule_drives(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str, Any]]:
+    """@brief 电机扭矩核验（drive_sizing）：峰值/RMS 转矩、转速、惯量比、垂直轴抱闸。
+
+    输入取自 metadata.drives[]（drive-spec）。非法 spec 给出 DRC-DRV-900 而不是静默跳过。
+    """
+    drives = ctx.get("drives", [])
+    if not drives:
+        return [_check("DRC-DRV-000", "drive", "info", "info", "无驱动(drive-spec)元数据，跳过电机扭矩核验")]
+    limits = {k: th[k] for k in DRIVE_DEFAULT_LIMITS if k in th}
+    checks: list[dict[str, Any]] = []
+    for index, spec in enumerate(drives):
+        try:
+            checks.extend(evaluate_drive(spec, limits)["checks"])
+        except ValueError as exc:
+            checks.append(_check("DRC-DRV-900", "drive", "fail", "major", f"驱动 {spec.get('id') or index} 的 drive-spec 无效: {exc}", target=str(spec.get("id") or index)))
+    return checks
+
+
 BUILTIN_RULES: list[Callable[[Mapping[str, Any], Mapping[str, float]], list[dict[str, Any]]]] = [
     rule_geometry,
     rule_holes,
@@ -487,6 +512,7 @@ BUILTIN_RULES: list[Callable[[Mapping[str, Any], Mapping[str, float]], list[dict
     rule_drawing,
     rule_relations,
     rule_fastener,
+    rule_drives,
 ]
 
 RULE_CATALOG = [
@@ -514,6 +540,11 @@ RULE_CATALOG = [
     {"id": "DRC-CSK-003", "category": "fastener", "title": "沉孔深度容纳头高", "thresholds": [], "severity": "warning"},
     {"id": "DRC-CSK-004", "category": "fastener", "title": "沉头朝向配合面", "thresholds": [], "severity": "critical"},
     {"id": "DRC-CSK-005", "category": "fastener", "title": "同组沉头朝向一致性", "thresholds": [], "severity": "warning"},
+    {"id": "DRC-DRV-001", "category": "drive", "title": "电机峰值转矩(含安全系数)", "thresholds": ["driveTorqueSafetyFactor"], "severity": "major"},
+    {"id": "DRC-DRV-002", "category": "drive", "title": "电机 RMS 转矩 vs 额定", "thresholds": ["driveRmsUtilizationMax"], "severity": "major"},
+    {"id": "DRC-DRV-003", "category": "drive", "title": "需求转速 vs 电机转速", "thresholds": [], "severity": "major"},
+    {"id": "DRC-DRV-004", "category": "drive", "title": "负载/转子惯量比", "thresholds": ["driveInertiaRatioWarn", "driveInertiaRatioMax"], "severity": "major"},
+    {"id": "DRC-DRV-005", "category": "drive", "title": "垂直/倾斜轴抱闸", "thresholds": [], "severity": "critical"},
     {"id": "DRC-FIT-001", "category": "fastener", "title": "跨零件沉头/头部避让(pilot)", "thresholds": [], "severity": "major"},
 ]
 
@@ -544,6 +575,11 @@ RULE_CLAUSES = {
     "DRC-CSK-004": {"standard": "装配设计", "clause": "沉头朝向/结合面"},
     "DRC-CSK-005": {"standard": "装配设计", "clause": "紧固方向一致性"},
     "DRC-FIT-001": {"standard": "装配设计", "clause": "紧固件头部避让"},
+    "DRC-DRV-001": {"standard": "伺服选型通用做法(厂商选型手册)", "clause": "峰值转矩校核与安全系数"},
+    "DRC-DRV-002": {"standard": "伺服选型通用做法(厂商选型手册)", "clause": "连续(RMS)转矩校核"},
+    "DRC-DRV-003": {"standard": "伺服选型通用做法(厂商选型手册)", "clause": "转速与转矩-转速曲线"},
+    "DRC-DRV-004": {"standard": "伺服选型通用做法(厂商选型手册)", "clause": "惯量比(随厂商/动态要求而异)"},
+    "DRC-DRV-005": {"standard": "机械安全设计通用做法", "clause": "垂直轴断电保持/抱闸"},
 }
 
 
@@ -564,7 +600,7 @@ def list_rules() -> dict[str, Any]:
         "rules": [dict(rule, **{"clause": RULE_CLAUSES.get(rule["id"])}) for rule in RULE_CATALOG],
         "defaultThresholds": dict(DEFAULT_THRESHOLDS),
         "customRule": {
-            "categories": sorted({"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "fastener", "custom"}),
+            "categories": sorted({"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "fastener", "drive", "custom"}),
             "severities": ["info", "minor", "warning", "major", "critical"],
             "operators": ["lt", "lte", "gt", "gte", "eq", "ne"],
             "appliesTo": ["hole", "feature", "standard_part", "document"],
@@ -686,6 +722,8 @@ def build_drc_report(
     waivers: Sequence[Mapping[str, Any]] | None = None,
     risk_weights: Mapping[str, float] | None = None,
     as_of_date: str | None = None,
+    regression_gate: bool = False,
+    regression_tolerance: float = 0.0,
 ) -> dict[str, Any]:
     """@brief 在中性文档上运行 DRC 并返回报告（不写盘）。
 
@@ -695,6 +733,7 @@ def build_drc_report(
     - waivers：让步单列表（理由/责任人/有效期），命中且未过期的 finding 退出门禁。
     - risk_weights：风险评分权重覆盖。
     - as_of_date：让步单过期判定的当前日期（ISO）。
+    - regression_gate：回归门禁（需 baseline）。候选风险分高于基线或新增 critical 即 regressionGate.passed=False。
     每条内置 finding 附带 fingerprint 与标准条款出处；报告含 audit 块与加权风险评分。
     """
     try:
@@ -742,6 +781,15 @@ def build_drc_report(
     )
     checks = audit.pop("checks")
 
+    regression = None
+    if regression_gate:
+        if not isinstance(baseline_report, Mapping):
+            regression = {"passed": False, "reasons": ["启用回归门禁必须提供 baseline（上一版 DRC 报告）"], "error": "baseline_required"}
+        else:
+            regression = assert_no_regression(
+                baseline_report.get("checks", []), checks, weights=risk_weights, tolerance=regression_tolerance
+            )
+
     summary = {
         "fail": sum(1 for c in checks if c["status"] == "fail"),
         "warning": sum(1 for c in checks if c["status"] == "warning"),
@@ -762,6 +810,7 @@ def build_drc_report(
         "summary": summary,
         "checks": checks,
         "audit": audit,
+        **({"regressionGate": regression} if regression is not None else {}),
         "profileApplied": {
             "id": profile.get("id", "default"),
             "rulePacks": list(rule_packs or []),
@@ -807,6 +856,8 @@ def write_drc_report(
     waivers: Sequence[Mapping[str, Any]] | None = None,
     risk_weights: Mapping[str, float] | None = None,
     as_of_date: str | None = None,
+    regression_gate: bool = False,
+    regression_tolerance: float = 0.0,
 ) -> dict[str, Any]:
     """@brief 运行 DRC 并写出版本化报告，返回值附带 SHA-256 产物证据。"""
     report = build_drc_report(
@@ -817,6 +868,8 @@ def write_drc_report(
         waivers=waivers,
         risk_weights=risk_weights,
         as_of_date=as_of_date,
+        regression_gate=regression_gate,
+        regression_tolerance=regression_tolerance,
     )
     target = _versioned_target(Path(output_path).expanduser().resolve())
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -848,6 +901,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--baseline", help="上一版 DRC 报告 JSON 路径，用于增量 diff。")
     parser.add_argument("--waivers", help="让步单 JSON 数组文件（含 fingerprint 或 ruleId、reason、owner、可选 expiresOn）。")
     parser.add_argument("--as-of", help="让步单过期判定的当前日期 ISO，如 2026-09-08。")
+    parser.add_argument("--fail-on-regression", action="store_true", help="回归门禁：相对 --baseline 风险分变差或新增 critical 时以非零码退出。")
+    parser.add_argument("--regression-tolerance", type=float, default=0.0, help="回归门禁允许的风险分上升容差，默认 0。")
     parser.add_argument("--list-rules", action="store_true", help="打印内置规则目录与默认阈值后退出。")
     parser.add_argument("--list-rule-packs", action="store_true", help="打印内置行业规则包后退出。")
     args = parser.parse_args(argv)
@@ -867,13 +922,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         baseline=args.baseline,
         waivers=waivers,
         as_of_date=args.as_of,
+        regression_gate=args.fail_on_regression,
+        regression_tolerance=args.regression_tolerance,
     )
     if args.output:
         report = write_drc_report(args.input, args.output, **kwargs)
     else:
         report = build_drc_report(args.input, **kwargs)
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 1 if report.get("status") in {"blocked", "fail"} else 0
+    gate_failed = isinstance(report.get("regressionGate"), dict) and not report["regressionGate"].get("passed", True)
+    return 1 if report.get("status") in {"blocked", "fail"} or gate_failed else 0
 
 
 if __name__ == "__main__":
