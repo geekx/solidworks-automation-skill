@@ -10,7 +10,9 @@ on:
 
 jobs:
   test-and-build:
-    runs-on: windows-latest
+    # @brief 固定已验证的桌面验收环境，避免 windows-latest 的 Server 2025/WebView2 回归。
+    # 上游跟踪：https://github.com/actions/runner-images/issues/14738
+    runs-on: windows-2022
     permissions:
       contents: write
     steps:
@@ -35,25 +37,33 @@ jobs:
       - name: Generate bundled desktop skill
         run: python scripts/sync_bundled_skill.py
       - name: Run Python tests
-        run: |
-          python -m pytest -q
-          python scripts/validate_skill.py
-          python scripts/validate_mcp.py
-          python scripts/release_check.py
+        run: python -m pytest -q
+      - name: Validate skill
+        run: python scripts/validate_skill.py
+      - name: Validate MCP protocol
+        run: python scripts/validate_mcp.py
+      - name: Check release contracts
+        run: python scripts/release_check.py
       - name: Install frontend dependencies
         working-directory: apps/workbench-ui
         run: npm ci
+      - name: Test package startup diagnostics
+        run: node --test tests/test_release_portable_wait.cjs
+      - name: Test frontend
+        working-directory: apps/workbench-ui
+        run: npm test
       - name: Build frontend
         working-directory: apps/workbench-ui
-        run: |
-          npm test
-          npm run build
+        run: npm run build
+      - name: Check Rust formatting
+        working-directory: apps/workbench-ui/src-tauri
+        run: cargo fmt -- --check
       - name: Test Rust backend
         working-directory: apps/workbench-ui/src-tauri
-        run: |
-          cargo fmt -- --check
-          cargo test
-          cargo clippy -- -D warnings
+        run: cargo test
+      - name: Lint Rust backend
+        working-directory: apps/workbench-ui/src-tauri
+        run: cargo clippy -- -D warnings
       - name: Configure updater signing key
         working-directory: apps/workbench-ui
         env:
@@ -70,11 +80,24 @@ jobs:
             $passwordBytes = New-Object byte[] 32
             [System.Security.Cryptography.RandomNumberGenerator]::Fill($passwordBytes)
             $signingPassword = [Convert]::ToBase64String($passwordBytes)
-            npx tauri signer generate --password $signingPassword --write-keys $temporaryKey --ci
+            Write-Output "::add-mask::$signingPassword"
+            # @brief CLI 会打印临时私钥；生成输出只在失败时报告固定错误，避免进入日志。
+            $generatedKeyOutput = npx tauri signer generate --password $signingPassword --write-keys $temporaryKey --ci 2>&1
             if ($LASTEXITCODE -ne 0) { throw "Cannot generate temporary updater signing key." }
             $signingKey = Get-Content -LiteralPath $temporaryKey -Raw
+            # @brief fork 无生产密钥时，测试包与验签必须使用同一临时公钥；不修改仓库中的生产配置。
+            $temporaryPublicKey = (Get-Content -LiteralPath "$temporaryKey.pub" -Raw).Trim()
+            if ([string]::IsNullOrWhiteSpace($temporaryPublicKey)) { throw "Temporary updater public key is missing." }
+            $configPath = Join-Path $PWD "src-tauri/tauri.conf.json"
+            $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            $config.plugins.updater.pubkey = $temporaryPublicKey
+            [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 100), (New-Object System.Text.UTF8Encoding($false)))
           }
           if ([string]::IsNullOrWhiteSpace($signingPassword)) { throw "Updater signing key password is missing." }
+          foreach ($keyLine in ($signingKey -split "`r?`n")) {
+            if (-not [string]::IsNullOrWhiteSpace($keyLine)) { Write-Output "::add-mask::$keyLine" }
+          }
+          Write-Output "::add-mask::$signingPassword"
           "TAURI_SIGNING_PRIVATE_KEY<<CAD_STUDIO_SIGNING_KEY" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $signingKey | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "CAD_STUDIO_SIGNING_KEY" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -86,10 +109,17 @@ jobs:
       - name: Install Playwright browser
         working-directory: apps/workbench-ui
         run: npx playwright install chromium
-      - name: Test portable and installer packages
-        run: |
-          node ai_team/release-portable-e2e.cjs
-          powershell -NoProfile -File ai_team/nsis-install-e2e.ps1
+      - name: Test portable package
+        run: node ai_team/release-portable-e2e.cjs
+      - name: Test installer package
+        run: powershell -NoProfile -File ai_team/nsis-install-e2e.ps1
+      - name: Upload package startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cad-studio-package-diagnostics
+          path: release-output/e2e-diagnostics.*
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: cad-studio-windows-x64

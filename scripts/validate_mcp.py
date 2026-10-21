@@ -18,6 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = ROOT / "mcp-server" / "server.py"
 
 REQUIRED_TOOLS = {
+    "solidworks_inspect_native_geometry",
+    "solidworks_build_round_sweeps",
+    "solidworks_import_step_part",
+    "solidworks_replace_component_preserving_transform",
+    "solidworks_exclude_reviewed_bodies",
     "cadstudio_read_artifact",
     "cadstudio_resolve_backend",
     "cadstudio_write_open_format",

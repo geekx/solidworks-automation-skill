@@ -380,3 +380,7 @@ DRC 面向 harness 通过 MCP 使用，用于**设计意图层**审计，与 `ca
 - DRC 只审查中性文档已提供的证据，缺失截面按 info 跳过不代表合格；从活动 SolidWorks 模型抽取快照为 pilot，需真机验证。
 - 受限封闭直纹 Loft 可生成并重开真实 STEP/BREP；平滑 Loft、扫描、自由曲面、G1/G2 和模具仍只开放结构化计划门禁。
 - SolidWorks Motion / Simulation 许可证差异可能影响计算能力；缺少合法加载项或授权时返回 `blocked`，不尝试绕过。
+
+## 原生圆截面路径工具
+
+五个受保护的试验性工具支持原生扫描、STEP 导入、实体审查/排除和保持位置的组件替换。规格、限制和审查要求见 [工具说明](../docs/native-wire-tools.md)。

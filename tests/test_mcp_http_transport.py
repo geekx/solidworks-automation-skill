@@ -45,16 +45,19 @@ def test_http_host_auth_image_and_binary_resource_roundtrip(tmp_path):
             headers = {"Accept": "application/json, text/event-stream", "Host": f"cad.example:{port}", "Authorization": "Bearer " + token}
             message = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25",
                 "capabilities": {}, "clientInfo": {"name": "contract-test", "version": "1"}}}
-            for _ in range(100):
+            # @brief Windows 在服务尚未监听时也可能连接超时；只在启动窗口内重试连接错误。
+            startup_deadline = time.monotonic() + 30
+            while time.monotonic() < startup_deadline:
+                if process.poll() is not None:
+                    raise AssertionError((tmp_path / "server.log").read_text())
                 try:
-                    response = httpx.post(url, json=message, headers=headers, trust_env=False, timeout=2)
+                    response = httpx.post(url, json=message, headers=headers, trust_env=False,
+                                          timeout=httpx.Timeout(5, connect=.5))
                     break
-                except httpx.ConnectError:
-                    if process.poll() is not None:
-                        raise AssertionError((tmp_path / "server.log").read_text())
+                except (httpx.ConnectError, httpx.ConnectTimeout):
                     time.sleep(.1)
             else:
-                raise AssertionError("HTTP MCP 启动超时")
+                raise AssertionError("HTTP MCP 启动超时\n" + (tmp_path / "server.log").read_text())
             assert response.status_code == 200
             denied = {**headers, "Authorization": "Bearer wrong"}
             assert httpx.post(url, json=message, headers=denied, trust_env=False).status_code == 401
