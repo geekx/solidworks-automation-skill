@@ -63,14 +63,6 @@ python scripts/cad_studio.py create-ocp-loft --input .\loft.json --out-dir .\out
 python scripts/cad_studio.py create-ocp-surface --input .\smooth-loft.json --out-dir .\output\surface
 ```
 
-<p align="center">
-  <img src="assets/douyin-balance.jpg" alt="抖音 @balance. 关注二维码" width="320">
-  <br>
-  <strong>关注抖音 @balance.</strong>
-  <br>
-  <sub>嵌入式开发、SolidWorks 自动化和 AI 辅助工程实践持续更新</sub>
-</p>
-
 [English](#english) | [中文](#中文)
 
 > **CAD Studio 桌面版**：下载、环境要求和完整操作流程见 [CAD Studio 用户说明书](docs/CAD_STUDIO_USER_MANUAL.md)。Windows 安装包与便携 ZIP 发布在 [GitHub Releases](https://github.com/wzyn20051216/solidworks-automation-skill/releases)。
@@ -647,15 +639,25 @@ model.Extension.SelectByID2(
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-### 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
 ### 🙏 致谢
 
 - SolidWorks API 文档
 - pywin32 项目
 - 所有贡献者
+
+#### 原作者
+
+<p align="center">
+  <img src="assets/douyin-balance.jpg" alt="抖音 @balance. 关注二维码" width="180">
+  <br>
+  <strong>抖音 @balance.</strong>
+  <br>
+  <sub>嵌入式开发、SolidWorks 自动化和 AI 辅助工程实践持续更新</sub>
+</p>
+
+### 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
