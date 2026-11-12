@@ -20,12 +20,12 @@
 
 | 项 | 现状 |
 |---|---|
-| Python 脚本 | 55 个（`scripts/*.py`） |
-| MCP 工具 | 48 个，其中 `solidworks_*` 32 个 |
-| 能力条目 | 32 条：`verified` 8 / `pilot` 23 / `not_implemented` 1 |
+| Python 脚本 | 93 个（`scripts/*.py`） |
+| MCP 工具 | 81 个（含 11 个 Point & Prompt 工具） |
+| 能力条目 | 50 条：`verified` 8 / `pilot` 39 / `not_implemented` 3 |
 | 后端目录 | 8 个（COM pywin32/comtypes、C# PIA、C# Add-in、原生 C++、SWBasic、OCCT、AutoCAD .NET、外部求解器） |
-| 操作路由 | 11 条，全部经 `backend_router.py` 解析 |
-| 测试文件 | 68 个（`tests/test_*.py` + 版本矩阵回归脚本） |
+| 操作路由 | 13 条，全部经 `backend_router.py` 解析 |
+| 测试文件 | 145 个（`tests/test_*.py` + 版本矩阵回归脚本） |
 
 ## 3. Add-in 宿主能力
 
@@ -34,7 +34,7 @@
 - `ISwAddin.ConnectToSW/DisconnectFromSW`、`SetAddinCallbackInfo2`；
 - 应用级事件：`ActiveModelDocChangeNotify`、`FileOpenPostNotify`、`FileNewNotify2`、
   `FileCloseNotify`；
-- 三命令 `CommandGroup`（菜单 + 工具栏 + 高 DPI 图标）；
+- 五命令 `CommandGroup`（菜单 + 工具栏 + 高 DPI 图标；含 Point & Prompt 的 Pin/Unpin）；
 - WinForms TaskPane（64 位窗口句柄）；
 - `IPropertyManagerPage2Handler9` 全 37 回调；
 - `host-status.json` 诊断证据与 CurrentUser / Machine 两种注册路径。
@@ -48,6 +48,9 @@
 | TaskPane 只有静态状态文本 | 无法显示目标卡片、计划卡片、Prompt 输入 |
 | 没有与 MCP 的 IPC | 上下文/计划无法在两侧交换 |
 | SW2024 / SW2025 无加载与事件证据 | 目标版本能力只能标 `pilot`/`not_implemented` |
+
+> 本轮已补齐：文档级选择事件、Hover 预选、TaskPane 卡片、文件 IPC 与五命令 CommandGroup；
+> 真机证据仍待 SW2024/SW2025 补测。
 
 ## 4. 语义实体引用能力
 
@@ -115,9 +118,11 @@
 - 仓库测试使用 pytest（`pyproject.toml` 的 `testpaths=["tests"]`）。
 - 本轮在隔离虚拟环境（`pydantic` / `mcp` / `jsonschema` / `comtypes`）中执行了新增的
   Point & Prompt 测试：**70 项全部通过**；`mcp-server/server.py` 可导入并注册
-  **59 个工具**（48 个原有 + 11 个新增）。
-- 全仓回归：**628 passed / 15 skipped / 4 failed**；4 个失败在干净 `HEAD` 上同样复现
+  **81 个工具**（上游 69 个 + 本仓库 11 个 Point & Prompt + 1 个分支独有工具）。
+- 全仓回归：**1793 passed / 18 skipped / 4 failed**；4 个失败在干净 `HEAD` 上同样复现
   （Windows 中文编码与路径相关的既有测试），与本轮改动无关。
+- 2026-11-12 合并了两条历史线：`claude/repo-connect-skill-integration-pc591r`（79 个提交）
+  与上游 `wzyn20051216` 最新 80 个提交；冲突处理见 `upstream-sync.md`。
 - C# Add-in 本轮**未编译**：当前机器未安装 SolidWorks API（`api\redist`）与对应 PIA，
   无法通过 `sw_addin_host.ps1 -Action Build`。新增 C# 文件的构建与真机行为需在
   装有 SW2024/SW2025 的机器上验证，命令见 `references/solidworks-addin-host.md`。
