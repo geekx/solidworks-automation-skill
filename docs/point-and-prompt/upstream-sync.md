@@ -27,6 +27,16 @@ git merge upstream/main                  # 或 git rebase upstream/main
 git push origin main
 ```
 
+**最近一次同步：** 2026-11-12 合并上游 `upstream/main`（80 个提交，tip `36bc337`），
+冲突处理：
+
+- 同一能力的 `add/add` 冲突以上游版本为准（上游更新、维护更完整）；
+- `capabilities.yaml` 取并集：上游条目优先，保留本仓库新增的 `solidworks_point_prompt_*`
+  与分支独有能力；
+- `mcp-server/policy.py` 以 上游版本为基线，补登记本仓库新增的 11 个 Point & Prompt 工具；
+- `scripts/cad_studio.py` 删除合并产生的重复 `check-drc` 子命令；
+- `README.md` 以上游新版结构为准，重新加回 Point & Prompt 入口与原作者署名。
+
 **冲突原则：**
 
 1. `capabilities.yaml`、`mcp-server/server.py`、`dotnet/.../SwAddin.cs` 是高频冲突点；
