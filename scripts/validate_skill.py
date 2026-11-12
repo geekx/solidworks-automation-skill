@@ -128,13 +128,29 @@ def check_json_files():
         ROOT / "apps/desktop/cad_workbench/schemas/advanced_geometry.schema.json",
         ROOT / "subskills/solidworks-vibecad/schemas/design_plan.schema.json",
         ROOT / "subskills/solidworks-engineering-drawing/schemas/drawing_spec.schema.json",
+        ROOT / "subskills/solidworks-engineering-drawing/schemas/gdt_copy_spec.schema.json",
     ]
     for path in targets:
         json.loads(path.read_text(encoding="utf-8"))
     json.loads((ROOT / "capabilities.yaml").read_text(encoding="utf-8"))
     workflows = json.loads((ROOT / "golden-workflows.yaml").read_text(encoding="utf-8"))
-    if len(workflows.get("workflows", [])) != 10:
-        raise AssertionError("黄金工作流必须保持 10 项基线")
+    # @brief 不再断言魔法数字（历史上写死 10，新增 Golden 用例后必然误报）。
+    #        改为断言结构不变量 + 与评估基线交叉一致：数量变化必须同时更新
+    #        tests/evals/baseline.json 的 workflow_count，否则视为未同步的变更。
+    entries = workflows.get("workflows", [])
+    if not entries:
+        raise AssertionError("黄金工作流清单不能为空")
+    identifiers = [str(item.get("id") or "").strip() for item in entries]
+    if any(not identifier for identifier in identifiers):
+        raise AssertionError("黄金工作流 id 必须非空")
+    if len(set(identifiers)) != len(identifiers):
+        raise AssertionError("黄金工作流 id 必须唯一")
+    baseline = json.loads((ROOT / "tests/evals/baseline.json").read_text(encoding="utf-8"))
+    declared = baseline.get("workflow_count")
+    if declared != len(entries):
+        raise AssertionError(
+            f"黄金工作流数量({len(entries)})与 tests/evals/baseline.json 的 workflow_count({declared})不一致"
+        )
     return len(targets)
 
 

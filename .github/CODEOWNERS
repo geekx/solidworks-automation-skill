@@ -1,0 +1,23 @@
+# 治理敏感路径的所有者声明
+#
+# 重要：本文件目前**不构成强制门禁**。
+#   - ruleset `protect-main` 的 `require_code_owner_review` 为 false；
+#   - 且本仓库为单人维护（唯一有写权限者为 @wzyn20051216），GitHub 不允许作者批准自己的 PR，
+#     开启 code owner 审查会在无人可批的情况下卡死合并。
+# 因此这里的作用是：让治理相关改动在 PR 页面自动指向责任人，形成可见的评审提示，
+# 而不是替代独立审查。治理报告中长期披露 `code_owner_review_not_enforced`。
+#
+# 若将来引入第二位有写权限的维护者，应同步开启 require_code_owner_review 并移除该披露项。
+
+# 治理门禁与证明链：改动会直接影响准入判定
+/scripts/ci/                        @wzyn20051216
+/.github/workflows/                 @wzyn20051216
+/.github/governance-sensitive-manifest.json  @wzyn20051216
+/.github/CODEOWNERS                 @wzyn20051216
+
+# 证据与证明文件：改动会影响可复核性
+/docs/architecture/evidence/        @wzyn20051216
+/docs/architecture/governance-attestation.md  @wzyn20051216
+
+# 准入测试本身
+/tests/test_cad_ci_guard.cjs        @wzyn20051216

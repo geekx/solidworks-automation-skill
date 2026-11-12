@@ -95,14 +95,44 @@ def _windows_user_environment(name: str) -> str | None:
         return None
 
 
+#: 优先枚举的盘符，保持既有部署上的候选顺序；其余本机盘符随后追加。
+#: 这里只是**优先级**，不再是对特定开发机盘符的硬依赖。
+_PREFERRED_SOLVER_DRIVES = ("D:\\", "E:\\")
+#: 显式指定求解器根目录（可多个，os.pathsep 分隔），用于非标准部署位置。
+SOLVER_DIRS_ENV = "CADSTUDIO_SOLVER_DIRS"
+_SOLVER_RELATIVE_PATH = Path("CADStudio") / "CalculiX-2.23" / "calculix_2.23_4win" / "ccx.exe"
+
+
+def _drive_roots() -> list[str]:
+    """@brief 按优先顺序返回本机盘符根；枚举失败时退回优先级列表。"""
+    roots: list[str] = list(_PREFERRED_SOLVER_DRIVES)
+    try:
+        for drive in os.listdrives():
+            text = str(drive)
+            if not text.endswith(os.sep):
+                text += os.sep
+            if text not in roots:
+                roots.append(text)
+    except (AttributeError, OSError):
+        pass
+    return roots
+
+
 def _standard_solver_candidates(solver: str) -> list[Path]:
-    """@brief 返回 CAD Studio 在非系统盘使用的受控求解器候选路径。"""
+    """@brief 返回 CAD Studio 受控求解器的候选路径。
+
+    顺序：环境变量 CADSTUDIO_SOLVER_DIRS 显式目录 → 本机各盘符下的受控相对路径。
+    """
     if os.name != "nt" or solver != "calculix":
         return []
-    return [
-        Path(drive) / "CADStudio" / "CalculiX-2.23" / "calculix_2.23_4win" / "ccx.exe"
-        for drive in ("D:\\", "E:\\")
-    ]
+    candidates: list[Path] = []
+    for directory in str(os.environ.get(SOLVER_DIRS_ENV, "")).split(os.pathsep):
+        if not directory.strip():
+            continue
+        root = Path(directory.strip()).expanduser()
+        candidates.append(root if root.suffix.lower() == ".exe" else root / _SOLVER_RELATIVE_PATH)
+    candidates.extend(Path(drive) / _SOLVER_RELATIVE_PATH for drive in _drive_roots())
+    return candidates
 
 
 def _identifier(value: Any, field: str) -> str:

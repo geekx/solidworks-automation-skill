@@ -1,6 +1,10 @@
 # V2 Release Notes (Draft)
 
 > SolidWorks Automation Skill V2 —— 内部可靠性架构升级。
+>
+> **状态说明（2026-10-27）**：本文件是 V2 当时的 Release Notes，仍标为 Draft，**不是当前发布状态**。
+> 当前发布就绪性为 BLOCKED，阻断项见仓库外的 P0-2.1 发布阻断清单。
+> 文中 `37 scenarios` 属当时口径；当前为 12 个 workflow / 43 个 scenario（baseline v4）。
 
 ## Added
 

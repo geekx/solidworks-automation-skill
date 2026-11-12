@@ -85,7 +85,7 @@ def parse_fastener_hole(feature: Mapping[str, Any]) -> dict[str, Any] | None:
         return None
     sink_type = "counterbore" if cbore else "countersink"
     sink = cbore or csink
-    head_type = str(params.get("headType") or ("socket_cap" if cbore else "countersunk_flat"))
+    head_type = str(params.get("headType") or "unknown")
     nominal = _num(params.get("fastenerNominalMm")) or nominal_from_thread(params.get("thread"))
     return {
         "id": str(feature.get("id") or ""),
@@ -93,7 +93,7 @@ def parse_fastener_hole(feature: Mapping[str, Any]) -> dict[str, Any] | None:
         "sink_type": sink_type,
         "sink_diameter_mm": _num(sink.get("diameter")),
         "sink_depth_mm": _num(sink.get("depth")),
-        "sink_angle_deg": _num(sink.get("angle")) or (COUNTERSINK_DEFAULT_ANGLE if csink else None),
+        "sink_angle_deg": _num(sink.get("angle")),
         "sink_side": str(sink.get("side") or "") or None,
         "mating_side": str(params.get("matingSide") or "") or None,
         "head_type": head_type,
@@ -112,8 +112,8 @@ def audit_fastener_hole(hole: Mapping[str, Any], *, head_clearance_mm: float = D
     sink_type = hole.get("sink_type")
 
     # DRC-CSK-001 沉头几何有效性
-    if sink_d is None:
-        checks.append(_check("DRC-CSK-001", "fastener", "info", "info", f"孔 {hid} 未提供沉孔直径，跳过有效性检查", target=hid))
+    if sink_d is None or main is None:
+        checks.append(_check("DRC-CSK-001", "fastener", "info", "info", f"孔 {hid} 缺少主孔或沉孔直径，跳过有效性检查", target=hid))
     elif main is not None and sink_d <= main:
         checks.append(_check("DRC-CSK-001", "fastener", "fail", "major", f"孔 {hid} 沉孔直径 {sink_d:g} 不大于主孔 {main:g}，沉头无效", target=hid))
     elif sink_type == "counterbore" and (sink_depth is None or sink_depth <= 0):
@@ -179,17 +179,22 @@ def audit_relief(stacks: Sequence[Mapping[str, Any]], *, min_gap_mm: float = 0.5
     checks: list[dict[str, Any]] = []
     for stack in stacks:
         sid = str(stack.get("id") or stack.get("holeId") or "stack")
-        protrudes = bool(stack.get("protrudes"))
-        has_relief = bool(stack.get("matingHasRelief"))
+        protrudes = stack.get("protrudes")
+        has_relief = stack.get("matingHasRelief")
         gap = _num(stack.get("gapMm"))
+        if not isinstance(protrudes, bool):
+            checks.append(_check("DRC-FIT-001", "fastener", "info", "info", f"紧固链 {sid} 缺少有效的凸出证据", target=sid))
+            continue
         if not protrudes:
             continue
-        if has_relief:
+        if has_relief is True:
             checks.append(_check("DRC-FIT-001", "fastener", "pass", "info", f"紧固链 {sid} 配合件已有避让特征", target=sid))
         elif gap is not None and gap >= min_gap_mm:
             checks.append(_check("DRC-FIT-001", "fastener", "pass", "info", f"紧固链 {sid} 配合面留有间隙 {gap:g}mm", target=sid))
-        else:
+        elif has_relief is False:
             checks.append(_check("DRC-FIT-001", "fastener", "fail", "major", f"紧固链 {sid} 头部凸出但配合件无避让且无足够间隙，装配会顶死/干涉", target=sid))
+        else:
+            checks.append(_check("DRC-FIT-001", "fastener", "info", "info", f"紧固链 {sid} 的避让情况未知", target=sid))
     if not checks:
         checks.append(_check("DRC-FIT-001", "fastener", "info", "info", "无凸出紧固头，跳过跨零件避让检查"))
     return checks

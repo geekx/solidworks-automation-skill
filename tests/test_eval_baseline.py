@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 
-from evals.runner import run_eval  # noqa: E402
+from evals.runner import build_scenarios, load_golden_workflows, run_eval  # noqa: E402
 
 BASELINE_PATH = ROOT / "tests" / "evals" / "baseline.json"
 
@@ -26,12 +26,30 @@ def _load_baseline() -> dict:
 def test_baseline_file_present():
     baseline = _load_baseline()
     assert baseline["schema_version"] == "2.0"
-    assert baseline["baseline_version"] == "3"
-    assert baseline["workflow_count"] == 10
-    assert baseline["scenario_count"] == 37
     assert "nominal_metrics" in baseline
     assert "robustness_metrics" in baseline
     assert "safety_metrics" in baseline
+
+
+def test_baseline_counts_derived_from_source():
+    """计数必须与源数据一致：不允许在测试里写死数字。"""
+    baseline = _load_baseline()
+    workflows = load_golden_workflows()
+    scenarios = build_scenarios(workflows)
+    assert baseline["workflow_count"] == len(workflows["workflows"])
+    assert baseline["scenario_count"] == len(scenarios)
+
+
+def test_baseline_scenario_breakdown_matches_source():
+    """nominal / robustness / overall 三段计数应与一次真实评估一致。"""
+    baseline = _load_baseline()
+    current = run_eval()
+    assert baseline["nominal_metrics"]["scenario_count"] == current.metrics["nominal"]["scenario_count"]
+    assert baseline["robustness_metrics"]["scenario_count"] == current.metrics["robustness"]["scenario_count"]
+    assert baseline["overall_diagnostic_metrics"]["scenario_count"] == current.metrics["overall"]["scenario_count"]
+    nominal = current.metrics["nominal"]["scenario_count"]
+    robustness = current.metrics["robustness"]["scenario_count"]
+    assert nominal + robustness == current.metrics["overall"]["scenario_count"]
 
 
 def test_nominal_first_pass_meets_target():

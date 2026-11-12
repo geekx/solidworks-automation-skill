@@ -1,0 +1,2742 @@
+[
+  {
+    "path": "docs/architecture/evidence/p0-2-1-real-gripper-travel-2026-10-27.json",
+    "size_bytes": 229280,
+    "sha256": "7d1054357bfcff879442ec3af84574f81bd14a4f8d73bcebeb7c36c7cdb60e0a"
+  },
+  {
+    "path": "output/build_p021_evidence.py",
+    "size_bytes": 14445,
+    "sha256": "aa5c4c843da954943208ccaaabfdf1cc555973fbddc276119ff10335cb335520"
+  },
+  {
+    "path": "output/finalize_p021_process_audit.ps1",
+    "size_bytes": 2938,
+    "sha256": "bac44439e8e587889396044edf7b57f11675d3bac639fb2f7b4971298e63ebaa"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/bom.csv",
+    "size_bytes": 3170,
+    "sha256": "6ded84cbcaa89433d415732e5775c6d3e9cf8d9ca9865b48ea5d12ee87ba8d60"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/case_source.py",
+    "size_bytes": 45441,
+    "sha256": "f37c5bd9ffc9dba2f52df33bf61a7aad199297a01695f7db9c5eac24971b6380"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/contact-classification.json",
+    "size_bytes": 1309,
+    "sha256": "8be4921fb041bddc8ba2b1aa363e754658789c50d96a604b62a3b021e3367268"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/diagnostic.json",
+    "size_bytes": 2189134,
+    "sha256": "e9ed31279a4bc59bcf05f62104cc628a1b4aa3d608b3fa4108a3e42a5f8e6cfa"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/initial.SLDASM",
+    "size_bytes": 129998,
+    "sha256": "68167ca54068d11de368cd59ef3196f851539d2145ba7ab944f773a355a420b7"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/initial_snapshot.json",
+    "size_bytes": 108064,
+    "sha256": "9d9ee966946900c3946b29413d4e5d9272780f3658951e884b658454a1946dd5"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/native_fault_controls.json",
+    "size_bytes": 833332,
+    "sha256": "c6041f1cc722661373b3d42f63f94b19af34721c0c156bf63f8456ef5e3e942b"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/base.SLDPRT",
+    "size_bytes": 102047,
+    "sha256": "d91449111f5d7e51b3cd2559692d2504cb69aaafe2ee2044702c7aa38f75a9b6"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/endplate.SLDPRT",
+    "size_bytes": 72846,
+    "sha256": "92035f6b726edc6a71a9d4a85f3afe30f8436da180256a411d5ee9b776484d5b"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/finger.SLDPRT",
+    "size_bytes": 70093,
+    "sha256": "146996cfdc0d4be0ece3af6e41e926f76b461b00d286745ae6bace45c5d836cb"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86503,
+    "sha256": "32ade7d592a38481dfffc7ff5916ffc4448e086de18593ed9130bebe913e1f2c"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/rod.SLDPRT",
+    "size_bytes": 71777,
+    "sha256": "0705378aa1cbeb72d497a8d8b8a70e5402c30a1ff78d35012bfdac4e5542e13d"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/slider.SLDPRT",
+    "size_bytes": 90545,
+    "sha256": "44a014414e2736e1d13e32ad5c470e68994e4fe2841ad4575a12cf43263e7a41"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/support.SLDPRT",
+    "size_bytes": 83893,
+    "sha256": "5ff5e16283e5fc8f03f35d585560a3fe568be16bef261391d6b029a8ca0d70d1"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/parts/tie_rivet.SLDPRT",
+    "size_bytes": 81377,
+    "sha256": "d652c45046dd1859c40b4dc8cb39d33bd788a31e903cef791c3f296e804e3ee0"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/probe_source.py",
+    "size_bytes": 5963,
+    "sha256": "c2f3a08e6ffa5518aea19c0321ff83f340ebf3e7ebb2ae4c8788444fa3652483"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/result.SLDASM",
+    "size_bytes": 149923,
+    "sha256": "92bd94c7ce87d5d41ffc32b93919824e9343a5a5e882f5a71095cd40f0812cb3"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/result.step",
+    "size_bytes": 299657,
+    "sha256": "79e83816756034775bc12f67149e0d56d078f71bfc3126abafd694f05dea5cde"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "41956aad91eb02a0c1bde9231ecde76202cf0a592dc924785a13deb0363cfcee"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "546f56650593859f3edbe558e5160efe48c96b7c0988539ccf83711be7b363db"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_review_report.json",
+    "size_bytes": 10141,
+    "sha256": "980e1d09e0fd9dd4777fa910c898c7722ea2d6eb752fdb08454211a33cdf3b4d"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_review_summary.md",
+    "size_bytes": 1130,
+    "sha256": "0729d71281fc56b826a0aef56bccd4c904a08a4f9b14ab42e46ac7105b03601a"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "1de1609ace582502b5ce79edb1c157f8c46961bd915510551d1b31705383b8c0"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/review/diagnostic_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "bf516fbef6c33299aad75b87133ae6b24ad30ca62e5ac643279555b5b78f8827"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08/travel_report.json",
+    "size_bytes": 838638,
+    "sha256": "defa39d471132d5391d26238e5904983f00dcdf311fe826df16be8f2ffd15c17"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08-console.log",
+    "size_bytes": 8622,
+    "sha256": "d545feb1bab77c5eb316d8785ad2c973dba037d037f4870f25180d326fe42546"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/assembly-probe-08-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/diagnostic-exitcodes.json",
+    "size_bytes": 521,
+    "sha256": "80edae0378198b0876e15a42840362e0419d098681dcde4473ca94ba74af1f76"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-01/diagnostic.json",
+    "size_bytes": 39440,
+    "sha256": "51cd05ed0f8d1b94ce1ba0ab7af62a4528550dac8da19b11aff722d5d221b38b"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-01/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-01/probe_source.py",
+    "size_bytes": 3961,
+    "sha256": "0449adb5fd37aa40ebdfd1b4db5e688abf043e837b90ae5d548e36a69d77ee47"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-01/result.SLDASM",
+    "size_bytes": 141690,
+    "sha256": "d85c68391c9249ff9ef0e5fe41537a7078e537bee84e4c774bd50c45dd5a4fe2"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-01-console.log",
+    "size_bytes": 462,
+    "sha256": "f4313020f8dff529e914b991a06d1a3d132afd93d75ae1ca8600d14c4f15f1d8"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-02/diagnostic.json",
+    "size_bytes": 126637,
+    "sha256": "20f399d830ca18a803095109c7cbb1a6f63309a290d427a29909abbe7e077a0b"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-02/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-02/probe_source.py",
+    "size_bytes": 5039,
+    "sha256": "c2999d14d33c17a7fbc2ecfc4b4d7e5a3bc797995f7727fc6cfa66cdc770acc4"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-02/result.SLDASM",
+    "size_bytes": 141512,
+    "sha256": "621352426720c836fe5f35fd4babff90b9420dac6d9c4ebc4a557176d52e00cb"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-02-console.log",
+    "size_bytes": 772,
+    "sha256": "4d98360a3f0ebb8272e206d90cda9fb444e84cd3f46c32418fa92d3b4c4717de"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-03/diagnostic.json",
+    "size_bytes": 126664,
+    "sha256": "747b78f2f6e6e029d4a9a8b7fbda9faf9fdbb263c3f195dbc2db68afe170e23e"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-03/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-03/probe_source.py",
+    "size_bytes": 5761,
+    "sha256": "5a6cd922459f996207b62448a803a8078c632fc722d3bbdf5836a0ce92aa2e29"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-03/result.SLDASM",
+    "size_bytes": 142589,
+    "sha256": "7901e2b67906a52a19c08008518122b3cf4aeb31783c20e82ba203d597fd1928"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-03-console.log",
+    "size_bytes": 772,
+    "sha256": "2cab4874e4826576fa662807da287c3a9467bf843a5c6b544782b1526a861e0d"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-04/diagnostic.json",
+    "size_bytes": 126452,
+    "sha256": "ff37fd49a333c9180680dc3066a2791ccc970214a7b0e26ddab5c303b7adb424"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-04/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-04/probe_source.py",
+    "size_bytes": 4768,
+    "sha256": "8f0d5a858b455fbed80b35336fdfae476e8865c1a9a95821b1f31d2a65723d8d"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-04/result.SLDASM",
+    "size_bytes": 145788,
+    "sha256": "cc426a541bb38db61fd6e8bf6ad5899c38fb205d1b3987222e240dd7b65566e8"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-04-console.log",
+    "size_bytes": 782,
+    "sha256": "e52743626fcdc5c6eba7e39286eeb10638f5fb4778596b24d531987199427c49"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-05/diagnostic.json",
+    "size_bytes": 49853,
+    "sha256": "cf86eb9eb8521a738f69a737c77ac6e7b8be15770372dde8e81e30ce69c02809"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-05/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-05/probe_source.py",
+    "size_bytes": 4556,
+    "sha256": "f502d2840bece4db89834c7630bdaf896a77763d4653dbd61f5ee37a1a7f9227"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-05/result.SLDASM",
+    "size_bytes": 142479,
+    "sha256": "09fc4472da14c31af1b060b3ae128369e245c0631c1c6e017ceda3c739e9ce31"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-05-console.log",
+    "size_bytes": 515,
+    "sha256": "3a773990c6a5df399941e5337cbdcaa59eff26668d932d3d6812011d325cc2b9"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-06/diagnostic.json",
+    "size_bytes": 61851,
+    "sha256": "2a1e9d372dbeb49248c057a1469b5fc1358bf9e3175b67738d663a07e5ad83f0"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-06/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-06/probe_source.py",
+    "size_bytes": 4246,
+    "sha256": "3075bd34d9a838ecf268a31eced228c2837f2b36053457e33cee8f0b6b47dafe"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-06/result.SLDASM",
+    "size_bytes": 141331,
+    "sha256": "95485a256830da6c1406ad6c27532ef03eb85c8a714e63a913c67b6819402677"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-06-console.log",
+    "size_bytes": 866,
+    "sha256": "e2a7b0c21782eeaea17967846099df5bf1932b6c0af0296921aedc8df1fef5b5"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-07/diagnostic.json",
+    "size_bytes": 61840,
+    "sha256": "73354dbed4811f210ebe230c8db42d1b513143debb6ea4f8f87e687547fa50fc"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-07/diagnostic.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-07/probe_source.py",
+    "size_bytes": 4777,
+    "sha256": "7156e9097df545e11c7b76cd0c7311cfc62476d5ae32038e265ee025969addd3"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-07/result.SLDASM",
+    "size_bytes": 141955,
+    "sha256": "2c10c7de24d76778c06c13e98059054a89f18ba9a10b7a7250cca590bd7485cd"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/drag-probe-07-console.log",
+    "size_bytes": 865,
+    "sha256": "92fde083c63eece4e37df11443a5d78cfefc99c689ff8b3e167e0fb569910cf7"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-final-process-audit.json",
+    "size_bytes": 1542,
+    "sha256": "0e6dd8ac71f6e6a48583508a1a47149851a2dbfee84832de52a67139346f59cf"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-run01-fault-stack-01.txt",
+    "size_bytes": 2519,
+    "sha256": "d72614a0261b1004f2a74d86ccef816ec389e981279f4d3e5ea7edbec8e20ccd"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-run02-process-observation.json",
+    "size_bytes": 666,
+    "sha256": "ec1f090aca2108b34d3e4e2e5347992addcf5d44359e7a6990608b9d15c2570e"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-run03-process-observation.json",
+    "size_bytes": 628,
+    "sha256": "da18291853a81699fe9843a748b427878182e702615a099ba72bc81a16e32a47"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-run04-process-observation.json",
+    "size_bytes": 630,
+    "sha256": "0c6a0adb81200158079763891abaf30b793f8f9dc77d66391be7c4a5ce70183e"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-five05-run05-process-observation.json",
+    "size_bytes": 630,
+    "sha256": "5b28305b3020155acb0042557f204c445618d59fe6e132398da952a7f2aba797"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-run01-contact-classification.json",
+    "size_bytes": 2596,
+    "sha256": "02a4191bf86d97d2be31bce632891a9ad4b98c663144190b160419636d99f1c8"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-run02-stack-01.txt",
+    "size_bytes": 1376,
+    "sha256": "b9964911f858b83674563fd737812458d8afd18a3da37f74d7200003ca805385"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-run05-interruption-context.json",
+    "size_bytes": 391,
+    "sha256": "eeeb0d72d6c1aee208e15a5db4c943d040aa9b6352c5a36c66200a5fe4768990"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-run05-windows-events.json",
+    "size_bytes": 247,
+    "sha256": "8a713d021ac67b86fbd588a49dc3db88564be659c1859235b3d029ac1c8709aa"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/formal-visual-review.json",
+    "size_bytes": 3396,
+    "sha256": "fbfe04cec8ad3450f03de18623f20c2c55680f7f6438a629a2a1d12e9a0a97ad"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/incomplete-attempt-context.json",
+    "size_bytes": 856,
+    "sha256": "1472ff34029c3b0385d898f7c3b669c56bef8d5c3006aadd2fd14fb28f781912"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/index-preflight-first-three.log",
+    "size_bytes": 1290,
+    "sha256": "195b2b65971ac9afc10a18b4d7353228b87d4347d2f3faf7136541b99cfe5c8c"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/index-preflight-first-three.py",
+    "size_bytes": 1709,
+    "sha256": "8b28c046415bf4e01d55ad0ff063264905dff9c6cb587bdb98ace26761e67d4f"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/material-probe/diagnostic.json",
+    "size_bytes": 741,
+    "sha256": "c718cc608af731541c7d104274aa587e3e0b284eb223f295bbfa263b9cdcd0a3"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/material-probe/material_probe.SLDPRT",
+    "size_bytes": 83732,
+    "sha256": "e10f6db58229705d7a35af400185bf89de0e98c068abc6d5ec2335179a8fe113"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/material-probe-console.log",
+    "size_bytes": 686,
+    "sha256": "6c2818e91173def2e928c3a17da980d9306d41a7f74fe11e9a6fae89a26a3e4a"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/post-implementation-review.json",
+    "size_bytes": 2700,
+    "sha256": "a7edb623845cfe75408a1f7cbc46fec87a1575f3378c42d004fb76332f75d9bc"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/previous-preview-pixel-comparison.json",
+    "size_bytes": 3548,
+    "sha256": "b30edb8820c093e1332ec1d06fbc5221750df6460df702ef36b6d4dc18111622"
+  },
+  {
+    "path": "output/p0-2-1-native-diagnostics/py-spy-install.log",
+    "size_bytes": 439,
+    "sha256": "444c80a7c2ae700da764581dea510c827754c439f981c38f6ca429456902586c"
+  },
+  {
+    "path": "output/p0-2-1-offline/ci-policy-01.log",
+    "size_bytes": 3432,
+    "sha256": "09d0414e04ec3eeb07ebb340819edb13fb05bb1242a2aefa71af2592f0644f22"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-01/eval_report.json",
+    "size_bytes": 29531,
+    "sha256": "28236d98418651ecff1fd7141eaa265c70bb0a4bb2e4e036bbec0ba43236ea9d"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-01/eval_report.md",
+    "size_bytes": 5668,
+    "sha256": "8a2a0c60b57bf3b96caeea60cae35e2be18fa454a7f55f8068450c7a5bd8765a"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-01.log",
+    "size_bytes": 943,
+    "sha256": "359b0824b2837a6e472f97563ec88dc24f15a41af4e2903a2654ce2697c1aa30"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-02/eval_report.json",
+    "size_bytes": 29531,
+    "sha256": "5faaf76a71e0b04cb67205fcefad70430049da58eda7253ab73be3d02d006712"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-02/eval_report.md",
+    "size_bytes": 5668,
+    "sha256": "8a2a0c60b57bf3b96caeea60cae35e2be18fa454a7f55f8068450c7a5bd8765a"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-02.log",
+    "size_bytes": 943,
+    "sha256": "e0e9925dd82ecfbb81be765ff2c5ec59c9152c7471e925972e6618d4c9f5a42f"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-03/eval_report.json",
+    "size_bytes": 29531,
+    "sha256": "4ded1cbd7e06d34aa38828904eef0293e6cd399df2986db8a13f8809b15a0a3a"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-03/eval_report.md",
+    "size_bytes": 5668,
+    "sha256": "8a2a0c60b57bf3b96caeea60cae35e2be18fa454a7f55f8068450c7a5bd8765a"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-03.log",
+    "size_bytes": 943,
+    "sha256": "74af95e008b5c4f8971a1f97c220ad69e20f249482a9889c20e31a4e93844bb0"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-04/eval_report.json",
+    "size_bytes": 29531,
+    "sha256": "1e18752ecda0ac229b3eaf2b5737e61db6f378075665e12471722c7c9050aacf"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-04/eval_report.md",
+    "size_bytes": 5668,
+    "sha256": "8a2a0c60b57bf3b96caeea60cae35e2be18fa454a7f55f8068450c7a5bd8765a"
+  },
+  {
+    "path": "output/p0-2-1-offline/eval-04-console.log",
+    "size_bytes": 943,
+    "sha256": "8841347d7c2517c8649124510b6846c9400af66b2cde6ffce76b3f3f0a87e5c2"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-full-01.log",
+    "size_bytes": 1467,
+    "sha256": "52ce5e2db32277494e4aa80866ec925e210da78f34ea78fe73a2c1a102fb016d"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-full-02.log",
+    "size_bytes": 1467,
+    "sha256": "b8643121c080f702570481e08170904eb8802db0fc41cc4356f23351d9b9eaee"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-full-03.log",
+    "size_bytes": 1467,
+    "sha256": "86c95604608c34146651f09c6f17c89a06cbef93c932f05775f56249daffb0fd"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-full-04.log",
+    "size_bytes": 1467,
+    "sha256": "86803142d622dbca4cf6d427d6a03f38cf5fe7494b350202399ae09fb55a89b0"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-full-05.log",
+    "size_bytes": 1467,
+    "sha256": "4a9e286d4b6aa861b71f167125ff3b98ddabbfa62337a0c10a358b3b0960dca8"
+  },
+  {
+    "path": "output/p0-2-1-offline/pytest-targeted-04.log",
+    "size_bytes": 183,
+    "sha256": "7486a4e884ed8be617b901cefd14f545b3f24d95a0960bc33bc2047c306c353a"
+  },
+  {
+    "path": "output/p0-2-1-offline/sdk-enums.json",
+    "size_bytes": 169,
+    "sha256": "31d3b6547877a5fadebbc2e0e7538b04b2d1d0d65ca76d72117e4c7207ed3d4c"
+  },
+  {
+    "path": "output/p0-2-1-offline/strict-real-evidence-control.json",
+    "size_bytes": 7865,
+    "sha256": "cb703e6b69ef8679362e1db8a012620574d2e7b79d1a0b483556ddd40bd92732"
+  },
+  {
+    "path": "output/p0-2-1-offline/targeted-01.log",
+    "size_bytes": 183,
+    "sha256": "5936c949a5dff2f978d326ac56fa6ab80fc9401750a3db1c8eb960ea5ab5969d"
+  },
+  {
+    "path": "output/p0-2-1-offline/targeted-02.log",
+    "size_bytes": 102,
+    "sha256": "0e6b189f77fcb13137a4a6451a71cbb752a4220ccbfbea938b3edc7c4d5977a9"
+  },
+  {
+    "path": "output/p0-2-1-offline/targeted-03.log",
+    "size_bytes": 101,
+    "sha256": "972e55b800336d5a0e598d6656100096d045815fd3cb3c04a28fd9f59530f619"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/engineering_plan.json",
+    "size_bytes": 14261,
+    "sha256": "63b8c15680382b3ed123f3b4dd0c4f8667a4357d5d8c83caf9dfc211ad0e95b3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/ledgers/run-01.ledger.json",
+    "size_bytes": 6476,
+    "sha256": "0c3352b8346a4abba6ddee17d92998b57c95ec7eb2c994efcb33019adbb7594d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/parts/base.SLDPRT",
+    "size_bytes": 102468,
+    "sha256": "cc58e71f79d312ffeec6ef335940edb89aac2eae67a9b901213f719d40c27b1b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/parts/support.SLDPRT",
+    "size_bytes": 83830,
+    "sha256": "a738286917fbc5e1233db513d6315ae239e2aa3a79be98bbcf854c76e1157482"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/parts.json",
+    "size_bytes": 118929,
+    "sha256": "64185282d69d4ba8b85662cf093edbca0000d5c8dadabadaabd48b6648170e39"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/report.json",
+    "size_bytes": 138587,
+    "sha256": "32dfd58133f6c8c0ffee8b60f867e0a6f5bf0929f323f505dbab68482be7b65c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/run.log",
+    "size_bytes": 1894,
+    "sha256": "980e946ede17e791cfe411551a66db3c29eb66e4c4b932b05a9c2245dd5eb356"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/sha256.json",
+    "size_bytes": 2007,
+    "sha256": "a671982fe3bb1bf8ad81ef785b1997013c006f15e70e9810f9b02bb8a90de31c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/spec.json",
+    "size_bytes": 7010,
+    "sha256": "5848409e85d10f4955dad1ea5947bdebfe4fdaf049795af46261328a49703c7e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/run-01/trace/events/golden_60b717ed67934f1bba095f2f34b2bbc3.jsonl",
+    "size_bytes": 1463,
+    "sha256": "5fb9f31713319ccc61d2566691a7318c33abc8f0fc0d4dc98dddae0c28d8a52b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01/summary.json",
+    "size_bytes": 1479,
+    "sha256": "96c89a604ca33a53bb9bb61fdfd5f0776eda9ca83624c0b69f418e02be44f438"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01-console.log",
+    "size_bytes": 1535,
+    "sha256": "e4d25d8d74f6b31bea96c295b2f9e789005de74b0e013552744d4fcf30056dd0"
+  },
+  {
+    "path": "output/p0-2-1-real-five-01-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "aecb8314d8f60559cf22deae4053d28d5d9c514aa38f68ceadfb1daebb7bbc99"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/built.json",
+    "size_bytes": 108324,
+    "sha256": "be0cd6d55a1f1e49225a9742b1214a459da16083eb87b93aed1060740fe4bb23"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/engineering_plan.json",
+    "size_bytes": 14261,
+    "sha256": "63b8c15680382b3ed123f3b4dd0c4f8667a4357d5d8c83caf9dfc211ad0e95b3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/ledgers/run-01.ledger.json",
+    "size_bytes": 14321,
+    "sha256": "0d8877736442dbcd96ee1655b1883cc0a09302fb46120b2eb51287be8203ebb9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/native_fault_controls.json",
+    "size_bytes": 488897,
+    "sha256": "517bbee1b09697a8c2f919c8e3fc38de63e2ceab86931f8df38db5180b7483cd"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 126846,
+    "sha256": "9f32455e8e631b9427d565a621cc24487a0c7ab7c66adb7c157c2fe89eea0585"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parallel_gripper_retention_travel.step",
+    "size_bytes": 299610,
+    "sha256": "f482b25233dde2380d7b529250382837c4678dbbc0312fcbaa2bf8572f855c1a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/base.SLDPRT",
+    "size_bytes": 102047,
+    "sha256": "d91449111f5d7e51b3cd2559692d2504cb69aaafe2ee2044702c7aa38f75a9b6"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/endplate.SLDPRT",
+    "size_bytes": 72846,
+    "sha256": "92035f6b726edc6a71a9d4a85f3afe30f8436da180256a411d5ee9b776484d5b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/finger.SLDPRT",
+    "size_bytes": 70093,
+    "sha256": "146996cfdc0d4be0ece3af6e41e926f76b461b00d286745ae6bace45c5d836cb"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86503,
+    "sha256": "32ade7d592a38481dfffc7ff5916ffc4448e086de18593ed9130bebe913e1f2c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/rod.SLDPRT",
+    "size_bytes": 71777,
+    "sha256": "0705378aa1cbeb72d497a8d8b8a70e5402c30a1ff78d35012bfdac4e5542e13d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/slider.SLDPRT",
+    "size_bytes": 90545,
+    "sha256": "44a014414e2736e1d13e32ad5c470e68994e4fe2841ad4575a12cf43263e7a41"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/support.SLDPRT",
+    "size_bytes": 83893,
+    "sha256": "5ff5e16283e5fc8f03f35d585560a3fe568be16bef261391d6b029a8ca0d70d1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts/tie_rivet.SLDPRT",
+    "size_bytes": 81377,
+    "sha256": "d652c45046dd1859c40b4dc8cb39d33bd788a31e903cef791c3f296e804e3ee0"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/parts.json",
+    "size_bytes": 278698,
+    "sha256": "09c55ff331aa791827bd776d6b6af4738a8ad9d6e27ca9f6b35618689809ec2e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/reopened.json",
+    "size_bytes": 108343,
+    "sha256": "5dbda119067f41ff71af1270e2f0d36f1ea04faac80077a014f6769496292067"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/report.json",
+    "size_bytes": 1943205,
+    "sha256": "a03fdca64b02f64cfaf3e5778dbb3540711a33a6f80706ba2bcbfb2e9a0a75d8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "2e6c6805fa3879e8a5e3dc0e2524d84ce7db57011ef163039a49ef27fbf9cd61"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "f2118c1d47db0ffd14dbf7436038476b5182b9dc4c91030126958fd607442245"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10219,
+    "sha256": "d3eb55c1bcace30f533652ad88338108866659543d763a720b0b752713277f91"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "237f20dab88969cc5e3726d57b1bfe5ac71b011f11fe68996ffe2f4fff346d6b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "06833cb065f75f7b82e0eb3653b66a7ed5bdbb013952af8d546f9c4953dac324"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "40b00e73c4eba7bb13a96948ecd1f8f9488c03a3e25a57eeee1065bf1e5feae8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/run.log",
+    "size_bytes": 8175,
+    "sha256": "1227707a418fe2f6ccf0753e051d7a557a3adc69d3dc6395b60c9256c9f6c15b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/sha256.json",
+    "size_bytes": 5508,
+    "sha256": "400bfd65afa9d5e31a0d0c0522cacbf8ed2982634aa1a582651ce7ad5f6c7b84"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/step_reopened.json",
+    "size_bytes": 36331,
+    "sha256": "a854bc249e9cf5adeb2518a9509424feb5e5fc6622f7a3ec729806331755fa07"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/trace/events/golden_1e807d3eff0240c881653d5a4083fc97.jsonl",
+    "size_bytes": 1463,
+    "sha256": "cb46c4c0edfbadcb75ab3a4ead1cdf744bd8540278c79d36b4f9cb2654456540"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/run-01/travel_report.json",
+    "size_bytes": 770715,
+    "sha256": "ba53440b2f9c8b1508a021085ba838f044546c897d98d8ed236d1254dbc60a66"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02/summary.json",
+    "size_bytes": 2145,
+    "sha256": "1a05a31455b98a285d40efe05c38cb80aec1690ec8c99b4b0aba4fe10e3049ac"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02-console.log",
+    "size_bytes": 2201,
+    "sha256": "1139637a3f35954bd30e69a8aa1de1e4818e2103af4170749567a084103f6a81"
+  },
+  {
+    "path": "output/p0-2-1-real-five-02-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "497ceaab38ee993c1ee802f091a323a1c90283adbb4284254f5fceefe985e504"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/built.json",
+    "size_bytes": 107847,
+    "sha256": "f9578a27a03c8c0c98187ecd063a7694bf69526bacf59f196cfb7ebef9e20403"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/ledgers/run-01.ledger.json",
+    "size_bytes": 15270,
+    "sha256": "c326fae7d8cab714fdd1d0fb3116e28623f13b92507f9b1203d5e6745abdcc68"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "11c7a87a9eb4fce4c40b9c035b7eec0f50bdae63722dfa00ee74ad8efce582d9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 150198,
+    "sha256": "74606df268ddd52cae3e814df34aaee82e3fd89d0e52f1361aa6dc44c0979491"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parallel_gripper_retention_travel.step",
+    "size_bytes": 299776,
+    "sha256": "ea8ea4f669bfb0a38d8b258e3a3b213fd4815e3375d18636f90ba06db800d67d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/base.SLDPRT",
+    "size_bytes": 102216,
+    "sha256": "07d2371dae26bb13c3f5b6517c42defadef2024d04807f81c19e30d38cb63ecf"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/endplate.SLDPRT",
+    "size_bytes": 72348,
+    "sha256": "a016f33f193be273939d675b537d1d40dac309aa5f93de08c4a4292fec81ea02"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/finger.SLDPRT",
+    "size_bytes": 70483,
+    "sha256": "c767c5c7eecdbd45bf2a18c290520c6eb91e7528a4eb8decb8ce4c5fef671612"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86943,
+    "sha256": "7f81c457a42c534cfbb33dd6cec0f77778899d0dbca62bfd21a9b05e7e7676e5"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/rod.SLDPRT",
+    "size_bytes": 71683,
+    "sha256": "936214485662b1ab7106e972297ac3cfee3b5f3f0ce9983b59c720cfd6313ee1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/slider.SLDPRT",
+    "size_bytes": 90784,
+    "sha256": "bf48ac54418f35d327ccc9bf4b3797e5647b07eacf5d4b5d76bbfb06655afc35"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/support.SLDPRT",
+    "size_bytes": 83628,
+    "sha256": "efa22da5a610da19ab30957368b5685ead04b0de5bfe6854e3ac5d722512675b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts/tie_rivet.SLDPRT",
+    "size_bytes": 79783,
+    "sha256": "55db81a06dc64e7548fc0a347b97e70d400c1344e3ed245f30f1d8a0b9ff0199"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/parts.json",
+    "size_bytes": 278701,
+    "sha256": "eb1503cf5b0590193d3fe4067c5d2deb0752b7e3cdcc002e0e9617472e0111e3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/reopened.json",
+    "size_bytes": 107850,
+    "sha256": "77a58637a4d260300f7af7961fd0c5228f5ce9537f8d9c7de8ef74a771994c84"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/report.json",
+    "size_bytes": 2363817,
+    "sha256": "6c19f4ba994a5db6ddbac049066739f1bc54820d1729b0eb0633740d19df87b9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "54e0fe4ebe985135abb943af4617e0b982f24d3f1541e078fbd02da6c9ec4c15"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "cd4dfab6ed96aa9469386a5058255bfdb2ce55342b551a17550d5f858ca9ede1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "928ea9022d15806c235f64e8f31c5757a075e06f82b5d1947f667a5f19c4b603"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "909b0768cead8bef5aaa71507c63cf2691c17f8cd4347ea17992d6af57f2f420"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "2578f3bba23347aefd0425bf0dcac8802cacbc3c78aed3ddb7aa23a255097f2e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "90ba541ef7b6f6f66e9f1c5ce999a5d3ad2f025b311a667edaaf49567029970b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/run.log",
+    "size_bytes": 8105,
+    "sha256": "7f3d63a08db95ee91d025c7b3278d0c186f5eeca6c4f0cdf0df0bb1fe2039b08"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/sha256.json",
+    "size_bytes": 5508,
+    "sha256": "91b8376db78cfecd452e465e50f54fd35f1ddda0aa144948dcc012d09ba2c930"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/step_reopened.json",
+    "size_bytes": 36333,
+    "sha256": "40c13a45a02bb0a8c005dc45313417af56177e31d33abd852b71348d65a6e075"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/trace/events/golden_9ad5f0fa73c0421090c7977c1ef52668.jsonl",
+    "size_bytes": 1978,
+    "sha256": "1ffafaca743500af42fbc05397e37476ba889bc0ea55d0afed30836fcd2288fe"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-01/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "d9e317647bbdd5ed3b94775deffd23243e096b5006d9c621e530c89a39b231af"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "f5b56f0ed2275680d3db5fd7380f728ca1e628937e286f99e4eba722cbff6421"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/built.json",
+    "size_bytes": 107848,
+    "sha256": "2f5517e72351f17f82efc6011ee9c2b9309476ce94bd3a71254dbff67d2193c1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/ledgers/run-02.ledger.json",
+    "size_bytes": 15270,
+    "sha256": "18d16a7f82ab1f4cb745e8d8d2f85c66f0f4560d0ac247394fdfe9c90637f841"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "3b69c691b28cc6c47502effd5392652849f58edc6ca25e0f7531d714edd815e2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 147672,
+    "sha256": "d16fa35e208c61061d437cdefd1ddf5cb2ec8915679d3f5f607eb695f31ed2e8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parallel_gripper_retention_travel.step",
+    "size_bytes": 299803,
+    "sha256": "7d5f160e34e05dc37419361277ad07d6e2f04aade212225770e06c385dcaa696"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/base.SLDPRT",
+    "size_bytes": 102307,
+    "sha256": "ff8f88f04c6b3ff3f3da614208f972d4d0bbcc7d4bae3d01646b73155cd708e2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/endplate.SLDPRT",
+    "size_bytes": 73000,
+    "sha256": "137a1cbde829c0e752d9c8d0c68e686e8daea692677cf789ed3c3db738ca5664"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/finger.SLDPRT",
+    "size_bytes": 70071,
+    "sha256": "e5ca6c6629e5771bf95cf439d2dea93f030ba3895d7f6e23cf04041245c2807e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86560,
+    "sha256": "4459602c375df71ba78a97191e0d55be835b676b816a4c104c8155ee7161b052"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/rod.SLDPRT",
+    "size_bytes": 72044,
+    "sha256": "68b72543d814710f8dc0b898fd7cc1690890dfeb2f25002ff625c353b661a274"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/slider.SLDPRT",
+    "size_bytes": 89793,
+    "sha256": "90f783365183d756da85c3cf5a05861998f8e87698bbba3c40fb3dd2e8ec0788"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/support.SLDPRT",
+    "size_bytes": 84311,
+    "sha256": "62eed2eb9ac008a45eb4fe99b55a0cf48bdf0bf559652daf0b452e24e3b03ecb"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80229,
+    "sha256": "a7ae935dd4aee32d8be58943b53740d4103856748b1202ffc9e7f5a74d6f3ae9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/parts.json",
+    "size_bytes": 278706,
+    "sha256": "b56ca5a51f4173dbefaf2b7b87679f29175352a36fda12d53e061b1bfa3f3755"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/reopened.json",
+    "size_bytes": 107848,
+    "sha256": "3a837eb03a03be3f7d0edb7ebe4f1769ac514d610e738f54f4ad7c75a29ce05b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/report.json",
+    "size_bytes": 2363830,
+    "sha256": "48a5e8dcdfce2541d522087f313c20cfc1097b9f8d8ce6abc75b90d314f462da"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "ffc065a87475a762655e5049755f8bbc8ed16f20cd0562ab2ab5f8a1ec444e14"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "8cc862f8edafc823e7dfd53899d28b75ebe2fa568da153a963d7aa6f4f45a870"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10219,
+    "sha256": "55a0675a9c63761a59bbd6fdbf2e80895dcdfeefd38400b7c5efd8d193d4fe32"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "41659af92710bdc0c5a990b71c6bc75b0f37001c9959102513c637567726b772"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "41571890d6a5447c1062b111ac83003b3a84b7d89a1b4c766ad1619890ae2e75"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "34c6c0d7193de2792af7c1daa2e512fe8ccf7ec16664b52e25f248ea328dab3c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/run.log",
+    "size_bytes": 8105,
+    "sha256": "8a871e603bdf9d5a45e70ac8da5c48a73764cb769f55408a296f3d7b8d3fd02a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/sha256.json",
+    "size_bytes": 5508,
+    "sha256": "b00fd4363dd003f89e083617335c2d4038e66a3309679307f0c41563ad1d616e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/step_reopened.json",
+    "size_bytes": 36333,
+    "sha256": "9de6df2bef5e584a11e2e72397a9fe24563c58f129d3fe983696024a5e55f8d3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/trace/events/golden_4ffa62eb73c34b2e8bb4b68c3ebd9dbe.jsonl",
+    "size_bytes": 1978,
+    "sha256": "6df920c85c95fb7a663cdc40fc4380d04812e6e69808366e3aa31f8981ef872e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-02/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "d5954a921549783b5e0fd3f283d90212ebec0ab125d2810ad00dd9cc0c0d1d5c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "14eb33d5d856c012b16244ba8d9a3481010e84d9b78300dc6be31316f77e7cc2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/built.json",
+    "size_bytes": 107844,
+    "sha256": "0e1f0a9f4df37d2947465df02815401e18a960a877c4652eb8ae1fb8f796640c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/ledgers/run-03.ledger.json",
+    "size_bytes": 15270,
+    "sha256": "57216ead7eb8594080d960f00be972a76cd08e6f792a3b8d1cf93e0e1f995a42"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "f233040dfbcda0b7d41b17aa181d7cebbf635853df86e532d704c8a119ba47b1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 148640,
+    "sha256": "57a44874cf0a2f05e09b173a6ce748b05247eb660de877d724b04966ae9bb462"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parallel_gripper_retention_travel.step",
+    "size_bytes": 299738,
+    "sha256": "cfd36e099fe6103ab9a29cfcb2fc1bc0720f04f71fb829c1aa64ba99b5deeb75"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/base.SLDPRT",
+    "size_bytes": 102405,
+    "sha256": "4459d2bca8360f36633d0f2a55234fa6ce90ff3ea98e1e92187d2977930fe4be"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/endplate.SLDPRT",
+    "size_bytes": 72328,
+    "sha256": "63a2ec25a70efb8f0a5525c094898180bb971ab601264d749505d26ef9dbd5aa"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/finger.SLDPRT",
+    "size_bytes": 69692,
+    "sha256": "725498792d2fac88c7ce22870d895a622a2115b2c45c1967c4bb01852ffc6034"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/finger_rivet.SLDPRT",
+    "size_bytes": 85999,
+    "sha256": "d461a94dc1ba5b3aa3249658af07e67d24d6ae1056faa5267ea85b4ccab53132"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/rod.SLDPRT",
+    "size_bytes": 71585,
+    "sha256": "417a3b89b604806ac8ddb98d7995bd6d337c45fe555e2a280a5169e329f6e597"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/slider.SLDPRT",
+    "size_bytes": 89924,
+    "sha256": "9a41600c25d6bd02e7a3ea1a8be4d747c25b7a698a7503a53aebc77d9b907651"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/support.SLDPRT",
+    "size_bytes": 84101,
+    "sha256": "64f72855fa72ac1d5ad64de85bb9975207be761777f4b2f8cb81b691381b8a06"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80598,
+    "sha256": "d67a8d17b90af56a267bc3b9aa4e13cf6c4b6f9a2e35c6ebe2ed05b876d47bdc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/parts.json",
+    "size_bytes": 278683,
+    "sha256": "5f96d7246fd10985938b5f90982ede9348a7f057d7e3888c1c85c39a765aab90"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/reopened.json",
+    "size_bytes": 107847,
+    "sha256": "aac47d08c6dabd807dd900e9ca1216bc708357721332c5ca2b2456d8e2514bd6"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/report.json",
+    "size_bytes": 2363796,
+    "sha256": "6a310f60e629c8dcaf07a40ac66a385b403b02d01e92fb498f1c4667d7931e4a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "cd5d818cb103177603fe90f5baa5592376c8a436c9b15bedb309c0f55c66f482"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "82248c0775692090a76381baa69f682839355098d605d6b09a8017cac9487a58"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "a328d0a857873d987513ac5f850c57ac85cd85b1bc4cd2ccbfda41a550c8c5dc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "5d2ac6e3f70d8193a31fa9adf63444451fa39cb3093b82e8c5877a561e2895fc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "aabe67bb77f09cdffb8e9c48839cbb6d7b66b821dcdb084e986266dadcd8cd02"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "f46f8d4911565c3c3887c344b0337c62f56dd21cee8304b9dbd645b7f01fabfc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/run.log",
+    "size_bytes": 8105,
+    "sha256": "89f9d10bccd98da7893810a003a25faffa1d738963ad709f8947673815fa4e0f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/sha256.json",
+    "size_bytes": 5508,
+    "sha256": "ff0d3b0e9215dee3b9133730239686394da322e7d9a86d22d298514da7e85f3c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/step_reopened.json",
+    "size_bytes": 36336,
+    "sha256": "f538179f12756a1d5c4fcd7ec92bb9b77f4f7aba763799a3bd6eafcfc22dadbf"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/trace/events/golden_df6aa6a1907a4cfd9e44980ec9fbcbd4.jsonl",
+    "size_bytes": 1978,
+    "sha256": "06aad1768bf39516645b06b9ed21d041b3136077efe4650404d9c86d55cdedc4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-03/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "1ff210f22bb44e5d3ea5b5b9754e2aad7b5df928b84e992d4dde657187b83a57"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "ea159d293a3e0c5b0d4dc4fa5348e62150b2712a47787b6244e4302f11b97b51"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/built.json",
+    "size_bytes": 107868,
+    "sha256": "f89f0abedef7fc5a6f83df41a26ce3f2ecf41608be49fe2e8a12d6eca50a1252"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/ledgers/run-04.ledger.json",
+    "size_bytes": 15270,
+    "sha256": "91cb3bd8eac5105cd091edf4cb7387c2916c5c069e58a387f09feb3b7166b2b1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "a29865cf1d97c6a109e76429bb1a704d3e6621cc32cfb1a5d41da8e9cda07cb9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 149998,
+    "sha256": "9759c8ca693f557c66440967cbe927ea628ec054c5dda5461921bb51a9ab2901"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parallel_gripper_retention_travel.step",
+    "size_bytes": 299739,
+    "sha256": "7e04acb1102a4a54c689bd8e519056e01ef48908054776b8405be609c77a83ae"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/base.SLDPRT",
+    "size_bytes": 101665,
+    "sha256": "324c6b6ab6aad6ea26e5f81b9de17040ae35d38ef0814f6d11370658296fd464"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/endplate.SLDPRT",
+    "size_bytes": 72664,
+    "sha256": "4b22861e7fdae0a1fc14b6ab0e11eded82774a4bf3f6a3d10ddab6c545727646"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/finger.SLDPRT",
+    "size_bytes": 69500,
+    "sha256": "82a14ab32eba66548e0f05ac628286d9a958ec8b3d84a422022f04c3b655154e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86320,
+    "sha256": "8dd84567bd47ef128ddaadc3433a333e39fcf48888f417d68dd8c44a4a0749ce"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/rod.SLDPRT",
+    "size_bytes": 72171,
+    "sha256": "82405a1e418a003120e3dbb7588e23a5330e31279e7d6d37976140e68f188915"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/slider.SLDPRT",
+    "size_bytes": 90426,
+    "sha256": "eb30987e6d50df7f7cd976f425b31f5b73f7c5726ee655752ab58a717acb2966"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/support.SLDPRT",
+    "size_bytes": 83528,
+    "sha256": "844a728829593e8e755523298aedabfd3204766061a683c2ae6fa476975e662e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80360,
+    "sha256": "5f02b99748b9600acae277b4cbd647c0f7c8bc3be4541eb4398585547f67e601"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/parts.json",
+    "size_bytes": 278704,
+    "sha256": "0fedf92d77231a7720e3414fefbb353071ee2a84774e8c39ff5daf4a660a85bd"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/reopened.json",
+    "size_bytes": 107849,
+    "sha256": "dc1f946ad7e4f6d269595611ee10685080301d3ec8f214ece5ce5433daa50a07"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/report.json",
+    "size_bytes": 2363841,
+    "sha256": "e2f5fb1a91c8d440b0ded5fe898fad7a6eac5c24d214c3144d4aca59fd3c3a9e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "dde3bf77f8158aaf1c4facbda7470daaead36a87cd0353c6bd8e142c84cc8c6e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "a2a1e006b73c10e4677389d228e1c1ec768de8a91d736571273f15bde168cc21"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "d1c45cd3254912cf8067140a5c4ac274ed67aebd456ba0e1b17a92bad5f7c29f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "9e8fabef7047568d433d4ce27be497b960f6818efa2a9ffd6e27eb074a0dde41"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "f6b9975c70f9031788f0cd0250785387e73c7114b7ebb7986bd29b00c370d0be"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "901c5ef7450957a2e4e0aa15367d36ada995e491acbe6e4340b1ed0afa037dad"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/run.log",
+    "size_bytes": 8105,
+    "sha256": "46001b6fc9b98d6a44a92a809b252573a401ea1d3512e9cdbe2434ddcba7e5b9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/sha256.json",
+    "size_bytes": 5508,
+    "sha256": "08b45dd2cc7dee1717b48b0eb0dfbc46eb79d390a386879e3c27fb9385308b0f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/step_reopened.json",
+    "size_bytes": 36334,
+    "sha256": "6d8d24dbf8b3367934ee746a17d0f4cefce7e87911324079184cd6ee77d2e473"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/trace/events/golden_7dd65c8fb9ff41afb496f1ccd4a72851.jsonl",
+    "size_bytes": 1978,
+    "sha256": "8359e8b5b43f8f13f694f6751ab72f4e26496f18d1fcd85cca3a55d7ad392ff3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-04/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "cd1d75303671f2b70ffc3ff153e74b028a41290c5d03ff383cae4f6137f5b62e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/ledgers/run-05.ledger.json",
+    "size_bytes": 8669,
+    "sha256": "4276161644b8b3dd50f28bc2cd5bfb84134a40944ee27e0e8f78576f2cc8f7b1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/base.SLDPRT",
+    "size_bytes": 102023,
+    "sha256": "1996bcb540cc59ffdd3a2910a65e8823a3d14bb335c7883d2cbec95250620b9c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/endplate.SLDPRT",
+    "size_bytes": 71977,
+    "sha256": "f281c4796d3e3359770e1f77089f1c08bba67b5fa1d8b59c4dbafc94d79d18bc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/finger.SLDPRT",
+    "size_bytes": 69774,
+    "sha256": "b76fac2b6d7e8b3e3e8e072cf9c033a77fccde278268b318aae9db34c4741304"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/finger_rivet.SLDPRT",
+    "size_bytes": 87011,
+    "sha256": "9620001646a72367f96dd19dd41af2b0ea56060a81f33ff1ced946459f0f6b98"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/rod.SLDPRT",
+    "size_bytes": 71969,
+    "sha256": "b9c6a63d5e84d56eb813e6e5ef847ac8aa135f3c0d9468eb7633bba8dcd22551"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/slider.SLDPRT",
+    "size_bytes": 91108,
+    "sha256": "93130ef2e1aa80c17938a51d1fec938590c5ed3146c6602f54625a1a44918b04"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/support.SLDPRT",
+    "size_bytes": 83980,
+    "sha256": "107725b94c6ec9f8b0d7e7a7b3b5c14a9a7d45017a796df736563a31fabff467"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts/tie_rivet.SLDPRT",
+    "size_bytes": 81136,
+    "sha256": "9abf60738c10e565a8878b316c6893c7f65e8a475fca559a79dfff25746f3e5c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/parts.json",
+    "size_bytes": 278684,
+    "sha256": "ad9af2dd0c03cead3a9fe141dcd3388aebbcb35fc87696a41c549031290682a1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/report.json",
+    "size_bytes": 313221,
+    "sha256": "857ddf4f9bf1392d88d05ae91fef5fb6268363c442d864048a0260bc098c36c1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/run.log",
+    "size_bytes": 10541,
+    "sha256": "19176f547558bdcd1aaa1434b48ad6a7887edff7c61b698f8886c9e24c4c65ec"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/sha256.json",
+    "size_bytes": 2946,
+    "sha256": "15891fbae9733078863bf298cd67cb3fe57441fecfcf6630323b04feb6803872"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/run-05/trace/events/golden_b970f243ce584183ad53f23f17568e22.jsonl",
+    "size_bytes": 1463,
+    "sha256": "22866423949ca0d8b3523ec1d4d7150f6f09190ec310d9c3541a9004e4ddb725"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03/summary.json",
+    "size_bytes": 6912,
+    "sha256": "16b409e4509b5751f1e5cd966e0a19ee7a84ce1dd4ee553ef7563faa271c2b27"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03-console.log",
+    "size_bytes": 7188,
+    "sha256": "5ab730ab77e6bc36b0c639ab6411b37a0d99ddf160f68bae0b6841515a25aa98"
+  },
+  {
+    "path": "output/p0-2-1-real-five-03-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/base.SLDPRT",
+    "size_bytes": 102211,
+    "sha256": "140959563289dd36d2349c2b94c0d029b19375678de2ecb721d0e5f4f0770d3a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/endplate.SLDPRT",
+    "size_bytes": 72202,
+    "sha256": "c263a6a9517367511f1d3b006b3edf8fd70dbdfa3e740f28e1a95e154e5a4588"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/finger.SLDPRT",
+    "size_bytes": 70879,
+    "sha256": "a86c28d0811baa2a9fb62d7744699b220de50b056814df39c6b9b8e34cedf3ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86242,
+    "sha256": "044bfdaf7f824657922296e41d9a3bf38bf131085284da5cc6c92a97fd8eaba9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/rod.SLDPRT",
+    "size_bytes": 72031,
+    "sha256": "b91b6c1c204bdf22872b6a8f12284a95effeaafee45b020e94ec1a3d083b4f77"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/slider.SLDPRT",
+    "size_bytes": 90856,
+    "sha256": "cb9273791fc02a5b6434bd794d2586daf6a1c88563dbea8ba74fa0e4b1227fff"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/support.SLDPRT",
+    "size_bytes": 83964,
+    "sha256": "b38f484cebb34e3c63511611303b74be8e346730ae2903c8e663ed29f4e1a774"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts/tie_rivet.SLDPRT",
+    "size_bytes": 79788,
+    "sha256": "809a064c98d8baf25b574e5aabf724256b1be258e4a2e58f88b98e3aa1b9d579"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/parts.json",
+    "size_bytes": 278880,
+    "sha256": "0b553b4737b9d78fd8f16aa4c0e3f19629b9c04d9f022a05bfad9143e687a8bf"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/run.log",
+    "size_bytes": 7231,
+    "sha256": "5295e6049381e392b18f72d5500d27fb278b837720579f0a89564ebbab9b3f66"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04/run-01/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "87fdcf94e50bbfadd074ee31d4b0ddc697a9373d2be9160fb13b8e1215fe4986"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04-console.log",
+    "size_bytes": 1135,
+    "sha256": "e600b356200af9e147383a5aa3f2c15be0e6d06b8cac0cf9d4a61f57b8bd2408"
+  },
+  {
+    "path": "output/p0-2-1-real-five-04-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/assembly_progress.json",
+    "size_bytes": 2339,
+    "sha256": "700dcc0311760d79ae004e7fc99193a465ffed847124da1abeeb24e116f9c840"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "2effa1eaae712c2d7497b8b82f649ecc74eaa322d16aa0f668c79ddb123169c6"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/built.json",
+    "size_bytes": 107864,
+    "sha256": "f40358139a20dc6ceb6fdbd2d9df34d9a268d121fb2254b96d4af2aa10820e5e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/checkpoints/before_travel_limits.SLDASM",
+    "size_bytes": 145829,
+    "sha256": "7399cf774ced8493e8050ef73f9e667a853be5f2bb279768a7ac0e53fbb88919"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/checkpoints/components_inserted.SLDASM",
+    "size_bytes": 123120,
+    "sha256": "7c3c7211db5455e3a32f91c45f3bc85085b5b60ad420fb84da0c9542217d10e9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/checkpoints/mates_created.SLDASM",
+    "size_bytes": 148801,
+    "sha256": "4d91b0f59d5009788e3e3eca62c0ca67d2aea5c9343070bc865b74d6ee06ae9c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/ledgers/run-01.ledger.json",
+    "size_bytes": 16780,
+    "sha256": "9808998fad69f27341279195615d0cd07cdf9cc77eff6db9dc01a132eff3254b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "6bf80dac30b6ae0460c8deca84ee3c1cbe48f0307da043d74719c1af61e27f3d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 149640,
+    "sha256": "1db427d17592aa7559f4b710b581b4e885be7cff23c390b55e2bca14e0473ce7"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parallel_gripper_retention_travel.step",
+    "size_bytes": 299678,
+    "sha256": "3f78ef415f312f022244c31f0354f5b7223705d59e1de7e61f0bf65d849c990c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/base.SLDPRT",
+    "size_bytes": 102385,
+    "sha256": "f77f5275c60b0daa2f2c7af9cb5d1314f8cd48aaeb2cfb44f1e8311bc1e831ae"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/endplate.SLDPRT",
+    "size_bytes": 73058,
+    "sha256": "be5cec2ca7f542534c270edc45cd8d0b0b9953e9b8e3357e3c288fe0e0908c17"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/finger.SLDPRT",
+    "size_bytes": 69932,
+    "sha256": "68c45d68aa77707b3f25c8657fae38cf5a49525bbed59b568544c324efdcd294"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86666,
+    "sha256": "3f1dbe0048658008fbdc2636e66737d7351cbefcf9251b0b9bfd86aea2260547"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/rod.SLDPRT",
+    "size_bytes": 71560,
+    "sha256": "d937bfa04f69e4532b4db3b6d9601fc6283f5f1fd44697dedf14ddf768acc304"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/slider.SLDPRT",
+    "size_bytes": 89729,
+    "sha256": "95aefccc731478d55a34412215f945a34317761a59f7f8496e416be1c708d869"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/support.SLDPRT",
+    "size_bytes": 84413,
+    "sha256": "690520306c9a87d0f4deae1c0d474620af54c6e251c882a7a0777d40f210f858"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts/tie_rivet.SLDPRT",
+    "size_bytes": 79756,
+    "sha256": "9513665ec9490e635ed9065eb9cadc2564c925da9d1080e76940b860679fa70c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/parts.json",
+    "size_bytes": 278699,
+    "sha256": "5a7ad1c0fb76aa577ae3c79cfb74e7c11cdab46fd1edd620c694131cd68cf676"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/reopened.json",
+    "size_bytes": 107847,
+    "sha256": "2e6a66ff3a987f584c098db69430696febee15a5f8013895ab3a23d6f1456c43"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/report.json",
+    "size_bytes": 2363828,
+    "sha256": "a82cd92101e3ed80fd29ecd6bf036180919f64f5a8386fbebfd65b14c2651332"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "40fc132dfd262d6b83776e4b4440f35857427385cf4ebeffd056dc3bb6a7b05b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "c84a94e14ddf8c198b3844c6d3203164ac7da25016fc4d770af75861667b0c54"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "417d5f47c52bee59e13fafff3e7d88b3f71ba290c9f7c3b6a73fc25a0d6dbb79"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "4edbb662b9a6004b25777322da2008fed514cb3576fd77aaaad3e329ca5c0bf8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "ed0d58db79af7053c0c8be23f94ae0743492e7ed2d37fbb3b87e856d4ad8f962"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "fdbbfc05e40a0ad5afd26eda7be2d16cf9cf8dee59d56cbeb8301d514a96ac6d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/run.log",
+    "size_bytes": 8511,
+    "sha256": "4c4b205518e8ac2ea626a13eec44d71f3af8fccf7c634fec8e27793343b6b032"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/sha256.json",
+    "size_bytes": 6185,
+    "sha256": "e4d89e687a07dee21a231f5f7ea6baeac17fd76115759892e3aa12d0a8b43be7"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/step_reopened.json",
+    "size_bytes": 36332,
+    "sha256": "ef76a33b69cf55f6bf4c19b86b32d63b316bcd07e2995834bdb7915ccfae3641"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/trace/events/golden_219dee5f669e441e88665e0559fa7c6c.jsonl",
+    "size_bytes": 1978,
+    "sha256": "00654a7a9eb14c3ee8fd1a9debdf45d927b79830e1ab236946f0d1713ed73534"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-01/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "bfa5948f75efe4e23a4bf02d04057ad0c910cd3564f0e32e38df5924580efda2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/assembly_progress.json",
+    "size_bytes": 2339,
+    "sha256": "436176667ad284f2ced7c0c7e2da3cff60477508699a4de1ac5441dae297c960"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "cfb4228a5d97396b394831f159168c6ddd9f43d7501a9a337bac96acaa2b61fd"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/built.json",
+    "size_bytes": 107864,
+    "sha256": "1feff492c904993f87816055c139cd8ae653753763bf609668370f49a5c5fe54"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/checkpoints/before_travel_limits.SLDASM",
+    "size_bytes": 145994,
+    "sha256": "3d40d8e58f778e8c7617268ff86d2ef884142620ba7faae000ddc169cb7e2a3f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/checkpoints/components_inserted.SLDASM",
+    "size_bytes": 123523,
+    "sha256": "1e6b92e4e7b9a0fea283c8b8db886659ccb8d1ae1e98d872722cdd5c4f5f5887"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/checkpoints/mates_created.SLDASM",
+    "size_bytes": 149363,
+    "sha256": "97e837f4b5d697280a0e9bbee57b9ecf202f5278abca6ba40dc63376dc07ba8b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/ledgers/run-02.ledger.json",
+    "size_bytes": 16780,
+    "sha256": "071f572a45633ef7049b8f733a1416547d42c8c31af8525c34929cc30df40c41"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "53295d11c57ccf66ad9a72d68ae0b1de95455e990a3c1feee8d2c30affd46b9b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 151157,
+    "sha256": "5437951a1309fd8ea88618c47266e0ca4cbf4a31b10d043045b940ac4366814d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parallel_gripper_retention_travel.step",
+    "size_bytes": 299762,
+    "sha256": "fd8b84e6b44ff2d173527a8cb0ea3c02eca100b73c4ccc8e89872030d9a82788"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/base.SLDPRT",
+    "size_bytes": 102929,
+    "sha256": "f307f4943bd272b28d13a71a516352d6c85fa199b374bab9b4b20d0c5b08fe7d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/endplate.SLDPRT",
+    "size_bytes": 72282,
+    "sha256": "983cd8b381aefe903a2baaedcf9b16567bc32de3d4f9810911724a52ead38784"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/finger.SLDPRT",
+    "size_bytes": 69893,
+    "sha256": "a56cbe236355e85deeef297c1e954d549f08d33bc65b3e5567208474cc9967c8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86193,
+    "sha256": "32e275cc0ee8ca795c1729ae59dd7e8a5a4caae4bbd325d0a1f64e4d4e4b5c5d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/rod.SLDPRT",
+    "size_bytes": 71807,
+    "sha256": "f8df31cf854d4825767dcfb1e2b78f3346a7060e8d0a63402b8eaeeca4dd782d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/slider.SLDPRT",
+    "size_bytes": 91200,
+    "sha256": "17b7904fe987ca8e807e2dfb74075dcd79f69a16dd3c328a048b1cde67bccc88"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/support.SLDPRT",
+    "size_bytes": 83723,
+    "sha256": "ffcc363f271fec5e55946628cfcae9e57da974e569431055b0a428a0bf51cbd4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80520,
+    "sha256": "1536692434ad81c0436883aea52d4709b689a6c695376704cea389e38cd1e27e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/parts.json",
+    "size_bytes": 278702,
+    "sha256": "077fbc6cee05476302d1f6b11471531dbaac1349661502a0524b520212fe5f48"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/reopened.json",
+    "size_bytes": 107849,
+    "sha256": "e64f0edec1b3428ad5e2c52d45a4dea86dba6a596ac340f650ca9b2855f24efa"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/report.json",
+    "size_bytes": 2363837,
+    "sha256": "ef88c1686470419569723ca9c86aadf624fe941864790c3f9bebc604bd1a623e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "d6bd2a9b6ec01a20cbcaa770c1d8c115d19e849d65aa9edf2b1c2699e2dc1a58"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "95974255ba0d5e3bacb3376d5f964b6999d793c55a9d155bed7c3b2e820b354b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "19177ca9db66a5d97e48895b304d15addbb4c8895c72756082c4ad136e683aa4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "f769b18f0c744c4aef7896965c52bcc8ac2b65be717ae34df342a40bb0b6fbf2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "caeb0981f791c1d23651cda736b72f5b880f0f1c22c4b0c4d710c46713cdf6f3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "7da450752b0c2a112b3c9d8802e261ef23a7a92d4dad4af3867e42cae821ca44"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/run.log",
+    "size_bytes": 8511,
+    "sha256": "7909b11256d4c1a5bf2c91fa136fc964e04510af0020f0e0867f4f32138ed7bc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/sha256.json",
+    "size_bytes": 6185,
+    "sha256": "7f08f5cf2b3f2462b111a5273cf896bdf7bad15068ccab6534373e46b6f61885"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/step_reopened.json",
+    "size_bytes": 36336,
+    "sha256": "0f28619aaec0ed508ce667c764fb22e4e07cb74a2da4f0f41abcf5bb938e553d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/trace/events/golden_708ac2b358b4423ebfa12da5d9a9ee99.jsonl",
+    "size_bytes": 1978,
+    "sha256": "795f20e490cf6181cb8f63486e45e0989c9a550b53215a0c54b317438f2c91f0"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-02/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "c1aedf8d3288a64d842275fab21d14677675e429a75feb748f6630b586c876d6"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/assembly_progress.json",
+    "size_bytes": 2339,
+    "sha256": "25915607db344b0696ef9577a718024d57528ca5b8de7d9d72beccc2a967c480"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "1ccc1a27c6a468e248212db0565218332f01868e5ff1c6dd99958168daa67df3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/built.json",
+    "size_bytes": 107846,
+    "sha256": "7097183498d9292796ab9aa8bd7e3b65d8bb5e99cd69385c5ff59afad353c8f3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/checkpoints/before_travel_limits.SLDASM",
+    "size_bytes": 145736,
+    "sha256": "795ed9ff843bb28ee7faed9ffadf3ea490b69b3a62d7c293b1240148c17a4224"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/checkpoints/components_inserted.SLDASM",
+    "size_bytes": 123071,
+    "sha256": "184d796867fd319b6f467092aa6f09ffafb5efc61b30a85df4779e4ac3a7dbfb"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/checkpoints/mates_created.SLDASM",
+    "size_bytes": 148880,
+    "sha256": "f70fa8e4c2251281caa36e1d0adf6466748b6da9a5d61b39e3748cced5446b90"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/ledgers/run-03.ledger.json",
+    "size_bytes": 16780,
+    "sha256": "ba994343c3a7b703daa54683c9ed4f1cf517602c83620f3cf7e0ea3b362a42d4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "7f0fbad35d036b2893439b2f9a375fbca50f0fa6c5a2abd6e95232178bca0138"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 150214,
+    "sha256": "421b93467655af6c2358bf8702d0342024e478db3c3c0053ebb8f3fc8ec2c5c3"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parallel_gripper_retention_travel.step",
+    "size_bytes": 299756,
+    "sha256": "2a93c4df1e2b4fbe099b1df157b48a59b5e3a8041802724ec3d0ea571eb77056"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/base.SLDPRT",
+    "size_bytes": 102043,
+    "sha256": "5d9c6d6ee850fa0e7cb40125311a3c47b059321294e72cce168a00ed194a0fc0"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/endplate.SLDPRT",
+    "size_bytes": 71920,
+    "sha256": "666ddddb5915d23d01a3cbe76a635b3e6c2915fade66f5b52bd8b13f112e358b"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/finger.SLDPRT",
+    "size_bytes": 70554,
+    "sha256": "3809f812a92e0cca2da13283dcf7a9f0da141a59fdf266b00f58273d31bf7839"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86255,
+    "sha256": "6f35576fef01017d79a00006369b61c0458524d0e6fb0fcee13ee968be35987f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/rod.SLDPRT",
+    "size_bytes": 71803,
+    "sha256": "bc6bd0c30ca8e1a50b2e22a45a53fea74f545fa78426dcc297b4a67f1ac53a39"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/slider.SLDPRT",
+    "size_bytes": 90177,
+    "sha256": "8bc75b3436a102f4e15245c8fe5d74f55cb75f34af6e872061164c112eb60585"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/support.SLDPRT",
+    "size_bytes": 83650,
+    "sha256": "fbfef4a1ec63960e49192521a4535dc9cedd05bb6e23adcd6385f15e3c231294"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80789,
+    "sha256": "beadbc8fb31b689fc8c796362b0b6faa53380703363a94c81a363eca1c62c877"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/parts.json",
+    "size_bytes": 278683,
+    "sha256": "d51f96ae67f84cc3eed94c983995d7beafac216f6d170e28da3bb3caa02cbb1d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/reopened.json",
+    "size_bytes": 107845,
+    "sha256": "970bedffa36e6786502d4c2d9e3bb975fce196552d1a101f8fa0ce9ff7ab4e6f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/report.json",
+    "size_bytes": 2363795,
+    "sha256": "67797e4f304b3bb742b77bbabf63557bf3c27fe1404da25d1f86b579d81faaef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "05f82b980bdfb3a606d51cfbd90ae5d38aba744e055cbc8384bbb82efcab1dd7"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "63a94bdd916b20db8e64ded23845a5f70760ea1c64fea786b3fdd43a1306f88d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "ddc173a6ff738dfab3a45d3a0451c14b46edd2a49e50c9836607c08cda871aa1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "327e28f7435301d7c3c8dabd23e3f1a0ac902900aa30b527cfa60df326e2cb1f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "03d771c5fc96a0384cccf0752147f27c24357fa7a957620b6890bd97d29a300a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "d9ffc918ce409f6bdb7e49025f3cc640d2587c634c0aa968bc3c7b7fa74462d1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/run.log",
+    "size_bytes": 8511,
+    "sha256": "30e7f74a67dfe957be78b66bf01ba5869314001e1c6878866452ea71e32d8bbf"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/sha256.json",
+    "size_bytes": 6185,
+    "sha256": "12440837c1aafaa0e0bc092118f21b67e9cb55347db57db6ce5435ff5a6d8266"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/step_reopened.json",
+    "size_bytes": 36335,
+    "sha256": "f541eb06bc2d4d45d0b9abeb51ae86cb9985d5912c831886c1b5e89d2be87e2c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/trace/events/golden_e09540db06b44375b170eb242c0e72d2.jsonl",
+    "size_bytes": 1978,
+    "sha256": "f15abe0413320252b905f81b29a9b95519ab3b1fd2b6a2982783755839e1cfa7"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-03/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "0b7c37b3546c36154b0744a6efe35d8e8aaf67b9fedbbee31d1d22490452ccfa"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/assembly_progress.json",
+    "size_bytes": 2339,
+    "sha256": "53426d11b69ab54be62e05861dff81a49005b26651d059cf1789cb627a4294e1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "fca770c7b2b0d92f221e35d4318ed7edb1cc47842911d04aef05cedb2cf99614"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/built.json",
+    "size_bytes": 107847,
+    "sha256": "0e897b8b7bebfb4d838db6d8832b53a4478637f94c21a97bc5270f9b5c4f1e8c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/checkpoints/before_travel_limits.SLDASM",
+    "size_bytes": 146032,
+    "sha256": "ee619e164d755dda72dd563310e83100d217fd67d3f5de4ebff2fe6f25951253"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/checkpoints/components_inserted.SLDASM",
+    "size_bytes": 123147,
+    "sha256": "a76180edf7fa6762b9fa0c5fe9a3a7396346f18c63ba46a6c97f603ca0810bde"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/checkpoints/mates_created.SLDASM",
+    "size_bytes": 148474,
+    "sha256": "783acfefb931766485c2261c33a2f0e3dbba084d083867f8badbd4b41bdb8ed4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/ledgers/run-04.ledger.json",
+    "size_bytes": 16780,
+    "sha256": "6cada684ec5c79efd980f33e34e07a4c5009de23d40ee3b21072bc1acb81f166"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "7ac11710da464b4745a01146c011ed16d87c2e965dbfe521e73b41cb0e49dad4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 150073,
+    "sha256": "a3e8ac05ee52bb48693996219451330c535cbc61a197d824428cf83846ba2bb2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parallel_gripper_retention_travel.step",
+    "size_bytes": 299583,
+    "sha256": "f8b7817564712feeedc4124885ccd4633e85b3d09abc3a51f84ed104107d19a0"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/base.SLDPRT",
+    "size_bytes": 102857,
+    "sha256": "179afed29e45cc150bac5374d4b1bcf4c6a2200fee047c49cfa8373afe1db541"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/endplate.SLDPRT",
+    "size_bytes": 72318,
+    "sha256": "91b2a904fa60f4916f449c7267c3ad4b85c165fff5507ad36b0a02c7af961864"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/finger.SLDPRT",
+    "size_bytes": 70139,
+    "sha256": "ed05a5bac1e080932ff20166a99bb5d27902a71b4be9a63286c36e6dfbb8d144"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86681,
+    "sha256": "ba1c6c4430a9b2382cee70fdc118d5dcf191afd1c715c67cee9ec402ebdb97a1"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/rod.SLDPRT",
+    "size_bytes": 71516,
+    "sha256": "29ea1e4c91498f97c519ca99a438de3e3f915bd90ec0df89112d46799e20081e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/slider.SLDPRT",
+    "size_bytes": 90166,
+    "sha256": "5542c9af504bf0c42b76c11fd945ad130da208e6d91035a20092e63531102360"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/support.SLDPRT",
+    "size_bytes": 83685,
+    "sha256": "c9e65f9b1eb58b0b696194af7fca8cef5484f880676fe0a956d18977231e3698"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80233,
+    "sha256": "0d5f48824df54c21fd415de0cf962d2bf51b9cb18660a3dfab2b43b2059261ae"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/parts.json",
+    "size_bytes": 278701,
+    "sha256": "0ada695ec4efaab0cef9edddefe98e6e1f2ad2b0c9a5bdc8dcb4057fb48ea2bb"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/reopened.json",
+    "size_bytes": 107866,
+    "sha256": "9f0f01432f269ca28b747afc84a48a21cd76b70e847b9d2a3c98eddbe6f8409d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/report.json",
+    "size_bytes": 2363838,
+    "sha256": "529a4b622c2ddf22af45abd93e7b420075e5cb5c97f06c7e85c60dd7a771a033"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "5a5b31aacb40c4958847472aaf0e5e10195c1a5bb62b49849b7de9797592b714"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "482f43b2b1690dc6a8f71a2f3a15fbd8faa8da1979af7c51274c37b44328d2cc"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "61af8bdb36dec7ef7bc69e8d26a6c5dc857bc7658b1a427293920675f159a1ae"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "39fed447a9df19a7d9ca2d2d8ba45805a2101c7d3a4280b3420a6b79d2213afe"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "c208e7a42c030adff2d871c1b225ac0c55004b4516a468ba343e57f49625eed2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "583534709f58783f06b381b3d92c5e157eb784084dbfb13719a5cf753ad8e202"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/run.log",
+    "size_bytes": 8511,
+    "sha256": "7334daac2809b7207ef3cecc0ae86010311a14dc85ec5acddb21c8e1a56c2324"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/sha256.json",
+    "size_bytes": 6185,
+    "sha256": "d99608aab329cf08a5d23a026404ba418327e021b56e7921e1a0618948826f5d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/step_reopened.json",
+    "size_bytes": 36338,
+    "sha256": "4004895c1b7a37bcc71cef42fa96f18e98133bb08a780d6cdb88b5fe970da57a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/trace/events/golden_623589ddcc1741f3abc928cddee72a7c.jsonl",
+    "size_bytes": 1978,
+    "sha256": "21ad4622e91eeefa62ea2117fe9ab63c246be52de11bc451492c3c2f2c81bca2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-04/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "d2b8e6afc6756cc3e2649fc8c2a8c3dcdf5ccd63d7866ff4072a5d272f080275"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/assembly_progress.json",
+    "size_bytes": 2339,
+    "sha256": "133195847aaa74de51c693246186c4f797d794e34842dfd476fb812454bc42c9"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/bom.csv",
+    "size_bytes": 3034,
+    "sha256": "87a28d75d9399ca2004044ce3e6b0130abb068be209c723e67903404d0d5043e"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/built.json",
+    "size_bytes": 107847,
+    "sha256": "12470326ee1013ac5bb339c6e33148f3a5447ef92a7f8336e0ffda698447468a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/checkpoints/before_travel_limits.SLDASM",
+    "size_bytes": 146544,
+    "sha256": "399a7d2918a6b3a0d0a287f44004473a3af353e55a266769ff209238b3dd828c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/checkpoints/components_inserted.SLDASM",
+    "size_bytes": 122958,
+    "sha256": "0553dff93995c0a7b4b5ed944627e34422a2cb26d1e079c6c37ef9941a8dd773"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/checkpoints/mates_created.SLDASM",
+    "size_bytes": 148500,
+    "sha256": "5583a30f0a915bfae928aa2b25ee833ec2ee35434722a11898c751bb750e0083"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/doctor.log",
+    "size_bytes": 3573,
+    "sha256": "dc7ad7a5eb0de8bfbdd43be8f0ee60da171d4cc246a2360b2f7650c4c95fe0a2"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/engineering_plan.json",
+    "size_bytes": 14572,
+    "sha256": "88ba61e32c546878a6f1578610bafc15c698e90d3a14fe97c19529d419bf08ee"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/ledgers/run-05.ledger.json",
+    "size_bytes": 16780,
+    "sha256": "69d9e56e2acb80f78267c1fac814f4f8afc6e69887e631cdef0ef8d0d685ed4f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/native_fault_controls.json",
+    "size_bytes": 827484,
+    "sha256": "89f663d6dd47fe683111e653a14227cd35cc29e57cd42a8b146c8bbd93125e0d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parallel_gripper_retention_travel.SLDASM",
+    "size_bytes": 150948,
+    "sha256": "afacd6fccd8e564c1e1f144d20111cbbbe7c3e2326156b343b28e252fdd7aa67"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parallel_gripper_retention_travel.step",
+    "size_bytes": 299710,
+    "sha256": "350fa163dbfd1cdf52f8a5debedc6d4a4d1bfa3d586c7ea752a0d99546b6d1e5"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/base.SLDPRT",
+    "size_bytes": 102219,
+    "sha256": "258202a9276f7528098d807026f30989889a305ff66b65167946b2bb9159bcac"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/endplate.SLDPRT",
+    "size_bytes": 72751,
+    "sha256": "6736894564f79f628297f0333d4388faf8128f56ba72b1504639cbd842317083"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/finger.SLDPRT",
+    "size_bytes": 69440,
+    "sha256": "53a900fdb70509774500cb98e736dc612e2638bf390e60618eb3a605154fad89"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/finger_rivet.SLDPRT",
+    "size_bytes": 86144,
+    "sha256": "b200e3142f5c8dd511a1f811901efc828d6e497be96f5b1cfa6b2dca76115746"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/rod.SLDPRT",
+    "size_bytes": 71514,
+    "sha256": "95b3a4c435268245b5a48336e149d86270fcce43c31f56507b8863eef125f5da"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/slider.SLDPRT",
+    "size_bytes": 90444,
+    "sha256": "53d076d6e3863461b1defd452d8bae8b617f15a96c0082dd885a8af7135d0860"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/support.SLDPRT",
+    "size_bytes": 84620,
+    "sha256": "5155b33677647b6b06b1b544d3d3d1e83f8489e531181e80ceeeffbbae5b9d86"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts/tie_rivet.SLDPRT",
+    "size_bytes": 80509,
+    "sha256": "32c666310a7049fb6c343b8f4e87fca17825bdedcbfb6c513d0057f52bd7bb0c"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/parts.json",
+    "size_bytes": 278703,
+    "sha256": "e81bb204242b68da7973524b4797e8c71df92ebedc2dc2483cb0c30ffff613fe"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/preflight.log",
+    "size_bytes": 43,
+    "sha256": "7f94edf8b11b5bd0269f1f4fda23ec25225c8ade377b506b2d787b7db28d94ab"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/reopened.json",
+    "size_bytes": 107847,
+    "sha256": "2ef9bb8b00b10084c0ee4ba8bfbe6f2b717ee55631ac295a2fb8c25cec342bdd"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/report.json",
+    "size_bytes": 2363818,
+    "sha256": "68ad7b922a4eb1c0dc49327714ba14f314d4b5d3374470346a1b13b429071666"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_front.bmp",
+    "size_bytes": 4800054,
+    "sha256": "cd5d818cb103177603fe90f5baa5592376c8a436c9b15bedb309c0f55c66f482"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_isometric.bmp",
+    "size_bytes": 4800054,
+    "sha256": "515f6cb95882eb3d0efe27833e1c01ac3f9b7cf08ff890962120a3b6531ecf4a"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_review_report.json",
+    "size_bytes": 10210,
+    "sha256": "cb1b4bb139939fc79bc28555e79737c46d0e5ef1373dd0484efe6c4174630031"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_review_summary.md",
+    "size_bytes": 1154,
+    "sha256": "5fd5e79d7b34c95b7517d5e258bd7ae9cbff7647a24509348a885a636ea12330"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_right.bmp",
+    "size_bytes": 4800054,
+    "sha256": "a93a62fc2b12f579282f4ab32c36c579026597c4e69167e54c5e76f8ab0daa08"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/review/parallel_gripper_retention_travel_top.bmp",
+    "size_bytes": 4800054,
+    "sha256": "387de814fe687bcbcb6245068fb03caaafd9c9e14a25521482648a414650a447"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/run.log",
+    "size_bytes": 8511,
+    "sha256": "1b9154b31a070f522d7b2a33009da0786e5afe1cd0d8020c9cc574f5a7b2c1b6"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/runtime_config.json",
+    "size_bytes": 385,
+    "sha256": "758c42a4fce6bd1424d15a2869f919cc11bf112208064fcf3c2dfffd2766b942"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/runtime_diagnostics.json",
+    "size_bytes": 602,
+    "sha256": "7651b2b6734115aa39b674dc75a7b514e6d538294f064a8111a9c3cfabc76fef"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/sha256.json",
+    "size_bytes": 6185,
+    "sha256": "efda83bcec926ed7f069e188983c5f3b6a40927a7abcfe03a5c80c92be75bab4"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/spec.json",
+    "size_bytes": 7222,
+    "sha256": "59edd33281884444dfcf5d9e1b82b28cff7f398dae59d0b58e7c39979ac55ede"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/step_reopened.json",
+    "size_bytes": 36335,
+    "sha256": "2e72f0dabc33320457c53095f580d4d50de5b8288bca2a4f03289e62b8733a11"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/tolerance_report.json",
+    "size_bytes": 1062,
+    "sha256": "20721a7f0e4fac7105e05f824ddcffcc41fe6d6c9002f33c52491d125b05f2f8"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/trace/events/golden_c507bce1e2b94db9bc966175d8e18dba.jsonl",
+    "size_bytes": 1978,
+    "sha256": "9fdcbb991f1cb3786d2e65c900d475b21108b32fee4f64146a13de3b9ca0478f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/run-05/travel_report.json",
+    "size_bytes": 827469,
+    "sha256": "c2d95b369f26c6abfa25c60b240a40486c94a8d21e635296a408d0d4911cce0f"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05/summary.json",
+    "size_bytes": 7307,
+    "sha256": "829d1f0769905542cc58af1650a626c870e769f2ef65b4c16abec30abefb4a0d"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05-console.log",
+    "size_bytes": 7584,
+    "sha256": "0c6c84b3a67561cbb1ec8a6e27dafe4f22e3f9ccfe2abfea8856a36f2fc986be"
+  },
+  {
+    "path": "output/p0-2-1-real-five-05-exitcode.txt",
+    "size_bytes": 3,
+    "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354"
+  },
+  {
+    "path": "output/p0-2-1-runtime.json",
+    "size_bytes": 385,
+    "sha256": "62340e9bc0cd1194e1dfa08d94e37585aa4d0a284b28f79c2b4686ed1e5f92f5"
+  },
+  {
+    "path": "output/probe_p021_assembly.py",
+    "size_bytes": 5963,
+    "sha256": "c2f3a08e6ffa5518aea19c0321ff83f340ebf3e7ebb2ae4c8788444fa3652483"
+  },
+  {
+    "path": "output/probe_p021_drag.py",
+    "size_bytes": 4777,
+    "sha256": "7156e9097df545e11c7b76cd0c7311cfc62476d5ae32038e265ee025969addd3"
+  },
+  {
+    "path": "output/probe_p021_material.py",
+    "size_bytes": 2552,
+    "sha256": "95a7950c04c81ed5aabb32d42840901bc2a3a618f1dcbf327adc70d623c84907"
+  },
+  {
+    "path": "output/verify_p021_seal.py",
+    "size_bytes": 2459,
+    "sha256": "587c560d329004ced6e95e0d0f89b1c28b25c840e7e4027c162d0c53bcf3757f"
+  }
+]

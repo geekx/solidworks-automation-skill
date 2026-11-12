@@ -1,21 +1,18 @@
 """
 @file drilling_panel_gdt.py
-@brief 非标自动化钻孔台面板：孔位阵列识别 + 基准自动推测 + GB/T 位置度 GD&T 自动生成。
+@brief 钻孔面板的孔位阵列、基准与 GD&T 候选分析；不能代替工程图验收。
 
 面向“一块布满孔的台面板从 3D 自动出图到 SLDDRW”这一极端案例，把最难自动化、也最有价值的
 **分析推理**做成纯函数、可离线单测：
 
 1. 孔位规整（detect_hole_patterns）：把散点孔按孔径分组，聚类成栅格/线性阵列，识别节距、
    行列数、原点，并给出规整度证据。
-2. 基准自动推测（infer_datums）：按 3-2-1 原则，从包围盒与孔分布推出基准角与
-   A（主平面）| B | C（两正交基准边），可选识别定位销孔作为基准孔目标。
-3. GD&T 自动给出（generate_gdt）：为每组孔阵列生成 GB/T 1182 / ISO GPS 位置度框
-   ⌀t Ⓜ | A | B | C，并给基准 A 加平面度。
+2. 基准候选（infer_datums）：从已提供的板边界推测基准角；仅接受明确标为定位销的孔。
+3. GD&T 候选（generate_gdt）：仅在显式提供公差配置时生成，不能推定标准符合性。
 4. 出图规划（build_hole_table / build_ordinate_dimensions / build_drawing_spec）：生成孔表、
-   从基准原点的坐标标注，并组装成符合本子技能 drawing_spec schema 的规格，交给现有渲染器。
+   从候选原点生成坐标标注规格；实际 GD&T、孔表和尺寸落图仍未验证。
 
-能力等级：分析/规划纯函数离线单测；把 GD&T/孔表/坐标标注真正落到 SLDDRW 的 COM 渲染由本子技能
-的专项脚本执行，仍为 pilot，须真机与工程复核。单位统一 mm，坐标系为面板正面 XY。
+能力等级：分析/规划 pilot；候选规格不等于 SLDDRW 或制造验收。单位统一 mm，坐标系为面板正面 XY。
 """
 from __future__ import annotations
 
@@ -40,11 +37,11 @@ class Hole:
     x: float
     y: float
     diameter: float
-    kind: str = "clearance"  # clearance / tapped / dowel / counterbore
+    kind: str = "unknown"  # 未经确认时不得推断孔用途
 
     @property
     def diameter_key(self) -> float:
-        return round(self.diameter, 1)
+        return round(self.diameter, 6)
 
 
 @dataclass
@@ -221,24 +218,24 @@ def _mean_pitch(centers: Sequence[float]) -> float | None:
 
 
 def bounding_box(holes: Sequence[Hole], plate: Mapping[str, Any] | None = None) -> tuple[float, float, float, float]:
-    """@brief 返回 (xmin, ymin, xmax, ymax)。优先用显式板尺寸，否则用孔范围外扩。"""
-    if plate and _finite(plate.get("widthMm")) and _finite(plate.get("heightMm")):
-        x0 = _finite(plate.get("originXMm")) or 0.0
-        y0 = _finite(plate.get("originYMm")) or 0.0
-        return x0, y0, x0 + float(plate["widthMm"]), y0 + float(plate["heightMm"])
-    if not holes:
-        raise ValueError("无孔且未提供板尺寸，无法确定包围盒")
-    xs = [h.x for h in holes]
-    ys = [h.y for h in holes]
-    margin = 10.0
-    return min(xs) - margin, min(ys) - margin, max(xs) + margin, max(ys) + margin
+    """@brief 返回显式板边界；缺少尺寸时不能由孔位猜测板边。"""
+    if not isinstance(plate, Mapping):
+        raise ValueError("缺少板尺寸证据，无法确定基准边界")
+    width, height = _finite(plate.get("widthMm")), _finite(plate.get("heightMm"))
+    if width is None or height is None or width <= 0 or height <= 0:
+        raise ValueError("板宽和板高必须是有限正数")
+    x0 = _finite(plate.get("originXMm", 0.0))
+    y0 = _finite(plate.get("originYMm", 0.0))
+    if x0 is None or y0 is None:
+        raise ValueError("板原点必须是有限数值")
+    return x0, y0, x0 + width, y0 + height
 
 
 def infer_datums(holes: Sequence[Hole], plate: Mapping[str, Any] | None = None) -> DatumScheme:
     """@brief 按 3-2-1 推测基准体系。
 
     约定：A=主平面（面板正面/大平面）；基准角取包围盒的 (xmin, ymin)；沿长边为 B（第二基准），
-    沿短边为 C（第三基准）。若识别到恰好 2 个同规格小孔（疑似定位销/dowel），列为基准孔候选。
+    沿短边为 C（第三基准）。仅当输入明确标记两个定位销孔时，列为基准孔候选。
     """
     x0, y0, x1, y1 = bounding_box(holes, plate)
     width, height = x1 - x0, y1 - y0
@@ -270,21 +267,13 @@ def infer_datums(holes: Sequence[Hole], plate: Mapping[str, Any] | None = None) 
     explicit_dowels = [h for h in holes if h.kind == "dowel"]
     if len(explicit_dowels) == 2:
         dowel_candidates = [explicit_dowels[0].id, explicit_dowels[1].id]
-    else:
-        by_key: dict[tuple[float, str], list[Hole]] = {}
-        for hole in holes:
-            by_key.setdefault((hole.diameter_key, hole.kind), []).append(hole)
-        for (diameter, _kind), members in by_key.items():
-            if len(members) == 2 and diameter <= 8.0:
-                dowel_candidates = [members[0].id, members[1].id]
-                break
 
     rationale = (
         f"基准角取包围盒左下角 ({x0:g}, {y0:g})；长边 {max(width, height):g}mm 方向定 B，"
         f"短边 {min(width, height):g}mm 方向定 C；A 为面板主平面。3-2-1 约束。"
     )
     if dowel_candidates:
-        rationale += f" 识别到疑似定位销对 {dowel_candidates}，可改用基准孔目标 B/C。"
+        rationale += f" 输入明确标记的定位销对 {dowel_candidates} 可作为基准孔候选。"
     return DatumScheme((x0, y0), datums, primary_axis, rationale, dowel_candidates)
 
 
@@ -294,8 +283,9 @@ def infer_datums(holes: Sequence[Hole], plate: Mapping[str, Any] | None = None) 
 
 
 def default_gdt_profile() -> dict[str, Any]:
-    """@brief 默认公差 profile（mm）。"""
+    """@brief 历史示例数据，仅供测试，不能作为真实任务的公差默认值。"""
     return {
+        "_exampleOnly": True,
         "positionToleranceMm": 0.2,
         "dowelPositionToleranceMm": 0.05,
         "flatnessMm": 0.05,
@@ -321,10 +311,22 @@ def _fcf_text(symbol_char: str, tolerance_mm: float, material: str | None, datum
 
 
 def generate_gdt(patterns: Sequence[HolePattern], datums: DatumScheme, profile: Mapping[str, Any] | None = None) -> list[GdtFrame]:
-    """@brief 为孔阵列生成位置度框，并给基准 A 加平面度。"""
-    cfg = dict(default_gdt_profile())
-    if profile:
-        cfg.update(profile)
+    """@brief 仅使用显式提供的公差生成候选框，未经工程确认不能用于交付。"""
+    if profile is None:
+        return []
+    if not isinstance(profile, Mapping):
+        raise ValueError("公差配置必须是对象")
+    if profile.get("_exampleOnly") is True:
+        raise ValueError("示例公差不可直接用于出图候选；必须提供实际设计公差")
+    required = {"positionToleranceMm", "dowelPositionToleranceMm", "flatnessMm", "materialCondition", "datumRefs"}
+    if not required.issubset(profile):
+        raise ValueError("生成 GD&T 候选前必须明确提供所有公差、材料条件及基准")
+    cfg = dict(profile)
+    for name in ("positionToleranceMm", "dowelPositionToleranceMm", "flatnessMm"):
+        if _finite(cfg[name]) is None or float(cfg[name]) <= 0:
+            raise ValueError(f"{name} 必须为有限正数")
+    if cfg["materialCondition"] not in (None, "M", "L") or not isinstance(cfg["datumRefs"], (list, tuple)):
+        raise ValueError("材料条件或基准列表无效")
     refs = list(cfg["datumRefs"])
     frames: list[GdtFrame] = []
 
@@ -339,7 +341,7 @@ def generate_gdt(patterns: Sequence[HolePattern], datums: DatumScheme, profile: 
             continue
         is_dowel = pattern.hole_kind == "dowel" or set(pattern.members) <= dowels and pattern.count == 2 and len(dowels) == 2
         tol = float(cfg["dowelPositionToleranceMm"] if is_dowel else cfg["positionToleranceMm"])
-        material = None if is_dowel else cfg["materialCondition"]  # 定位销孔通常 RFS
+        material = None if is_dowel or pattern.hole_kind == "unknown" else cfg["materialCondition"]
         frames.append(
             GdtFrame(
                 f"GDT-{pattern.id}-POS",
@@ -419,6 +421,15 @@ def analyze_drilling_panel(
     """@brief 一站式分析：阵列识别 + 基准推测 + GD&T + 孔表 + 坐标标注。"""
     if not holes:
         raise ValueError("孔列表为空")
+    if len(holes) > 1000:
+        raise ValueError("孔数量超过上限 1000，请拆分后分析")
+    ids = set()
+    for hole in holes:
+        if not isinstance(hole, Hole) or not str(hole.id).strip() or hole.id in ids:
+            raise ValueError("孔必须有唯一标识")
+        if _finite(hole.x) is None or _finite(hole.y) is None or _finite(hole.diameter) is None or hole.diameter <= 0:
+            raise ValueError("孔坐标必须为有限数值，孔径必须为正数")
+        ids.add(hole.id)
     patterns = detect_hole_patterns(holes, cluster_tol_mm=cluster_tol_mm)
     datums = infer_datums(holes, plate)
     gdt = generate_gdt(patterns, datums, profile)
@@ -443,6 +454,9 @@ def analyze_drilling_panel(
         "holeTable": hole_table,
         "ordinateDimensions": ordinates,
         "reviewRequired": True,
+        "limitations": ["基准方案是候选，须按装配和制造要求确认", "仅在显式给出公差配置时生成 GD&T 候选，不能视为正式图纸"]
+                       + (["未提供板原点，候选原点暂按 (0, 0)，必须确认"] if plate and ("originXMm" not in plate or "originYMm" not in plate) else [])
+                       + (["板边界来自近似包围盒，必须以真实平面和尺寸复核"] if plate and plate.get("boundsApproximate") else []),
     }
 
 
@@ -592,7 +606,7 @@ def _pattern_locations(pattern: Mapping[str, Any]) -> list[list[float]]:
 def _technical_notes(analysis: Mapping[str, Any]) -> list[str]:
     datum = analysis.get("datums", {})
     notes = [
-        "未注公差按 GB/T 1804-m。",
+        "未注公差和基准方案须由设计人员确定。",
         f"位置度基准体系 {'|'.join(d['id'] for d in datum.get('datums', []))}，基准原点为面板基准角。",
         "所有孔位以基准 A、B、C 为参照，按孔表与坐标标注加工。",
     ]
@@ -630,7 +644,7 @@ def holes_from_neutral_document(document: Mapping[str, Any]) -> list[Hole]:
                 x=x * factor,
                 y=y * factor,
                 diameter=diameter * factor,
-                kind=str(params.get("holeKind") or params.get("kind") or "clearance"),
+                kind=str(params.get("holeKind") or params.get("kind") or "unknown"),
             )
         )
     return holes
@@ -651,6 +665,8 @@ def _thinnest_axis(envelope: Mapping[str, Any]) -> int:
         _finite(envelope.get("width")) or 0.0,
         _finite(envelope.get("height")) or 0.0,
     ]
+    if any(size <= 0 for size in sizes):
+        raise ValueError("包围盒尺寸不完整，无法推测面板法向")
     return min(range(3), key=lambda i: sizes[i])
 
 
@@ -659,8 +675,8 @@ def holes_from_geometry_measurements(
     *,
     part_box_mm: Sequence[float] | None = None,
     normal_axis: int | None = None,
-    dedupe_tol_mm: float = 0.5,
-    default_kind: str = "clearance",
+    dedupe_tol_mm: float = 0.01,
+    default_kind: str = "unknown",
     axis_parallel_tol: float = 0.02,
 ) -> dict[str, Any]:
     """@brief 把 sw_review.collect_geometry_measurements 的内部孔壁转成面板孔 + 板尺寸。
@@ -671,12 +687,16 @@ def holes_from_geometry_measurements(
     - 面板法向取包围盒最薄方向；只保留轴向与法向平行的圆柱（滤掉侧壁/斜孔）。
     - 法向坐标投影掉，得到孔在面板平面的 (x, y)。
     - 同一 (x, y) 的多段孔壁（沉孔/阶梯孔叠层）合并为一孔，取最小直径为功能孔径。
-    - 孔型无法从纯几何判定，默认 clearance；定位销识别交给下游 infer_datums。
+    - 孔型无法从纯几何判定，默认 unknown；不得按孔径猜测定位销。
 
     @return {"holes": [Hole], "plate": {...}, "warnings": [...]}。
     """
     envelope = measurements.get("envelope_mm") if isinstance(measurements.get("envelope_mm"), Mapping) else {}
-    axis = normal_axis if normal_axis is not None else (_thinnest_axis(envelope) if envelope else 2)
+    if normal_axis is not None and normal_axis not in (0, 1, 2):
+        raise ValueError("normal_axis 必须是 0、1 或 2")
+    if not envelope and normal_axis is None:
+        raise ValueError("缺少包围盒，无法推测面板法向")
+    axis = normal_axis if normal_axis is not None else _thinnest_axis(envelope)
     u_index, v_index = _AXIS_IN_PLANE[axis]
     warnings: list[str] = []
 
@@ -689,9 +709,11 @@ def holes_from_geometry_measurements(
         hole_axis = record.get("axis")
         if not isinstance(position, (list, tuple)) or len(position) < 3 or diameter is None:
             continue
-        if isinstance(hole_axis, (list, tuple)) and len(hole_axis) >= 3:
-            if abs(abs(float(hole_axis[axis])) - 1.0) > axis_parallel_tol:
-                continue  # 轴向不与面板法向平行，非通面板孔
+        if not isinstance(hole_axis, (list, tuple)) or len(hole_axis) < 3 or _finite(hole_axis[axis]) is None:
+            warnings.append("部分孔壁缺少有效轴向，已跳过")
+            continue
+        if abs(abs(float(hole_axis[axis])) - 1.0) > axis_parallel_tol:
+            continue
         raw.append((float(position[u_index]), float(position[v_index]), diameter))
 
     # 合并同位置的多段孔壁，取最小直径。
@@ -712,36 +734,26 @@ def holes_from_geometry_measurements(
     return {"holes": holes, "plate": plate, "normalAxis": _AXIS_NAME[axis], "warnings": warnings}
 
 
-def _plate_from_box(part_box_mm, envelope, axis, holes, warnings) -> dict[str, Any]:
-    """@brief 由 GetPartBox 精确尺寸或孔范围推面板宽/高/厚与基准原点。"""
+def _plate_from_box(part_box_mm, envelope, axis, holes, warnings) -> dict[str, Any] | None:
+    """@brief 从近似包围盒获取候选尺寸；缺少证据时不虚构面板。"""
     u_index, v_index = _AXIS_IN_PLANE[axis]
-    thickness = None
-    if isinstance(envelope, Mapping):
-        thickness = [envelope.get("length"), envelope.get("width"), envelope.get("height")][axis]
-        thickness = _finite(thickness)
-    if part_box_mm and len(part_box_mm) >= 6:
+    if isinstance(part_box_mm, (list, tuple)) and len(part_box_mm) >= 6 and all(_finite(v) is not None for v in part_box_mm[:6]):
         lo = [float(part_box_mm[i]) for i in range(3)]
         hi = [float(part_box_mm[i + 3]) for i in range(3)]
+        if not all(hi[i] > lo[i] for i in range(3)):
+            warnings.append("包围盒角点无效，无法确定板尺寸")
+            return None
+        warnings.append("GetPartBox 返回近似包围盒，面板边界必须按真实几何复核")
         return {
             "widthMm": round(hi[u_index] - lo[u_index], 4),
             "heightMm": round(hi[v_index] - lo[v_index], 4),
             "thicknessMm": round(hi[axis] - lo[axis], 4),
             "originXMm": round(lo[u_index], 4),
             "originYMm": round(lo[v_index], 4),
+            "boundsApproximate": True,
         }
-    if holes:
-        xs = [h.x for h in holes]
-        ys = [h.y for h in holes]
-        margin = 10.0
-        warnings.append("未提供 GetPartBox 角点，按孔范围外扩 10mm 估算板尺寸")
-        return {
-            "widthMm": round(max(xs) - min(xs) + 2 * margin, 4),
-            "heightMm": round(max(ys) - min(ys) + 2 * margin, 4),
-            "thicknessMm": round(thickness, 4) if thickness else 20.0,
-            "originXMm": round(min(xs) - margin, 4),
-            "originYMm": round(min(ys) - margin, 4),
-        }
-    return {"widthMm": 100.0, "heightMm": 100.0, "thicknessMm": round(thickness, 4) if thickness else 20.0, "originXMm": 0.0, "originYMm": 0.0}
+    warnings.append("缺少有效包围盒角点，不能推定板尺寸")
+    return None
 
 
 def snapshot_holes_from_model(model, **adapter_kwargs) -> dict[str, Any]:
@@ -763,25 +775,40 @@ def snapshot_holes_from_model(model, **adapter_kwargs) -> dict[str, Any]:
     part_box = None
     try:
         box = list(get_com_member(model, "GetPartBox", True) or [])
-        if len(box) >= 6:
-            part_box = [float(v) * 1000.0 for v in box[:6]]
+        if len(box) >= 6 and all(_finite(v) is not None for v in box[:6]):
+            candidate = [float(v) * 1000.0 for v in box[:6]]
+            if all(candidate[i + 3] > candidate[i] for i in range(3)):
+                part_box = candidate
     except Exception:  # noqa: BLE001
         part_box = None
     result = holes_from_geometry_measurements(measurements, part_box_mm=part_box, **adapter_kwargs)
+    result["plateBoxAvailable"] = part_box is not None
     result["measurementErrors"] = measurements.get("errors", [])
     return result
 
 
 def analyze_model(model, *, profile: Mapping[str, Any] | None = None, **adapter_kwargs) -> dict[str, Any]:
     """@brief pilot：一键打通真机 3D -> 孔位规整/基准/GD&T -> drawing_spec。"""
-    snapshot = snapshot_holes_from_model(model, **adapter_kwargs)
+    try:
+        snapshot = snapshot_holes_from_model(model, **adapter_kwargs)
+    except ValueError as error:
+        return {"status": "blocked", "reason": f"几何证据无效: {error}"}
     holes = snapshot["holes"]
     if not holes:
         return {"status": "blocked", "reason": "未抽取到面板孔", "snapshot": snapshot}
+    if not snapshot["plateBoxAvailable"] or snapshot["measurementErrors"]:
+        return {"status": "blocked", "reason": "包围盒或几何读取证据不完整，不能生成出图规格", "snapshot": snapshot}
     plate = snapshot["plate"]
+    thickness = _finite(plate.get("thicknessMm")) if isinstance(plate, Mapping) else None
+    if thickness is None or thickness <= 0:
+        return {"status": "blocked", "reason": "缺少有效的板厚证据，不能生成出图规格", "snapshot": snapshot}
     analysis = analyze_drilling_panel(holes, plate=plate, profile=profile)
-    spec = build_drawing_spec(analysis, source_model="panel.SLDPRT", thickness_mm=plate.get("thicknessMm", 20.0))
-    return {"status": "ok", "snapshot": snapshot, "analysis": analysis, "drawingSpec": spec}
+    from sw_connect import get_com_member
+    source_model = str(get_com_member(model, "GetPathName") or "")
+    if not source_model:
+        return {"status": "blocked", "reason": "模型尚未保存，无法构建出图规格", "snapshot": snapshot}
+    spec = build_drawing_spec(analysis, source_model=source_model, thickness_mm=thickness)
+    return {"status": "review_required", "snapshot": snapshot, "analysis": analysis, "drawingSpec": spec}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -792,23 +819,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="非标钻孔面板：孔位规整 + 基准推测 + GD&T + drawing_spec 生成。")
     parser.add_argument("input", nargs="?", help="NeutralCadDocument (.cadstudio.json) 路径。")
     parser.add_argument("--from-model", help="打通真机：打开该 SLDPRT 路径，直接从 3D 抽取孔位快照（pilot）。")
-    parser.add_argument("--source-model", default="panel.SLDPRT", help="drawing_spec.sourceModel。")
+    parser.add_argument("--source-model", help="中性文档模式的真实模型路径。")
+    parser.add_argument("--gdt-profile", help="显式确认的 GD&T 候选配置 JSON，未提供时不生成公差数值。")
     parser.add_argument("--analysis-out", help="分析 JSON 输出路径。")
     parser.add_argument("--spec-out", help="drawing_spec JSON 输出路径。")
     args = parser.parse_args(argv)
 
+    profile = json.loads(Path(args.gdt_profile).read_text(encoding="utf-8")) if args.gdt_profile else None
     if args.from_model:
         import sys as _sys
         from pathlib import Path as _Path
 
         _sys.path.insert(0, str(_Path(__file__).resolve().parents[3] / "scripts"))
         from sw_session import SolidWorksSession  # noqa: E402
+        from sw_read_guard import SolidWorksReadGuard  # noqa: E402
 
-        session = SolidWorksSession(visible=True)
-        model = session.open(args.from_model)
-        if model is None:
-            raise SystemExit(f"无法打开模型: {args.from_model}")
-        result = analyze_model(model)
+        with SolidWorksReadGuard():
+            with SolidWorksSession(visible=True) as session:
+                model = session.open(args.from_model, read_only=True, silent=True)
+                if model is None:
+                    raise SystemExit(f"无法打开模型: {args.from_model}")
+                result = analyze_model(model, profile=profile)
         analysis = result.get("analysis")
         spec = result.get("drawingSpec")
         if analysis is None:
@@ -820,16 +851,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         document = json.loads(Path(args.input).read_text(encoding="utf-8"))
         holes = holes_from_neutral_document(document)
         plate = document.get("metadata", {}).get("plate") if isinstance(document.get("metadata"), Mapping) else None
-        analysis = analyze_drilling_panel(holes, plate=plate)
-        thickness = 20.0
-        if isinstance(plate, Mapping) and _finite(plate.get("thicknessMm")) is not None:
-            thickness = float(plate["thicknessMm"])
+        if not args.source_model or not isinstance(plate, Mapping):
+            parser.error("中性文档模式需提供 --source-model 和 metadata.plate 实际尺寸")
+        for key in ("widthMm", "heightMm", "thicknessMm"):
+            if _finite(plate.get(key)) is None or float(plate[key]) <= 0:
+                parser.error(f"metadata.plate.{key} 必须为正数")
+        analysis = analyze_drilling_panel(holes, plate=plate, profile=profile)
+        thickness = float(plate["thicknessMm"])
         spec = build_drawing_spec(analysis, source_model=args.source_model, thickness_mm=thickness)
 
     if args.analysis_out:
-        Path(args.analysis_out).write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
+        with Path(args.analysis_out).open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(analysis, ensure_ascii=False, indent=2))
     if args.spec_out:
-        Path(args.spec_out).write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
+        with Path(args.spec_out).open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(spec, ensure_ascii=False, indent=2))
     print(json.dumps({"analysis": analysis, "drawingSpec": spec}, ensure_ascii=False, indent=2))
     return 0
 

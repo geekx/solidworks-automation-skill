@@ -33,12 +33,15 @@ def _motion_typelib_candidates():
         executable = installation.get("executable")
         if executable:
             discovered.append(str(Path(executable).parent / "swmotionstudy.tlb"))
+    # 非标准安装位置由环境变量显式给出，不把某一台开发机的盘符写进生产代码。
+    for directory in str(os.environ.get("SOLIDWORKS_TYPELIB_DIRS", "")).split(os.pathsep):
+        if directory.strip():
+            discovered.append(str(Path(directory.strip()).expanduser() / "swmotionstudy.tlb"))
     patterns = [
         *discovered,
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\swmotionstudy.tlb",
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS*\swmotionstudy.tlb",
         r"C:\Program Files\Dassault Systemes\SOLIDWORKS*\swmotionstudy.tlb",
-        r"E:\Solidworks\SOLIDWORKS\swmotionstudy.tlb",
     ]
     seen = set()
     for pattern in patterns:

@@ -1,8 +1,7 @@
 """电机扭矩核验：手算锚点 + 物理等价/符号/退化分支 + 判定语义。纯函数，无需 SolidWorks。
 
 锚点来自事先手算的完整算例（水平丝杠轴：m=50kg, μ=0.1, 导程10mm, η=0.9, 行程500mm, v=0.5m/s, a=2m/s²,
-丝杠 ⌀20×600 钢, 转子惯量 0.5e-4 kg·m²）。手算过程见 docs/ROADMAP.md §2 的判据；这里的数是预先算好的常量，
-不是拿被测代码的输出互相印证。
+丝杠 ⌀20×600 钢, 转子惯量 0.5e-4 kg·m²）。平动负载的加速力经传动效率换算，常量独立按公式计算。
 """
 from __future__ import annotations
 
@@ -31,11 +30,11 @@ def _screw_spec(**over):
 def test_hand_computed_anchors():
     r = ds.compute_drive(_screw_spec())
     assert r["t_static_forward_nm"] == pytest.approx(0.086710, rel=1e-4)
-    assert r["t_acc_nm"] == pytest.approx(0.314958, rel=1e-4)
-    assert r["t_peak_nm"] == pytest.approx(0.401668, rel=1e-4)
+    assert r["t_acc_nm"] == pytest.approx(0.332642, rel=1e-4)
+    assert r["t_peak_nm"] == pytest.approx(0.419352, rel=1e-4)
     assert r["n_max_rpm"] == pytest.approx(3000.0, rel=1e-9)
     assert r["inertia_ratio"] == pytest.approx(4.0127, rel=1e-4)
-    assert r["t_rms_nm"] == pytest.approx(0.217251, rel=1e-4)
+    assert r["t_rms_nm"] == pytest.approx(0.227550, rel=1e-4)
     p = r["profile"]
     assert (p["t_acc"], p["t_cruise"], p["triangular"]) == (pytest.approx(0.25), pytest.approx(0.75), False)
 
@@ -43,7 +42,7 @@ def test_hand_computed_anchors():
 def test_decel_torque_is_negative_regeneration_and_peak_uses_abs():
     r = ds.compute_drive(_screw_spec())
     decel = next(p for p in r["phases"] if p["name"].endswith("减速"))
-    assert decel["torque_nm"] == pytest.approx(-0.228249, rel=1e-4)  # 回馈
+    assert decel["torque_nm"] == pytest.approx(-0.245933, rel=1e-4)  # 回馈近似值
     assert r["t_peak_nm"] == pytest.approx(max(abs(p["torque_nm"]) for p in r["phases"]))
 
 
@@ -145,12 +144,12 @@ def _ids(out):
     return {c["id"]: c for c in out["checks"]}
 
 
-def test_pass_case_reports_margin_and_controlling_constraint():
+def test_plausible_torque_still_requires_review_and_reports_margin():
     out = ds.evaluate_drive(_screw_spec(motor=_motor()))
     c = _ids(out)
-    # 峰值 0.4017×1.5=0.6025 ≤ 1.5 ；RMS 0.2173 ≤ 0.8×0.64=0.512
-    assert c["DRC-DRV-001"]["status"] == "pass" and c["DRC-DRV-001"]["margin_pct"] == pytest.approx((1.5 - 0.6025) / 1.5 * 100, abs=0.05)
-    assert c["DRC-DRV-002"]["status"] == "pass"
+    # 峰值 0.419352×1.5 ≤ 1.5，仍需核对未建模的反向效率。
+    assert c["DRC-DRV-001"]["status"] == "info" and c["DRC-DRV-001"]["margin_pct"] == pytest.approx((1.5 - 0.419352 * 1.5) / 1.5 * 100, abs=0.05)
+    assert c["DRC-DRV-002"]["status"] == "info"
     assert c["DRC-DRV-003"]["status"] == "pass"
     assert c["DRC-DRV-004"]["status"] == "pass"
     assert out["controlling"] in {"DRC-DRV-001", "DRC-DRV-002"}
@@ -181,7 +180,15 @@ def test_vertical_axis_without_brake_is_critical():
     c = _ids(ds.evaluate_drive(spec))["DRC-DRV-005"]
     assert c["status"] == "fail" and c["severity"] == "critical"
     braked = _ids(ds.evaluate_drive(_screw_spec(load={"incline_deg": 90}, motor=_motor(has_brake=True))))["DRC-DRV-005"]
-    assert braked["status"] == "pass"
+    assert braked["status"] == "info"
+
+
+def test_missing_rotor_inertia_does_not_pass_torque_checks():
+    spec = _screw_spec()
+    spec["motor"] = {key: value for key, value in _motor().items() if key != "rotor_inertia_kgm2"}
+    checks = _ids(ds.evaluate_drive(spec))
+    assert checks["DRC-DRV-001"]["status"] == "info"
+    assert checks["DRC-DRV-002"]["status"] == "info"
 
 
 def test_missing_motor_data_gives_info_not_pass():
@@ -194,6 +201,50 @@ def test_missing_motor_data_gives_info_not_pass():
 
 
 def test_safety_factor_override_flips_result():
-    spec = _screw_spec(motor=_motor(peak_torque_nm=0.7))     # 0.4017×1.5=0.6025 ≤ 0.7 通过
-    assert _ids(ds.evaluate_drive(spec))["DRC-DRV-001"]["status"] == "pass"
-    assert _ids(ds.evaluate_drive(spec, {"driveTorqueSafetyFactor": 2.0}))["DRC-DRV-001"]["status"] == "fail"  # 0.8034>0.7
+    spec = _screw_spec(motor=_motor(peak_torque_nm=0.7))
+    assert _ids(ds.evaluate_drive(spec))["DRC-DRV-001"]["status"] == "info"
+    assert _ids(ds.evaluate_drive(spec, {"driveTorqueSafetyFactor": 2.0}))["DRC-DRV-001"]["status"] == "fail"
+
+
+def test_acceleration_load_includes_transmission_and_gear_efficiency():
+    spec = _screw_spec(transmission={"gear_ratio": 4, "gear_efficiency": 0.8})
+    result = ds.compute_drive(spec)
+    j_load = 50 * (0.01 / (2 * math.pi)) ** 2
+    j_screw = math.pi * 7850 * 0.6 * 0.02 ** 4 / 32
+    alpha = 2 * 2 * math.pi / 0.01 * 4
+    expected = ((j_load / 0.9 + j_screw) / (4 ** 2 * 0.8) + 0.5e-4) * alpha
+    assert result["t_acc_nm"] == pytest.approx(expected, rel=1e-12)
+
+
+@pytest.mark.parametrize("section,key,value", [
+    ("motor", "has_brake", "false"),
+    ("motion", "round_trip", "false"),
+    ("load", "incline_deg", -5),
+    ("load", "incline_deg", 91),
+    ("transmission", "screw_length_mm", None),
+])
+def test_rejects_ambiguous_or_incomplete_safety_inputs(section, key, value):
+    spec = _screw_spec()
+    spec[section][key] = value
+    with pytest.raises(ValueError):
+        ds.evaluate_drive(spec)
+
+
+@pytest.mark.parametrize("limits", [
+    {"driveRmsUtilizationMax": 0},
+    {"driveRmsUtilizationMax": 1.1},
+    {"driveTorqueSafetyFactor": float("nan")},
+    {"driveTorqueSafetyFactor": 0.5},
+    {"driveInertiaRatioWarn": 11},
+    {"unknown": 1},
+])
+def test_rejects_invalid_safety_limits(limits):
+    with pytest.raises(ValueError):
+        ds.evaluate_drive(_screw_spec(), limits)
+
+
+def test_missing_max_speed_is_not_reported_as_a_pass():
+    spec = _screw_spec(motor={"rated_speed_rpm": 5000})
+    result = ds.evaluate_drive(spec)
+    assert _ids(result)["DRC-DRV-003"]["status"] == "info"
+    assert result["reviewRequired"] is True

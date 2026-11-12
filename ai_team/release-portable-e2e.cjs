@@ -37,6 +37,15 @@ async function waitUntil(check, label, timeout = 90_000, health = () => null) {
   throw new Error(`timeout: ${label}${lastError ? `; last error: ${lastError.message}` : ""}`);
 }
 
+/** @brief 选取首个可交互 page；CDP 刚连上时 contexts() 可能为空或 page 尚未注册。 */
+function firstPage(browser) {
+  for (const context of browser.contexts()) {
+    const [candidate] = context.pages();
+    if (candidate) return candidate;
+  }
+  return null;
+}
+
 async function main() {
   if (!fs.existsSync(executable)) throw new Error(`便携版程序不存在: ${executable}`);
   [isolatedHome, queue, webviewData].forEach(assertSafeTestPath);
@@ -72,7 +81,9 @@ async function main() {
       return (await fetch("http://127.0.0.1:9227/json/version", { signal: AbortSignal.timeout(1_000) })).ok;
     }, "portable Tauri CDP start", 90_000, health);
     browser = await chromium.connectOverCDP("http://127.0.0.1:9227");
-    const page = browser.contexts()[0].pages()[0];
+    // @brief CDP 端口就绪时 WebView2 的 page target 可能尚未注册；
+    //        必须先有界等待首个 page 出现，否则 contexts()[0].pages()[0] 为 undefined。
+    const page = await waitUntil(() => firstPage(browser), "portable Tauri page", 60_000, health);
     await page.waitForTimeout(2_000);
     const invoke = (command, args = {}) => page.evaluate(
       ([activeCommand, activeArgs]) => window.__TAURI_INTERNALS__.invoke(activeCommand, activeArgs),
@@ -116,7 +127,7 @@ async function main() {
   }
 }
 
-module.exports = { waitUntil };
+module.exports = { waitUntil, firstPage };
 if (require.main === module) {
   main().catch((error) => {
     console.error(error);

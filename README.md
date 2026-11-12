@@ -8,6 +8,10 @@
 
 工具调用成功，不代表任务真的完成；需要 Review 的任务会经过结果验证后再交付。
 
+当前发布版本为 **v2.1.1**。CAD Studio 展示工程阶段验收项，工作台和对话中的明确改动会标记受影响的旧结果。技能 ZIP、MCPB、CAD Studio 安装版与便携版使用同版运行时。下载和升级见 [v2.1.1 发布说明](docs/releases/v2.1.1.md)。
+
+CAD Studio 会对各生产执行器统一检查交付文件是否为本轮新增或内容已变化；旧文件拒绝交付，证据不足转为待复核。扫描范围、兼容性与验证方法见[本轮交付门禁](references/delivery-freshness.md)。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![GitHub Release](https://img.shields.io/github/v/release/wzyn20051216/solidworks-automation-skill)](https://github.com/wzyn20051216/solidworks-automation-skill/releases)
@@ -39,28 +43,92 @@ AI 负责理解意图、查证 API、规划步骤；Execution Core 保证执行�
 
 ---
 
+## Prerequisites
+
+| 项 | 要求 | 检查方法 |
+|---|---|---|
+| 操作系统 | Windows 10/11 x64 | 原生 `SLDPRT` / `SLDASM` / `SLDDRW` 依赖 SolidWorks COM，其他系统仅可用开放格式能力 |
+| Python | 3.10+（本机真机验收使用 3.12） | `python -V` |
+| Node.js | 20+（工作台、MCP 注册与 Skill 安装器） | `node -v` |
+| Git | 任意较新版本（安装器通过 `git clone` / `git pull` 获取与更新仓库） | `git --version` |
+| SolidWorks | 原生建模需本机安装并许可；按能力查看 [已验证版本](capabilities.yaml) | `python scripts/cad_doctor.py` |
+| AutoCAD | 可选，仅 DWG/DXF 子技能需要 | — |
+
+安装 Python 依赖：
+
+```powershell
+python -m pip install -r requirements.txt
+# 只有开放格式（OCCT）能力才需要：
+python -m pip install -r requirements-occt.txt
+```
+
+只读环境自检（不会打开或关闭 CAD）：
+
+```powershell
+python scripts/cad_doctor.py           # 发现的安装路径、版本、COM 注册状态
+python scripts/sw_capability_probe.py  # 类型库与能力清单
+```
+
+模板与材料库**默认自动探测**，不需要写死路径。只有非标准安装位置才需要
+[`config/runtime.example.json`](config/runtime.example.json) 与 `SOLIDWORKS_TYPELIB_DIRS`，
+见 [`config/README.md`](config/README.md)。
+
+---
+
 ## Quick Start
 
 三种入口**任选其一**即可，不需要同时启动。
 
-### Option 1 — Skill（最简单）
+### Option 1 — Skill
 
-```bash
-npx github:wzyn20051216/solidworks-automation-skill
-# 或
-claude skill add https://github.com/wzyn20051216/solidworks-automation-skill
+```powershell
+npx github:wzyn20051216/solidworks-automation-skill --target claude
 ```
+
+该命令获取本仓库并执行根目录的 `install.js`（`package.json` 的 `bin` 入口）。
+
+**默认行为（安全优先，2026-10-28 起）**：
+
+- 只装到**已经存在** skills 目录的客户端（`.agents` / `.claude` / `.codex` / `.cursor` / `.openclaw`）；
+  一个都没检测到时**不会替你创建目录**，而是提示改用 `--target` 显式指定。
+- 目标目录已存在但**不是本仓库的 git 检出**（手动放置、解压、或其他来源）时，
+  **拒绝安装且不删除任何文件**。
+- 由本仓库安装的目录用 `git pull --ff-only` 更新；无法快进时**只报告，不删除**。
+- 默认自动安装 Python 依赖；Windows 上没有 Python 3.10+ 时尝试使用 winget 为当前用户安装 Python 3.12。失败时给出提示；`--no-install-deps` 可关闭此行为。
+- 非 Windows 平台默认拒绝（SolidWorks COM 不可用）；确需使用开放格式能力加 `--allow-non-windows`。
+
+| 参数 | 作用 |
+|---|---|
+| `--target claude,codex` | 装到指定客户端；`all` 表示全部支持项 |
+| `--dry-run` | 只打印将要执行的动作，不写盘 |
+| `--install-deps` | 安装 `requirements.txt` + `mcp-server/requirements.txt`（默认） |
+| `--no-install-deps` | 不自动安装 Python 和 Python 依赖 |
+| `--no-register-mcp` | 跳过 MCP 配置注册（默认注册，覆盖前自动备份 `.bak-<时间戳>`） |
+| `--force-reinstall` | 旧目录先改名为 `.bak-<时间戳>` 再重装（**不删除**） |
+
+安装使用 `git clone --depth 1`，只取工作树、不拉完整历史。仓库完整工作树约 13 MB，
+其中 `apps/`（桌面端源码，约 6 MB）与 Skill 运行无关。
+若 `npx` 在当前网络环境不可用，改用下方 Option 2 的克隆方式，再执行 `node install.js`。
 
 ### Option 2 — MCP
 
+支持 MCPB 的 Windows 桌面客户端可导入发布页的标准 `.mcpb` 扩展。若当前发行尚未附带该文件，也可从 Git 检出构建。首次安装、`uv` 准备和构建方法见 [MCPB 扩展说明](mcp-server/README.md#windows-mcpb-扩展)。
+
 ```powershell
-npm install -g @smithery/cli
-smithery mcp add wzyn20051216/solidworks-automation-skill --client codex --config '{}'
+git clone https://github.com/wzyn20051216/solidworks-automation-skill.git
+cd solidworks-automation-skill
+python -m pip install -r requirements.txt -r mcp-server/requirements.txt
+node mcp-server/register_all_ai_mcp.js --help          # 查看全部参数
+node mcp-server/register_all_ai_mcp.js --clients codex,claude-code,cursor
 ```
+
+注册脚本会写入对应客户端的 MCP 配置，并在写入前生成 `.bak` 备份；加 `--strict` 可让任一客户端失败时非零退出。
 
 ### Option 3 — CAD Studio 桌面版
 
 从 [GitHub Releases](https://github.com/wzyn20051216/solidworks-automation-skill/releases) 下载 Windows 安装包。
+
+桌面端启动本地执行器时，如果 Windows 没有可用的 Python 3.10+，会尝试通过 winget 为当前用户安装 Python 3.12；无法安装时显示错误。环境诊断仍只读。SolidWorks 必须由用户另行安装并具备许可；API 查证所需的 7-Zip、Python 包和可验证的本地 API Help 按需自动配置，详情见 [`references/api-lookup.md`](references/api-lookup.md)。
 
 > **Choose one entry point. You do not need to run all three.**
 
@@ -133,11 +201,12 @@ Artifacts + Evidence
 
 ## Reliability
 
-V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、故障注入、后端回退、能力缺口与策略门禁。
+当前附带 **43 个 deterministic reliability scenarios**（12 nominal + 31 robustness），
+覆盖正常执行、故障注入、后端回退、能力缺口与策略门禁；由 `golden-workflows.yaml` 的 12 个 workflow 派生。
 
 | Metric | Current baseline |
 |---|---|
-| Nominal workflow | 10/10 first-pass（基线 v3，warning 等待人工复核） |
+| Nominal workflow | 12/12 first-pass（baseline v4，warning 归 guardrail，等待人工复核） |
 | Injected false-completion cases | all detected |
 | Escaped false completion | 0 in current deterministic benchmark |
 | Regression suite | 当前方案 B 验证记录见 [可靠性修复与验收](docs/architecture/scheme-b-reliability.md) |
@@ -145,7 +214,30 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 > 这是 **deterministic engineering benchmark**（Fake Handler/Reviewer + 故障注入），
 > 不是生产 SLA 或真实用户成功率。详见 [`docs/architecture/v2-evaluation.md`](docs/architecture/v2-evaluation.md)。
 
-原生 SolidWorks 操作当前以 **2026** 为支持与验收目标。方案 B 保留现有执行架构，修复失败状态、原生阵列、草图可编辑性和文档归属，并提供可选 HTTP 与可验证的产物取回；原有 60 个 MCP 工具的名称和输入 Schema 保持兼容。
+### 验证边界（Verification Boundary）
+
+本项目的验证分三层，**结论不能跨层套用**：
+
+| 层 | 在哪里跑 | 覆盖什么 | 不覆盖什么 |
+|---|---|---|---|
+| L1 离线回归 | 任意机器 | `pytest`（全量，当前 1045 项）、`evals/runner.py`（12 workflow / 43 scenario）、治理单测（当前 93 项） | 需要 SolidWorks / AutoCAD 进程的一切 |
+| L2 托管 CI | GitHub 托管 `windows-2022` | 与 L1 相同，外加前端/ Rust 构建与发布契约检查；作业名 `test-and-build`，是 `main` 的**唯一必需状态检查** | 真实 CAD 执行 |
+| L3 真实 CAD 验收 | **仅维护者本机**（Windows 11 + SolidWorks 2026 SP01.1） | Golden 五轮真机、装配/工程图/运动算例等真机回归 | 其它机器、其它版本 |
+
+必须明确的三点：
+
+1. **远端不存在 CAD 真机执行证据。** 仓库没有自托管 Runner，`Windows CAD Regression` 工作流为手动触发、
+   **不是必需检查**，当前无法执行。任何"远程 CAD CI 已通过"的表述都是错的。
+2. **本机通过 ≠ 跨机器通过。** 换一台机器请按 `Prerequisites` 与 `docs/CAD_STUDIO_USER_MANUAL.md` 重新自检，
+   不要直接引用维护者的验收结论。
+3. **L2 通过 ≠ 治理闭环。** 必需检查只保护 `main`；指向特性分支的 PR（含 stacked PR）不受该规则约束。
+
+近期原生 SolidWorks 回归以 **2026 SP1.1** 为基线，部分能力另有 **2024** 真机记录。以 [能力清单](capabilities.yaml) 中对应能力的 `verified_versions`、等级和限制为准；未列出的版本需单独验证。环境诊断只检查安装和运行条件，工程功能按实际任务验收。
+
+**完整模式暴露 69 个命名工具；默认发现模式只暴露 3 个检索入口**（`sw_search_tools` /
+`sw_describe_tool` / `sw_call_tool`）。原有命名工具保持兼容；发现模式
+按需检索；写操作经过策略检查，审批行为与信任边界取决于配置。模式切换、审批与回滚见
+[`mcp-server/README.md`](mcp-server/README.md)。
 
 ---
 
@@ -158,6 +250,12 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 | Drawing | GB/T 工程图、尺寸链、孔表、BOM | `verified` + `pilot` |
 | Export | STEP / STL / IGES / PDF / DXF / DWG | `verified` |
 | Motion | 运动算例、旋转马达、结果门禁 | `pilot` |
+| Design Audit | 中性文档设计规则、基线对比、丝杠/皮带电机扭矩初筛 | `pilot` |
+| Drilling Panel | 面板孔位识别、基准及图纸规格候选 | `pilot` |
+| Tolerances | 已显示尺寸公差只读提取，CSV 输出 | `pilot` |
+| Rename Preview / Copy | 属性改名预览；受限独立零件和单配置嵌套装配复制到新名称 | `pilot` |
+| Sprocket | 近似链轮几何演示实体，非生产齿形 | `pilot` |
+| Spring | 开放端等螺距圆线弹簧实体 | `pilot` |
 | FEA | CalculiX 线性/非线性求解编排与审计 | `pilot` |
 | DFM / Routing | 制造复核、路由复核 | `pilot` |
 | Surface / Mold | 受限 Loft/Sweep/Thicken、模具计划 | `pilot` |
@@ -180,7 +278,7 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 | `pilot` | 已实现但仍需人工复核 |
 | `blocked` | 当前环境或能力不允许自动交付 |
 
-真机基线：SolidWorks 2024 / 2026、AutoCAD 2024。未验证能力不会被包装成无人值守交付。
+SolidWorks 按上述能力清单核对。AutoCAD 真机证据覆盖对应的 2024 能力；试点功能保留人工复核。
 
 - 完整能力矩阵（每个能力的精确等级/版本/限制）→ [`capabilities.yaml`](capabilities.yaml)
 - 领域工作流 → [`subskills/`](subskills/) · [`SUBSKILLS.md`](SUBSKILLS.md)
@@ -222,6 +320,14 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 | Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | Subskills | [`SUBSKILLS.md`](SUBSKILLS.md) |
 | API / Backend | [`references/`](references/) |
+| Design audit / drive sizing | [`references/design-rule-check.md`](references/design-rule-check.md) · [`references/drive-sizing.md`](references/drive-sizing.md) |
+| Drilling panel analysis | [`subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md`](subskills/solidworks-engineering-drawing/references/drilling-panel-gdt.md) |
+| Native GD&T / structured drawing generation (SW2026 pilot) | [`subskills/solidworks-engineering-drawing/references/native-gdt.md`](subskills/solidworks-engineering-drawing/references/native-gdt.md) |
+| Common datums / projected zones / extended GD&T (SW2026 pilot) | [`subskills/solidworks-engineering-drawing/references/gdt-extended-options.md`](subskills/solidworks-engineering-drawing/references/gdt-extended-options.md) |
+| Tolerance extraction | [`references/tolerance-extraction.md`](references/tolerance-extraction.md) |
+| Rename preview | [`references/rename-preview.md`](references/rename-preview.md) |
+| Approximate sprocket | [`references/sprocket.md`](references/sprocket.md) |
+| Open helical spring | [`references/spring.md`](references/spring.md) |
 | Troubleshooting | [`references/troubleshooting.md`](references/troubleshooting.md) |
 
 ---
@@ -236,11 +342,11 @@ V2 附带 **37 个 deterministic reliability scenarios**，覆盖正常执行、
 
 ## License & Community
 
-[MIT](LICENSE) · [GitHub Issues](https://github.com/wzyn20051216/solidworks-automation-skill/issues) · [Star History](assets/star-history.svg)
+[MIT](LICENSE) · [GitHub Issues](https://github.com/wzyn20051216/solidworks-automation-skill/issues) · [Star History](https://star-history.com/#wzyn20051216/solidworks-automation-skill&Date)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/star-history-dark.svg">
-  <img src="assets/star-history.svg" alt="SolidWorks Automation Skill 星标趋势" width="960">
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wzyn20051216/solidworks-automation-skill&amp;type=Date&amp;theme=dark">
+  <img src="https://api.star-history.com/svg?repos=wzyn20051216/solidworks-automation-skill&amp;type=Date" alt="SolidWorks Automation Skill 星标趋势" width="960">
 </picture>
 
 ### 贡献者 / Contributors

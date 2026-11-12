@@ -49,6 +49,10 @@ def test_profile_rejects_unknown_fields_and_operators():
         profiles.validate_profile({"customRules": [{"id": "X", "field": "d", "operator": "regex", "value": 1, "message": "m"}]})
     with pytest.raises(profiles.DrcProfileError):
         profiles.validate_profile({"customRules": [{"id": "bad id!", "field": "d", "operator": "lt", "value": 1, "message": "m"}]})
+    with pytest.raises(profiles.DrcProfileError):
+        profiles.validate_profile({"thresholds": {"holeEdgeDistanceRatio": -1}})
+    with pytest.raises(profiles.DrcProfileError):
+        profiles.validate_profile({"customRules": [{"id": "DRC-GEO-001", "field": "d", "operator": "lt", "value": 1, "message": "m"}]})
 
 
 def test_profile_validates_and_normalizes_custom_rule():
@@ -93,6 +97,28 @@ def test_thresholds_from_profile_change_outcome():
     assert strict["DRC-GEO-001"]["status"] == "fail"
 
 
+def test_hole_edge_ratio_is_times_diameter_as_documented():
+    doc = {"documentId": "ratio", "units": "mm", "features": [
+        {"id": "H1", "type": "hole", "parameters": {"diameter": 6, "edgeDistance": 8, "x": 0, "y": 0}}
+    ]}
+    report = drc.build_drc_report(doc, profiles=[{"thresholds": {"holeEdgeDistanceRatio": 2}}])
+    check = _by_id(report)["DRC-HOLE-001"]
+    assert check["status"] == "fail"
+    assert check["required_mm"] == 12
+
+
+def test_fastener_geometry_is_converted_from_document_units():
+    feature = {"id": "H1", "type": "hole", "parameters": {
+        "diameter": 0.26, "thread": "M6", "headType": "socket_cap",
+        "counterbore": {"diameter": 0.44, "depth": 0.26, "side": "front"}, "matingSide": "back"
+    }}
+    report = drc.build_drc_report({"documentId": "inch-part", "units": "in", "features": [feature]})
+    checks = _by_id(report)
+    assert checks["DRC-CSK-001"]["status"] == "pass"
+    assert checks["DRC-CSK-002"]["status"] == "pass"
+    assert checks["DRC-CSK-003"]["status"] == "pass"
+
+
 def test_disabled_rule_is_skipped():
     report = drc.build_drc_report(_doc(), profiles=[{"disabledRules": ["DRC-ASM-001"]}])
     assert "DRC-ASM-001" not in _by_id(report)
@@ -112,7 +138,7 @@ def test_custom_rule_document_scalar():
     assert hit["status"] == "fail"
 
 
-def test_clean_document_passes():
+def test_clean_document_with_missing_evidence_requires_review():
     clean = {
         "documentId": "clean",
         "units": "mm",
@@ -121,12 +147,38 @@ def test_clean_document_passes():
         "standardParts": [{"id": "G", "type": "spur_gear", "teeth": 24, "is_pointed": False}],
     }
     report = drc.build_drc_report(clean)
-    assert report["status"] == "pass"
+    assert report["status"] == "review_required"
     assert report["summary"]["fail"] == 0
+    assert report["summary"]["info"] > 0
+
+
+def test_missing_all_design_evidence_is_not_a_pass():
+    report = drc.build_drc_report({"documentId": "empty", "units": "mm", "features": [], "metadata": {}})
+    assert report["status"] == "review_required"
+    assert report["reviewRequired"] is True
+    assert report["summary"]["pass"] == 0
+    assert report["summary"]["info"] > 0
+
+
+def test_partial_hole_assembly_and_drawing_evidence_is_not_a_pass():
+    doc = {"documentId": "partial", "units": "mm",
+           "features": [{"id": "H1", "type": "hole", "parameters": {}}],
+           "metadata": {"assembly": {"componentCount": 2}, "drawing": {"title": "demo"}},
+           "standardParts": [{"id": "G", "type": "gear"}]}
+    checks = _by_id(drc.build_drc_report(doc))
+    for name in ("DRC-HOLE-EVIDENCE", "DRC-ASM-EVIDENCE", "DRC-DRW-EVIDENCE", "DRC-STD-EVIDENCE"):
+        assert checks[name]["status"] == "info"
 
 
 def test_missing_document_id_blocks():
     report = drc.build_drc_report({"units": "mm"})
+    assert report["status"] == "blocked"
+
+
+def test_malformed_drive_and_unbounded_features_are_not_silently_skipped():
+    report = drc.build_drc_report({"documentId": "d", "features": [], "metadata": {"drives": ["invalid"]}})
+    assert _by_id(report)["DRC-DRV-900"]["status"] == "fail"
+    report = drc.build_drc_report({"documentId": "d", "features": [{}] * 1001})
     assert report["status"] == "blocked"
 
 
@@ -193,10 +245,10 @@ def test_relation_rules_datum_bom_coverage():
     assert checks["DRC-REL-003"]["status"] == "warning"  # BOM 3 vs 特征 1
 
 
-def test_checks_carry_standard_clause():
+def test_checks_mark_unverified_references_as_hints():
     checks = _by_id(drc.build_drc_report(_doc()))
-    assert checks["DRC-GEO-001"].get("standard")
-    assert checks["DRC-HOLE-005"].get("clause")
+    assert checks["DRC-GEO-001"]["referenceHint"]
+    assert checks["DRC-HOLE-005"]["referenceVerified"] is False
 
 
 def test_report_has_fingerprint_and_risk():
@@ -211,7 +263,7 @@ def test_rule_packs_listed_and_applied():
 
     names = [p["name"] for p in prof.list_rule_packs()]
     assert "drilling_panel" in names and "machined_bracket" in names
-    # drilling_panel 把孔边距 ratio 提到 2.0：edge 5 对 ⌀6 -> required 6 -> fail
+    # drilling_panel 的孔边距为 1.0 倍孔径：edge 5 对 ⌀6 -> required 6 -> fail
     doc = {
         "documentId": "pack",
         "units": "mm",
@@ -219,7 +271,7 @@ def test_rule_packs_listed_and_applied():
     }
     default = _by_id(drc.build_drc_report(doc))
     packed = _by_id(drc.build_drc_report(doc, rule_packs=["drilling_panel"]))
-    assert "DRC-HOLE-001" not in default  # 默认 ratio 1.0 -> required 3 -> pass(不产生fail项)
+    assert "DRC-HOLE-001" not in default  # 默认 ratio 0.5 -> required 3 -> 不产生 fail
     assert packed["DRC-HOLE-001"]["status"] == "fail"
 
 
@@ -242,7 +294,7 @@ def test_fastener_countersink_rules_integrated():
         "documentId": "csk",
         "units": "mm",
         "features": [
-            {"id": "C1", "type": "hole", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 9.0, "depth": 5.0, "side": "back"}, "matingSide": "back"}},
+            {"id": "C1", "type": "hole", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 9.0, "depth": 5.0, "side": "back"}, "matingSide": "back"}},
         ],
         "metadata": {"fastenerStacks": [{"id": "S1", "holeId": "C1", "protrudes": True, "matingHasRelief": False, "gapMm": 0.0}]},
     }
@@ -250,7 +302,7 @@ def test_fastener_countersink_rules_integrated():
     assert checks["DRC-CSK-002"]["status"] == "fail"   # 头径不容纳
     assert checks["DRC-CSK-004"]["status"] == "fail"   # 沉头朝配合面
     assert checks["DRC-FIT-001"]["status"] == "fail"   # 跨零件无避让
-    assert checks["DRC-CSK-004"].get("clause")         # 带条款出处
+    assert checks["DRC-CSK-004"]["referenceVerified"] is False
 
 
 def test_no_countersink_skips_fastener_rules():
@@ -337,7 +389,7 @@ def test_drc_cli_exit_code_follows_regression_gate(tmp_path):
     base.write_text(_json.dumps(drc.build_drc_report(_regress_doc(10.0))), encoding="utf-8")
     doc = tmp_path / "d.json"
     doc.write_text(_json.dumps(_regress_doc(10.0)), encoding="utf-8")  # 与基线同等好 -> 门禁通过
-    assert drc.main([str(doc), "--baseline", str(base), "--fail-on-regression"]) == 0
+    assert drc.main([str(doc), "--baseline", str(base), "--fail-on-regression"]) == 2
     worse = tmp_path / "w.json"
     worse.write_text(_json.dumps(_regress_doc(1.0)), encoding="utf-8")
     assert drc.main([str(worse), "--baseline", str(base), "--fail-on-regression"]) == 1
@@ -357,11 +409,13 @@ def _drive_doc(motor=None, **load):
     return {"documentId": "d", "units": "mm", "features": [], "metadata": {"drives": [spec]}}
 
 
-def test_drc_drive_rules_pass_with_adequate_motor():
+def test_drc_drive_torque_requires_review_with_adequate_motor():
     checks = _by_id(drc.build_drc_report(_drive_doc()))
-    for rid in ("DRC-DRV-001", "DRC-DRV-002", "DRC-DRV-003", "DRC-DRV-004"):
+    for rid in ("DRC-DRV-001", "DRC-DRV-002"):
+        assert checks[rid]["status"] == "info", rid
+    for rid in ("DRC-DRV-003", "DRC-DRV-004"):
         assert checks[rid]["status"] == "pass", rid
-    assert checks["DRC-DRV-001"]["standard"]  # 带出处
+    assert checks["DRC-DRV-001"]["referenceVerified"] is False
 
 
 def test_drc_drive_rules_fail_with_undersized_motor_and_feed_risk_score():
@@ -375,7 +429,7 @@ def test_drc_drive_rules_fail_with_undersized_motor_and_feed_risk_score():
 
 def test_drc_drive_profile_override_flips_result():
     spec_doc = _drive_doc(motor={"peak_torque_nm": 0.7, "rated_torque_nm": 0.64, "rated_speed_rpm": 3000, "max_speed_rpm": 5000, "rotor_inertia_kgm2": 0.5e-4})
-    assert _by_id(drc.build_drc_report(spec_doc))["DRC-DRV-001"]["status"] == "pass"
+    assert _by_id(drc.build_drc_report(spec_doc))["DRC-DRV-001"]["status"] == "info"
     strict = drc.build_drc_report(spec_doc, profiles=[{"thresholds": {"driveTorqueSafetyFactor": 2.0}}])
     assert _by_id(strict)["DRC-DRV-001"]["status"] == "fail"
 

@@ -202,13 +202,32 @@ def _registry_paths(product: str) -> list[Path]:
     return result
 
 
+def _candidate_drives() -> tuple[str, ...]:
+    """@brief 返回按优先顺序枚举的盘符（形如 ``D:``）。
+
+    @note 历史实现固定为 ``("D:", "E:")``，安装在 ``F:`` 及之后盘符、且注册表与快捷方式
+          都未能提供线索的部署会被漏检。此处改为"优先 D:/E:，再枚举本机其余盘符"，
+          在既有机器上候选顺序不变；非 Windows 或枚举失败时退回原固定列表。
+    """
+    preferred = ("D:", "E:")
+    try:
+        available = [str(item).rstrip("\\/") for item in os.listdrives() if str(item).strip()]
+    except (AttributeError, OSError):
+        return preferred
+    if not available:
+        return preferred
+    ordered = [drive for drive in preferred if drive in available]
+    ordered.extend(drive for drive in available if drive not in ordered)
+    return tuple(ordered)
+
+
 def _common_candidates(product: str) -> list[Path]:
     exe = "SLDWORKS.exe" if product == "solidworks" else "acad.exe"
     candidates = [
         Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "SOLIDWORKS Corp" / "SOLIDWORKS" / exe,
         Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Autodesk" / "AutoCAD 2024" / exe,
     ]
-    for drive in ("D:", "E:"):
+    for drive in _candidate_drives():
         root = PureWindowsPath(drive + "\\")
         if product == "solidworks":
             candidates.extend([

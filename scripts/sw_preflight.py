@@ -2,7 +2,7 @@
 SolidWorks 自动化技能运行前自检。
 
 本模块专门处理两类入口风险：
-1. Python COM 依赖缺失时，先请求用户授权，再自动执行 pip 安装。
+1. Python COM 依赖缺失时自动执行 pip 安装；可显式禁用。
 2. 未检测到 SolidWorks 时立即停止，并提示用户手动安装或修复 COM 注册。
 """
 from __future__ import annotations
@@ -11,6 +11,7 @@ import argparse
 import importlib
 import os
 import platform
+import site
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -84,7 +85,10 @@ def pip_install_command(
     requirements: Sequence[str] = PIP_REQUIREMENTS,
 ) -> List[str]:
     """生成补齐依赖的 pip 命令。"""
-    return [python_executable or sys.executable, "-m", "pip", "install", *requirements]
+    command = [python_executable or sys.executable, "-m", "pip", "install", "--no-input", "--disable-pip-version-check"]
+    if python_executable is None and sys.prefix == getattr(sys, "base_prefix", sys.prefix):
+        command.append("--user")
+    return [*command, *requirements]
 
 
 def shell_command_text(command: Sequence[str]) -> str:
@@ -105,8 +109,10 @@ def install_com_dependencies(
     requirements: Sequence[str] = PIP_REQUIREMENTS,
 ) -> None:
     """执行 pip 安装，补齐 Python COM 依赖。"""
-    subprocess.check_call(pip_install_command(python_executable, requirements))
+    subprocess.check_call(pip_install_command(python_executable, requirements), timeout=180)
     importlib.invalidate_caches()
+    if python_executable is None and sys.prefix == getattr(sys, "base_prefix", sys.prefix) and not sys.flags.no_user_site:
+        site.addsitedir(site.getusersitepackages())
 
 
 def ask_install_permission(
@@ -131,7 +137,7 @@ def ensure_com_dependencies(
     确保 comtypes / pywin32 可用。
 
     参数:
-        allow_install: True=直接安装，False=不安装，None=交互确认。
+        allow_install: True=直接安装，False=不安装，None=按环境设置自动安装。
         input_func: 便于测试替换的输入函数。
         output_func: 便于测试替换的输出函数。
 
@@ -144,7 +150,7 @@ def ensure_com_dependencies(
 
     should_install = allow_install
     if should_install is None:
-        should_install = ask_install_permission(input_func=input_func, output_func=output_func)
+        should_install = os.environ.get("SW_AUTO_INSTALL_DEPENDENCIES", "on").strip().lower() not in {"0", "off", "false"}
 
     if not should_install:
         command = shell_command_text(pip_install_command())
@@ -239,7 +245,7 @@ def _parse_args():
 def main() -> int:
     """命令行入口。"""
     args = _parse_args()
-    allow_install = True if args.yes else False if args.no_install else None
+    allow_install = False if args.no_install else True if args.yes else None
     result = run_preflight(
         allow_install=allow_install,
         check_solidworks=not args.no_solidworks_check,

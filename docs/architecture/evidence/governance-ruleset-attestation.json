@@ -1,0 +1,88 @@
+{
+  "schema": "cad-governance-attestation/v2",
+  "repository": {
+    "id": "1184045765",
+    "full_name": "wzyn20051216/solidworks-automation-skill"
+  },
+  "ruleset": {
+    "id": 25631760,
+    "name": "protect-main",
+    "target": "branch",
+    "enforcement": "active",
+    "ref_name_include": [
+      "refs/heads/main"
+    ],
+    "ref_name_exclude": [],
+    "updated_at": "2026-10-22T18:42:30.335+08:00",
+    "created_at": "2026-10-22T18:39:08.016+08:00",
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": false,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge",
+            "squash",
+            "rebase"
+          ]
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": false,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "test-and-build",
+              "integration_id": 15368
+            }
+          ]
+        }
+      }
+    ],
+    "bypass_actors": [
+      {
+        "actor_id": 199356225,
+        "actor_type": "User",
+        "bypass_mode": "always"
+      }
+    ]
+  },
+  "policy_digest_sha256": "b0bbc94af111a8f475f9b283c69556475b0b518d436f82754ffbfa60d6ba903e",
+  "snapshot_digest_sha256": "49efa352d004b14c7fb91de22d065b830a84354707e19692057c9d1966507902",
+  "compliant": false,
+  "noncompliance_reasons": [
+    "bypass_not_empty"
+  ],
+  "governance": {
+    "mode": "single_maintainer",
+    "independent_audit": false,
+    "bypass_requirement": "empty",
+    "trust_boundary": "证明由维护者以本机管理员授权采集并自行签名；信任根公钥存放于仓库内，能合并到 main 的人可同时替换公钥与证明，故本证明仅提供防篡改留痕，不构成独立审计或独立审批。仓库变量 GOVERNANCE_TRUST_ROOT_ANCHOR 提供仓库文件之外的第二道锚点，但不阻止仓库管理员一并修改。"
+  },
+  "captured_at": "2026-10-27T08:55:56.463Z",
+  "expires_at": "2026-11-26T08:55:56.463Z",
+  "generator": {
+    "tool": "capture_governance_attestation.cjs",
+    "node": "v22.22.2"
+  },
+  "signer": {
+    "key_id": "ed25519:c6c66c9d63df52056b8b2c326e43b9224846ebf66f9e7e6b58d43fe915f353bf",
+    "key_type": "ed25519",
+    "signed_at": "2026-10-27T08:55:56.463Z"
+  },
+  "signature": "gDXG0uhdTnIH684YF4ALDAZXeiTwrNI84Wu8fPdTD4BwwpQdx3GrcJt7ixpxIAIEA4Qt10MbrR2kzEmZ3gdnAQ=="
+}

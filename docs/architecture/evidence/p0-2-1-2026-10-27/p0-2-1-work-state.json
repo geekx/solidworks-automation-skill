@@ -1,0 +1,38 @@
+{
+  "phase": "P0-2.1",
+  "branch": "test/p0-real-gripper-retention-travel-2026",
+  "base_sha": "e5c242175c0a1d7e0fa4fabc90839f6d9fbc74ac",
+  "frozen_source_sha": "df4d4c9a4143602d5af7077a7be7b19cee4850c2",
+  "formal_suite": "output/p0-2-1-real-five-05",
+  "exec_session_id": null,
+  "state": "实施及本机五轮验收已交付，Draft PR #43 已更新；工程/业务放行仍BLOCKED",
+  "offline_final": "1034 passed / 1 skipped, 128.19s; eval-04 43 mock; CI policy 26",
+  "diagnostic": "assembly-probe-08 passed but reused eight genuine parts; not counted as Golden",
+  "mode": "native Mate current-distance parameterized static states; free drag and contact dynamics unverified",
+  "pending": [
+    "工程师审核公差链、铆接及内侧共边接触；制造放行未批准",
+    "前置远程CAD CI安全配置与真实远程验收未在本阶段完成",
+    "保留Draft，不合并main或#39/#42/#43"
+  ],
+  "history_context": "five-03 4 passed / fifth manually interrupted; five-04 incomplete unsealed; duplicate-directory startup refusal overwritten outer console only; originals retained",
+  "draft_pr": "https://github.com/wzyn20051216/solidworks-automation-skill/pull/43",
+  "accepted_current_suite_runs": [
+    "run-01",
+    "run-02",
+    "run-03",
+    "run-04",
+    "run-05"
+  ],
+  "current_run": null,
+  "archive_target": "output/p0-2-1-evidence-20261027.zip",
+  "index_target": "docs/architecture/evidence/p0-2-1-real-gripper-travel-2026-10-27.json",
+  "native_volume_mm3": 244414.83263271285,
+  "implementation_delivery": "done",
+  "task_status": "blocked",
+  "acceptance_status": "passed",
+  "manual_review_required": true,
+  "final_commit_sha": "b414341b70dbc75b845f0f494817b4eab2674284",
+  "archive_sha256": "16a5e33383dd326d033ef316d4610c450a42676dbaed1758a963f2d612e8f3b4",
+  "archive_zip_members": 549,
+  "verified_native_hashes": 190
+}

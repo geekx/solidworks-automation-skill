@@ -28,6 +28,104 @@ python mcp-server\server.py
 
 该命令通常由 MCP 客户端作为子进程启动，不需要手动长期运行。
 
+## 工具发现模式（默认）
+
+默认 `SW_MCP_DISCOVERY=search`：`tools/list` 只暴露三个发现入口，69 个原生工具可按需检索。
+默认信任客户端已取得当前任务授权，任务内调用不再逐次请求服务端批准；需要更严格控制时
+可启用 `server` 模式。初始工具列表体积可通过
+`python -m pytest -q tests/test_mcp_discovery_quality.py` 验证。
+
+| 入口 | 作用 |
+| --- | --- |
+| `sw_search_tools` | 按中英文说法检索候选，返回名称、说明、相关度和副作用等级；不执行操作 |
+| `sw_describe_tool` | 读取单个工具的完整输入 Schema、副作用等级和是否需要人工批准 |
+| `sw_call_tool` | 按名称执行；经过策略检查，审批行为取决于所选模式及其信任边界 |
+
+直接点名调用被隐藏的原生工具同样会经过网关，未知工具一律拒绝。
+
+需要客户端逐工具展示权限提示时，用 `SW_MCP_DISCOVERY=full` 显示全部 69 个命名工具。
+两种模式共用同一套执行检查；`stdio` 和 `--transport streamable-http` 行为一致。
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `SW_MCP_DISCOVERY` | `search` | `search` 发现模式；`full` 原生命名工具 |
+| `SW_MCP_APPROVAL` | `auto` | `auto`：发现模式用 `task`、完整模式用 `client`；`task`：信任客户端的任务授权，不逐次确认；`server`：本地逐次审批账本；`client`：交给客户端逐工具审批，仅允许完整模式；`elicit`：走 MCP elicitation（可能被 agent 自动应答）；`off`：关闭服务端审批 |
+| `SW_MCP_APPROVAL_DIR` | `%LOCALAPPDATA%\SolidWorksMCP\approvals` | 审批账本目录 |
+| `SW_API_LOOKUP_NETWORK` | `on` | 设置 `off` 禁止本项目 API 查证访问官方文档；不控制客户端自己的搜索 |
+| `SW_API_LOOKUP_AUTO_INSTALL` | `on` | 设置 `off` 禁止 API 查证自动安装依赖和恢复帮助文件 |
+| `SW_AUTO_INSTALL_DEPENDENCIES` | `on` | 设置 `off` 禁止基础 COM 预检和桌面执行器自动安装依赖 |
+
+`solidworks_lookup_api` 支持 `interface` + `member` 或自然语言 `task`，按目标版本查证本机类型库、API Help 和官方文档；直读失败且无缓存时使用匿名 Parallel，仅发送公开版本、接口、成员及官方链接。默认按需自动配置依赖，MCP 注解因此标记为可能修改环境；`auto_install=false` 禁用安装，`offline=true` 禁用联网和安装。服务端会按参数区分副作用，用户配置的服务端审批模式仍然生效。结果区分版本证据、来源和获取时间，不能代替真机验证。多个目标无法确定时不会猜测或启动 SolidWorks。`solidworks_connect` 支持可选 `version` 年份并检查实际连接版本。
+
+### 任务授权和可选逐次审批
+
+默认 `task` 模式由客户端或用户负责界定任务授权；MCP 服务端**不能验证**客户端是否实际
+询问过用户，不提供逐工具权限隔离。服务端仍会拒绝未登记的工具，并沿用参数校验、
+目标限制与 SolidWorks 串行执行；具备相同本机权限的进程可以绕过本服务。
+
+已保存文档的活动文档操作可选传入 `document_target`（绝对 `path` 和 `process_id`），
+服务端将核对目标；不传时沿用工具原有的活动文档行为，以支持未保存文档和现有工作流。
+
+以下是显式选择 `SW_MCP_APPROVAL=server` 时的逐次审批机制。
+
+**信任边界：**审批账本和命令行运行在同一操作系统用户权限下。TTY 检查不能证明
+输入来自真人：具有该用户权限的进程可能模拟终端或直接访问账本和签名密钥。因此，
+账本适用于可信本地环境中的操作确认，不是隔离同用户 Agent 或恶意进程的安全边界。
+需要可靠逐操作的人审时，应使用经过验证的可信客户端/独立审批机制；`client`、
+`elicit` 和 `off` 模式也不能单凭配置名称保证存在人工确认。
+
+工具可能使用活动文档、间接路径或输入文件中的引用。目前范围授权已停用，旧范围授权也不会
+被消费。`server` / `elicit` 模式下，支持绑定的活动文档操作必须经 `sw_call_tool` 提供
+`document_target`，包含已保存文档的绝对 `path` 和 SolidWorks `process_id`。例如先使用
+`solidworks_connect` 读取 `process_id` 与 `document.path`，再把两者放进 `document_target`；
+服务端将目标与参数一起展示并绑定到批准，在持锁获取活动文档时复核 PID 和路径。
+
+未保存的文档、关闭文档、文档单位设置、添加组件、模型审查、Pack and Go 及原生子进程
+操作暂不支持此绑定并保持阻止。PID 和路径用于定位，
+不能证明文档内容或外部引用未变化，也不能隔离具有相同系统用户权限的进程。`full` +
+`client` 或 `off` 保持原有客户端控制，但服务端不保证其审批有效。本机制尚未完成真实
+SolidWorks 的目标切换验证，不应将其当作已验收的安全边界。
+
+模型传入 `approved: true` 或类似参数不会生效。写操作被阻止时，返回内容会给出审批请求 ID，
+需要在能访问本机的终端执行：
+
+```powershell
+python scripts\sw_mcp_approve.py list
+python scripts\sw_mcp_approve.py approve <请求ID>
+```
+
+批准与「工具 + 完整参数摘要 + 服务端会话 + 有效期」绑定，一次性使用（默认 15 分钟）；
+参数改变、服务端重启或更换会话后需重新请求批准。显式路径包含在参数中，但不代表
+已校验输入文件内容、隐式引用或文档状态；不能将该机制用于不可信环境。
+请求记录和授权记录各有 1000 条上限；达到上限时服务端安全拒绝新增记录，不自动删除
+历史文件。用户需确认记录归属后自行备份和归档，才能继续使用审批。
+
+### 回滚到旧行为
+
+在 MCP 客户端配置里给 server 进程加环境变量：
+
+```jsonc
+{
+  "command": "python",
+  "args": ["C:\\path\\to\\mcp-server\\server.py"],
+  "env": { "SW_MCP_DISCOVERY": "full", "SW_MCP_APPROVAL": "client" }
+}
+```
+
+即恢复全部原生工具可见，并由客户端决定是否逐工具审批。不改环境变量、仅升级版本的客户端默认使用发现模式。
+
+### 协议验证
+
+```powershell
+python scripts\validate_mcp.py            # 同时校验 full 和 search
+python scripts\validate_mcp.py --mode search
+```
+
+发现模式校验会确认 3 个入口可见、每个必需工具都能按名称检索并读到 Schema；完整模式校验
+69 个工具全部可见。
+
 ## HTTP 传输（streamable-http）
 
 当 MCP 客户端与 SolidWorks 不在同一台机器上时（例如 Linux 上的 agent 驱动 Windows 上的 SolidWorks），无法让客户端直接拉起本机的 stdio 子进程，此时改用 HTTP 传输：
@@ -77,22 +175,35 @@ python mcp-server\server.py --transport streamable-http --host 0.0.0.0 --port 80
 - 大文件用 `cadstudio_read_artifact`，设置 `as_preview:false`、`offset`、`max_bytes`，按 `next_offset` 拼接 base64 块；完成后比对 SHA-256。
 - 读取适配复用既有 Artifact Ledger；文件改变、目录越界或任意路径参数均不能作为已验证产物读取。
 
-远端输入仍需预先放到 CAD 主机；产物读取接口只服务已有交付文件。现有 60 个工具的名称和输入 Schema 保持一致，新增 1 个只读产物工具。
+远端输入仍需预先放到 CAD 主机；产物读取接口只服务已有交付文件。
+工具**当前共 69 个**。发现模式下这些工具不出现在 `tools/list` 中，但检索、Schema 读取和执行行为与完整模式一致。`cadstudio_list_drc_rules` 列出设计审计规则；`cadstudio_check_drc` 检查中性文档并写报告，属于写操作，严格模式需要审批。API 查证可按需配置依赖，其权限行为见上文。
 
-## Smithery 发布
+## Windows MCPB 扩展
 
-根目录 `manifest.json` 遵循 MCPB 规范，并使用 `tools_generated: true`。先用 `mcpb pack` 生成标准包，再运行以下命令生成包含 FastMCP 实际 `inputSchema` 的 Smithery 发布包：
+在支持 MCPB 的桌面客户端中导入正式发布的 `SolidWorks-Automation-Skill-<版本>.mcpb`。
+例如，在 Claude Desktop 的扩展设置中进入高级设置，选择 **Install Extension…** 并打开该文件。
+原生 SolidWorks 工具需要已安装并获得许可的 SolidWorks。扩展沿用 MCP 服务的发现模式和写操作审批。
+
+启动器会查找 `uv` 并按包内锁文件准备 Python 3.12 环境。首次运行需要能够获取 Python 和依赖。
+如果客户端日志显示缺少 `uv`，请运行下列命令，随后完全退出并重开客户端，再启用扩展。
+没有 WinGet 时，请参照 [uv 官方安装文档](https://docs.astral.sh/uv/getting-started/installation/)。
 
 ```powershell
-mcpb pack . .\dist\solidworks-automation-skill-1.3.0.mcpb
-python .\scripts\build_smithery_mcpb.py `
-  .\dist\solidworks-automation-skill-1.3.0.mcpb `
-  .\dist\solidworks-automation-skill-1.3.0-smithery.mcpb
-smithery mcp publish .\dist\solidworks-automation-skill-1.3.0-smithery.mcpb `
-  -n wzyn20051216/solidworks-automation-skill
+winget install --id astral-sh.uv -e
 ```
 
-Smithery 当前发布接口要求工具卡包含 `inputSchema`，而 MCPB 0.4 的静态 `tools` 项不允许该字段，因此发布包由脚本从 MCP Server 注册表自动生成，避免手工维护两套 schema。
+从 Git 检出的仓库本地打包时，使用发布脚本生成标准包。Smithery 变体从同一个包生成，并从运行时注册表读取实际的工具输入 Schema。
+
+```powershell
+$version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+python .\scripts\build_mcpb.py
+python .\scripts\build_smithery_mcpb.py `
+  ".\release-output\SolidWorks-Automation-Skill-$version.mcpb" `
+  ".\release-output\SolidWorks-Automation-Skill-$version-smithery.mcpb" --repo-root .
+```
+
+文件名带 `-smithery` 的变体用于 Smithery 的工具清单。桌面扩展请选标准包。
+Windows 正式发布同时提供 MCPB 和带签名的 CAD Studio 安装包。
 
 ## 多客户端自动注册
 
@@ -178,6 +289,7 @@ claude mcp add --scope user solidworks -- python C:\path\to\solidworks-automatio
 | `cadstudio_list_drc_rule_packs` | 列出内置行业规则包（机加工支架/注塑外壳/钣金面板/钻孔面板），供 cadstudio_check_drc 的 rule_packs 叠加 | 否 |
 | `cadstudio_routing_preflight` | 探测 SOLIDWORKS Routing 类型库、加载项注册和许可证证据；缺证据返回 blocked | 否 |
 | `solidworks_addin_host_status` | 只读检查 C# Add-in 程序集、HKCU/HKLM 注册层级、进程内 UI/事件诊断和阻塞码 | 否 |
+| `solidworks_lookup_api` | 按目标版本查证 API；默认联网并按需自动安装依赖，不启动或修改 CAD | 按参数：默认可能修改环境；可关闭自动安装 |
 | `cadstudio_fea_preflight` | 探测 CalculiX/Elmer 求解器，不执行任意命令 | 否 |
 | `cadstudio_prepare_fea` | 从 FEA 1.0/1.1 请求生成版本化 CalculiX `.inp`，不运行任意脚本 | 否 |
 | `cadstudio_run_fea` | 运行白名单 CalculiX 线性或受限非线性静力任务并解析位移、应力和收敛证据 | 否 |

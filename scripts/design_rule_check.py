@@ -44,7 +44,7 @@ UNIT_TO_MM = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "inch": 25.4}
 DEFAULT_THRESHOLDS: dict[str, float] = {
     "minWallThicknessMm": 1.0,
     "minFeatureSizeMm": 0.5,
-    "holeEdgeDistanceRatio": 1.0,       # 孔边到零件边 >= ratio * 半径
+    "holeEdgeDistanceRatio": 0.5,       # 孔边到零件边 >= ratio * 孔径
     "holeEdgeDistanceMinMm": 1.5,
     "holeSpacingRatio": 2.0,            # 相邻孔中心距 >= ratio * 大孔半径
     "ligamentMinMm": 2.0,              # 相邻孔间腹板（边到边）最小厚度
@@ -101,11 +101,18 @@ def _load_document(source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(source, Mapping):
         document = dict(source)
     else:
-        document = json.loads(Path(source).read_text(encoding="utf-8"))
+        path = Path(source)
+        if path.stat().st_size > 4 * 1024 * 1024:
+            raise ValueError("中性文档超过 4 MiB 上限")
+        document = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict):
         raise ValueError("NeutralCadDocument 必须是 JSON 对象")
     if not str(document.get("documentId") or "").strip():
         raise ValueError("NeutralCadDocument 缺少 documentId")
+    if not isinstance(document.get("features", []), list):
+        raise ValueError("features 必须是数组")
+    if len(document.get("features", [])) > 1000:
+        raise ValueError("features 超过 1000 项上限，请拆分检查")
     return document
 
 
@@ -172,10 +179,13 @@ def _extract_context(document: Mapping[str, Any]) -> dict[str, Any]:
     hole_callouts = drawing.get("holeCallouts") if isinstance(drawing.get("holeCallouts"), list) else None
 
     fastener_holes = [parsed for f in features if (parsed := parse_fastener_hole(f)) is not None]
+    for fastener in fastener_holes:
+        for key in ("main_diameter_mm", "sink_diameter_mm", "sink_depth_mm"):
+            if fastener.get(key) is not None:
+                fastener[key] *= factor
     fastener_stacks = metadata.get("fastenerStacks") if isinstance(metadata.get("fastenerStacks"), list) else []
     fastener_stacks = [s for s in fastener_stacks if isinstance(s, Mapping)]
     drives = metadata.get("drives") if isinstance(metadata.get("drives"), list) else []
-    drives = [d for d in drives if isinstance(d, Mapping)]
 
     return {
         "documentId": str(document.get("documentId")),
@@ -236,7 +246,7 @@ def rule_holes(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str
         # 孔边距
         edge = hole.get("edge_distance_mm")
         if edge is not None and diameter is not None:
-            required = max(th["holeEdgeDistanceMinMm"], th["holeEdgeDistanceRatio"] * diameter / 2.0)
+            required = max(th["holeEdgeDistanceMinMm"], th["holeEdgeDistanceRatio"] * diameter)
             if edge < required:
                 checks.append(
                     _check("DRC-HOLE-001", "holes", "fail", "major", f"孔 {hid} 边距 {edge:g}mm 小于要求 {required:g}mm", target=hid, value_mm=edge, required_mm=required)
@@ -261,8 +271,13 @@ def rule_holes(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[str
                 checks.append(
                     _check("DRC-HOLE-002", "holes", "warning", "warning", f"孔 {a['id']} 与 {b['id']} 中心距 {distance:g}mm 小于建议 {required:g}mm", value_mm=distance, required_mm=required)
                 )
-    if not checks:
-        checks.append(_check("DRC-HOLE-OK", "holes", "pass", "info", f"{len(holes)} 个孔通过边距/间距/啮合检查"))
+    incomplete = any(h.get("diameter_mm") is None or h.get("edge_distance_mm") is None or
+                     (h.get("thread") and (h.get("engagement_mm") is None or h.get("thread_nominal_mm") is None))
+                     for h in holes) or (len(holes) > 1 and len(positioned) != len(holes))
+    if incomplete:
+        checks.append(_check("DRC-HOLE-EVIDENCE", "holes", "info", "info", "孔径、边距、孔位或螺纹啮合证据不完整，不能判定全部孔已通过"))
+    elif not checks:
+        checks.append(_check("DRC-HOLE-OK", "holes", "pass", "info", f"{len(holes)} 个孔的已提供数据未触发孔规则"))
     return checks
 
 
@@ -331,7 +346,7 @@ def rule_standard_parts(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list
             if teeth is not None and teeth < th["sprocketMinTeeth"]:
                 checks.append(_check("DRC-STD-005", "standard_parts", "warning", "warning", f"链轮 {pid} 齿数 {teeth:g} 低于 {th['sprocketMinTeeth']:g}，磨损/多边形效应风险", target=pid))
     if not checks:
-        checks.append(_check("DRC-STD-OK", "standard_parts", "pass", "info", f"{len(parts)} 个标准件通过合理性检查"))
+        checks.append(_check("DRC-STD-EVIDENCE", "standard_parts", "info", "info", f"{len(parts)} 个标准件的已提供数据未触发规则；仍需核对完整设计参数"))
     return checks
 
 
@@ -348,8 +363,10 @@ def rule_assembly(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[
     mates = _num(assembly.get("mateCount"))
     if components is not None and mates is not None and components >= 2 and mates == 0:
         checks.append(_check("DRC-ASM-002", "assembly", "warning", "warning", f"{int(components)} 个组件但无配合，装配欠约束", value=int(components)))
-    if not checks:
-        checks.append(_check("DRC-ASM-OK", "assembly", "pass", "info", "装配约束与干涉检查通过"))
+    if count is None or components is None or mates is None:
+        checks.append(_check("DRC-ASM-EVIDENCE", "assembly", "info", "info", "装配组件、配合或干涉数据不完整"))
+    elif not checks:
+        checks.append(_check("DRC-ASM-EVIDENCE", "assembly", "info", "info", "已提供的计数未发现规则问题；配合数量不能证明装配完全约束"))
     return checks
 
 
@@ -364,8 +381,10 @@ def rule_drawing(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[s
     without_tol = _num(drawing.get("dimensionsWithoutTolerance"))
     if without_tol is not None and without_tol > 0:
         checks.append(_check("DRC-DRW-002", "drawing", "warning", "minor", f"{int(without_tol)} 个尺寸缺少公差标注", value=int(without_tol)))
-    if not checks:
-        checks.append(_check("DRC-DRW-OK", "drawing", "pass", "info", "工程图完整性检查通过"))
+    if not isinstance(missing, list) or without_tol is None:
+        checks.append(_check("DRC-DRW-EVIDENCE", "drawing", "info", "info", "缺少尺寸完整性或公差证据，不能判定工程图完整"))
+    elif not checks:
+        checks.append(_check("DRC-DRW-OK", "drawing", "pass", "info", "已提供的尺寸和公差证据未触发规则"))
     return checks
 
 
@@ -495,6 +514,9 @@ def rule_drives(ctx: Mapping[str, Any], th: Mapping[str, float]) -> list[dict[st
     limits = {k: th[k] for k in DRIVE_DEFAULT_LIMITS if k in th}
     checks: list[dict[str, Any]] = []
     for index, spec in enumerate(drives):
+        if not isinstance(spec, Mapping):
+            checks.append(_check("DRC-DRV-900", "drive", "fail", "major", f"驱动 {index} 必须是对象", target=str(index)))
+            continue
         try:
             checks.extend(evaluate_drive(spec, limits)["checks"])
         except ValueError as exc:
@@ -597,7 +619,7 @@ def list_rules() -> dict[str, Any]:
     return {
         "schema": "cadstudio.drc-rule-catalog",
         "version": "1.0",
-        "rules": [dict(rule, **{"clause": RULE_CLAUSES.get(rule["id"])}) for rule in RULE_CATALOG],
+        "rules": [dict(rule, referenceHint=RULE_CLAUSES.get(rule["id"]), referenceVerified=False) for rule in RULE_CATALOG],
         "defaultThresholds": dict(DEFAULT_THRESHOLDS),
         "customRule": {
             "categories": sorted({"geometry", "holes", "standard_parts", "assembly", "drawing", "relations", "fastener", "drive", "custom"}),
@@ -705,6 +727,8 @@ def _aggregate_status(checks: Sequence[Mapping[str, Any]]) -> str:
         return "fail"
     if "warning" in statuses:
         return "warning"
+    if not statuses or "info" in statuses:
+        return "review_required"
     return "pass"
 
 
@@ -764,8 +788,8 @@ def build_drc_report(
                 continue
             clause = _rule_clause(check["id"])
             if clause:
-                check["standard"] = clause["standard"]
-                check["clause"] = clause["clause"]
+                check["referenceHint"] = clause
+                check["referenceVerified"] = False
             checks.append(check)
     for custom_rule in profile.get("customRules", []):
         if custom_rule["id"] in disabled:
@@ -834,18 +858,6 @@ def _load_document_json(source: str | Path | Mapping[str, Any]) -> dict[str, Any
     return json.loads(Path(source).read_text(encoding="utf-8"))
 
 
-def _versioned_target(path: Path) -> Path:
-    if not path.exists():
-        return path
-    stem, suffix = path.stem, path.suffix
-    index = 1
-    while True:
-        candidate = path.with_name(f"{stem}.v{index}{suffix}")
-        if not candidate.exists():
-            return candidate
-        index += 1
-
-
 def write_drc_report(
     source: str | Path | Mapping[str, Any],
     output_path: str | Path,
@@ -871,9 +883,20 @@ def write_drc_report(
         regression_gate=regression_gate,
         regression_tolerance=regression_tolerance,
     )
-    target = _versioned_target(Path(output_path).expanduser().resolve())
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    requested = Path(output_path).expanduser().absolute()
+    requested.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(report, ensure_ascii=False, indent=2)
+    # 独占创建避免并发检查时覆盖其他任务或用户已有报告。
+    for index in range(1000):
+        target = requested if index == 0 else requested.with_name(f"{requested.stem}.v{index}{requested.suffix}")
+        try:
+            with target.open("x", encoding="utf-8") as handle:
+                handle.write(payload)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise FileExistsError("无法分配未使用的 DRC 报告文件名")
     report["reportPath"] = str(target)
     report["artifacts"] = [
         {
@@ -931,7 +954,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = build_drc_report(args.input, **kwargs)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     gate_failed = isinstance(report.get("regressionGate"), dict) and not report["regressionGate"].get("passed", True)
-    return 1 if report.get("status") in {"blocked", "fail"} or gate_failed else 0
+    if report.get("status") in {"blocked", "fail"} or gate_failed:
+        return 1
+    return 2 if report.get("status") == "review_required" else 0
 
 
 if __name__ == "__main__":

@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "archive_sha256": "16a5e33383dd326d033ef316d4610c450a42676dbaed1758a963f2d612e8f3b4",
+  "archive_size_bytes": 26746788,
+  "zip_members": 549,
+  "byte_for_byte_disk_archive_match": true,
+  "rechecked_runs": 5,
+  "rechecked_static_states": 45,
+  "rechecked_physical_overtravel_controls": 20,
+  "metrics": {
+    "run_count": 5,
+    "test_acceptance_count": 5,
+    "task_completion_count": 0,
+    "false_completion_count": 0,
+    "cleanup_success_count": 5
+  },
+  "solidworks_processes_after": {}
+}

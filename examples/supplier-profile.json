@@ -1,0 +1,38 @@
+{
+  "schema": "cadstudio.dfm-profile",
+  "version": "1.0",
+  "id": "example-cnc-supplier",
+  "description": "示例供应商能力档案：三轴铣削 + 板金，仅用于演示 check-dfm 的输入格式，不代表任何真实供应商报价或验收结论。",
+  "source": {
+    "type": "example",
+    "name": "CAD Studio 示例",
+    "revision": "1",
+    "reference": "examples/README.md"
+  },
+  "processes": [
+    "machining",
+    "sheet_metal"
+  ],
+  "limits": {
+    "minimumWallThickness": 1.5,
+    "minimumDrillDiameter": 2.0,
+    "minimumInternalCornerRadius": 1.5,
+    "maximumHoleDepthDiameterRatio": 8.0,
+    "minimumThickness": 1.0,
+    "maximumThickness": 12.0,
+    "minimumBendRadius": 1.2,
+    "minimumBendRadiusRatio": 1.0,
+    "minimumKerf": 0.1,
+    "maximumKerf": 0.5,
+    "maximumEnvelope": [
+      300,
+      200,
+      100
+    ],
+    "availableToolDiameters": [
+      3.0,
+      5.0,
+      8.0
+    ]
+  }
+}

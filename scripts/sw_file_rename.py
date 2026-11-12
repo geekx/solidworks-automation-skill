@@ -1,324 +1,133 @@
-"""
-@file sw_file_rename.py
-@brief 按自定义属性模板批量规划并（可选）执行 SolidWorks 文件改名，兼顾切割清单改名。
-
-对标 t84RT/SW-software---Macro-command 中的“文件改名 / 切割清单改名”宏（第三方 VBA，
-与达索无隶属关系），用 Python 重写并把可验证部分（模板渲染、文件名净化、冲突/空操作检测、
-改名计划）与需真机的 COM 属性读取、Pack and Go 参照安全改名、切割清单遍历分离。
-
-安全默认：默认只生成改名计划与 CSV（dry-run），不改动任何文件。真正改名通过 SolidWorks
-原生 Pack and Go 参照安全地写“改名副本”，保留原文件，且逐个核对产物存在——找不到产物即判 blocked，
-不做会破坏外部参照的裸文件系统重命名。
-
-能力等级：pilot。改名计划逻辑已离线单测；COM 属性读取与 Pack and Go 改名需真机与依赖人工复核。
-"""
+"""基于 SolidWorks 文件属性生成批量改名预览；不移动或修改任何模型。"""
 from __future__ import annotations
 
-import csv
+import json
+import os
 import re
 import string
+from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-try:
-    from .sw_connect import get_com_member
-    from .sw_weldment import iter_features_recursive
-except ImportError:
-    from sw_connect import get_com_member
-    from sw_weldment import iter_features_recursive
-
-_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 NATIVE_EXTENSIONS = {".sldprt", ".sldasm", ".slddrw"}
-PLAN_COLUMNS = ["old_name", "new_name", "status", "reason"]
+INVALID_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+RESERVED = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$", re.IGNORECASE)
 
 
-class _SafeDict(dict):
-    """@brief str.format_map 用：缺失键保留原占位符而不抛 KeyError。"""
-
-    def __missing__(self, key):  # noqa: D401
-        return "{" + key + "}"
-
-
-def _template_fields(template: str) -> list[str]:
-    """@brief 解析模板中的占位符字段名。"""
-    return [name for _text, name, _spec, _conv in string.Formatter().parse(template) if name]
-
-
-def sanitize_filename(name: str, *, replacement: str = "_") -> str:
-    """@brief 去除 Windows 非法字符与首尾空白/点，得到安全文件名（不含扩展名）。"""
-    cleaned = _ILLEGAL_CHARS.sub(replacement, str(name)).strip().strip(".")
-    cleaned = re.sub(rf"{re.escape(replacement)}{{2,}}", replacement, cleaned)
-    return cleaned
-
-
-def render_name_template(template: str, properties: Mapping[str, Any]) -> tuple[str, list[str]]:
-    """@brief 用属性字典渲染文件名模板。
-
-    @param template 形如 "{图号}_{名称}" 的模板。
-    @param properties 属性名->值。
-    @return (渲染后的文件名（未含扩展名，已净化）, 缺失字段列表)。
-    """
-    values = {str(key): ("" if value is None else str(value)) for key, value in properties.items()}
-    missing = [field for field in _template_fields(template) if not values.get(field)]
-    rendered = template.format_map(_SafeDict(values))
-    return sanitize_filename(rendered), missing
+def template_fields(template: str) -> list[str]:
+    if not isinstance(template, str) or not template or len(template) > 200:
+        raise ValueError("模板必须是 1..200 字符的字符串")
+    fields = []
+    try:
+        parts = list(string.Formatter().parse(template))
+    except ValueError as exc:
+        raise ValueError("模板括号无效") from exc
+    for _, name, fmt, conversion in parts:
+        if name is None:
+            continue
+        if not name or any(ch in name for ch in ".[]{}\\/") or fmt or conversion:
+            raise ValueError("模板仅支持简单属性占位符，不支持属性访问、格式表达式或转换")
+        if name not in fields:
+            fields.append(name)
+    if not fields or len(fields) > 32:
+        raise ValueError("模板需要 1..32 个属性占位符")
+    return fields
 
 
-def plan_renames(
-    entries: Sequence[Mapping[str, Any]],
-    template: str,
-    *,
-    keep_extension: bool = True,
-) -> list[dict[str, Any]]:
-    """@brief 生成改名计划并标注状态。
+def _valid_filename(name: str) -> bool:
+    return bool(name and len(name) <= 180 and not INVALID_NAME.search(name)
+                and name not in {".", ".."} and not name.endswith((" ", ".")) and not RESERVED.match(name))
 
-    @param entries 每项含 {"path": 原路径, "properties": {...}}。
-    @param template 文件名模板。
-    @param keep_extension 保留原扩展名。
-    @return 计划行列表；status ∈ rename/skip_noop/skip_missing/skip_empty/conflict。
 
-    冲突检测：多个源渲染出同一目标名，或目标名与其它源的原名相同，标 conflict。
-    """
-    plans: list[dict[str, Any]] = []
-    proposed: dict[str, int] = {}
-    original_names = {Path(str(entry.get("path", ""))).name.casefold() for entry in entries}
-
-    prepared = []
+def plan_renames(entries: Sequence[Mapping[str, Any]], template: str) -> list[dict[str, Any]]:
+    fields = template_fields(template)
+    if len(entries) > 2000:
+        raise ValueError("文件数量超过 2000，请拆分预览")
+    originals = {Path(str(entry.get("path", ""))).name.casefold() for entry in entries}
+    plans = []
     for entry in entries:
         path = Path(str(entry.get("path", "")))
-        properties = entry.get("properties") or {}
-        extension = path.suffix if keep_extension else ""
-        rendered, missing = render_name_template(template, properties)
-        prepared.append((path, extension, rendered, missing))
-        if rendered:
-            new_full = (rendered + extension).casefold()
-            proposed[new_full] = proposed.get(new_full, 0) + 1
-
-    for path, extension, rendered, missing in prepared:
-        old_name = path.name
-        if not rendered:
-            plans.append({"old_name": old_name, "new_name": "", "status": "skip_empty", "reason": "模板渲染为空"})
-            continue
-        if missing:
-            plans.append(
-                {
-                    "old_name": old_name,
-                    "new_name": "",
-                    "status": "skip_missing",
-                    "reason": f"缺少属性: {', '.join(missing)}",
-                }
-            )
-            continue
-        new_name = rendered + extension
-        if new_name.casefold() == old_name.casefold():
-            plans.append({"old_name": old_name, "new_name": new_name, "status": "skip_noop", "reason": "与原名相同"})
-            continue
-        conflict = proposed.get(new_name.casefold(), 0) > 1 or (
-            new_name.casefold() in original_names and new_name.casefold() != old_name.casefold()
-        )
-        if conflict:
-            plans.append(
-                {"old_name": old_name, "new_name": new_name, "status": "conflict", "reason": "目标名与其它文件冲突"}
-            )
-            continue
-        plans.append({"old_name": old_name, "new_name": new_name, "status": "rename", "reason": ""})
-    return plans
-
-
-def plan_cut_list_renames(items: Sequence[Mapping[str, Any]], template: str) -> list[dict[str, Any]]:
-    """@brief 生成焊件切割清单条目改名计划。
-
-    @param items 每项含 {"name": 当前折弯/切割清单名, "properties": {...}}。
-    @param template 例如 "{材料}-{长度}" 或 "{数量}xL{长度}"。
-    """
-    plans: list[dict[str, Any]] = []
-    for item in items:
-        current = str(item.get("name", ""))
-        rendered, missing = render_name_template(template, item.get("properties") or {})
-        if not rendered:
-            plans.append({"old_name": current, "new_name": "", "status": "skip_empty", "reason": "模板渲染为空"})
+        props = entry.get("properties") if isinstance(entry.get("properties"), Mapping) else {}
+        missing = [key for key in fields if key not in props or not str(props[key]).strip()]
+        plan = {"source": str(path), "old_name": path.name, "new_name": "", "status": "blocked", "reason": ""}
+        if path.suffix.casefold() not in NATIVE_EXTENSIONS:
+            plan["reason"] = "不是支持的 SolidWorks 原生文件"
         elif missing:
-            plans.append(
-                {"old_name": current, "new_name": "", "status": "skip_missing", "reason": f"缺少属性: {', '.join(missing)}"}
-            )
-        elif rendered == current:
-            plans.append({"old_name": current, "new_name": rendered, "status": "skip_noop", "reason": "与原名相同"})
+            plan["reason"] = "缺少属性: " + ", ".join(missing)
         else:
-            plans.append({"old_name": current, "new_name": rendered, "status": "rename", "reason": ""})
+            candidate = template.format_map({key: str(props[key]) for key in fields}) + path.suffix
+            plan["new_name"] = candidate
+            if not _valid_filename(candidate):
+                plan["reason"] = "目标文件名无效或为 Windows 保留名称"
+            elif candidate.casefold() == path.name.casefold():
+                plan.update(status="unchanged", reason="文件名未改变")
+            elif candidate.casefold() in originals:
+                plan["reason"] = "目标名称与源目录中的文件冲突"
+            else:
+                plan["status"] = "planned"
+        plans.append(plan)
+    proposed = Counter(item["new_name"].casefold() for item in plans if item["status"] == "planned")
+    for plan in plans:
+        if plan["status"] == "planned" and proposed[plan["new_name"].casefold()] > 1:
+            plan.update(status="blocked", reason="多个文件的目标名称冲突")
     return plans
 
 
-def summarize_plan(plans: Sequence[Mapping[str, Any]]) -> dict[str, int]:
-    """@brief 统计各状态数量。"""
-    summary: dict[str, int] = {}
-    for plan in plans:
-        status = str(plan.get("status", "unknown"))
-        summary[status] = summary.get(status, 0) + 1
-    return summary
-
-
-def write_plan_csv(plans: Sequence[Mapping[str, Any]], output_path: str | Path) -> Path:
-    """@brief 将改名计划写入 UTF-8 BOM CSV。"""
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=PLAN_COLUMNS)
-        writer.writeheader()
-        for plan in plans:
-            writer.writerow({key: plan.get(key, "") for key in PLAN_COLUMNS})
-    return path
-
-
-# ---------------------------------------------------------------------------
-# COM 部分（pilot，需真机验证）
-# ---------------------------------------------------------------------------
-
-
-def _maybe(obj, name: str, *args):
-    """@brief 防御式读取 COM 成员。"""
-    if obj is None:
-        return None
+def collect_entries(session: Any, folder: str | Path, properties: Sequence[str]) -> list[dict[str, Any]]:
+    """使用受控会话只读属性，只关闭本次真正打开的文档。"""
     try:
-        return get_com_member(obj, name, *args)
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def read_document_properties(sw, file_path: str | Path, property_names: Sequence[str]) -> dict[str, str]:
-    """@brief 只读打开一个文档，读取指定自定义属性后关闭。"""
-    from sw_connect import open_document
-
-    path = Path(file_path)
-    model = open_document(sw, str(path), read_only=True, silent=True)
-    if model is None:
-        return {}
-    try:
-        extension = _maybe(model, "Extension")
-        manager = _maybe(extension, "CustomPropertyManager", "")
-        result: dict[str, str] = {}
-        for name in property_names:
-            value = _maybe(manager, "Get", name)
-            if isinstance(value, (list, tuple)) and value:
-                value = value[0]
-            result[str(name)] = "" if value is None else str(value)
-        return result
-    finally:
-        title = _maybe(model, "GetTitle")
-        if title:
-            try:
-                sw.CloseDoc(title)
-            except Exception:  # noqa: BLE001
-                pass
-
-
-def collect_rename_entries(sw, folder: str | Path, property_names: Sequence[str]) -> list[dict[str, Any]]:
-    """@brief 扫描文件夹内 SolidWorks 原生文件并读取属性，供 plan_renames 使用。"""
-    base = Path(folder)
-    entries: list[dict[str, Any]] = []
-    for path in sorted(base.iterdir()):
-        if path.suffix.lower() not in NATIVE_EXTENSIONS:
-            continue
-        entries.append({"path": str(path), "properties": read_document_properties(sw, path, property_names)})
+        from .sw_document_data import read_custom_property
+    except ImportError:
+        from sw_document_data import read_custom_property
+    root = Path(folder).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError("输入目录不存在")
+    files = sorted((p for p in root.iterdir() if not p.name.startswith("~$") and p.is_file() and not p.is_symlink()
+                    and p.suffix.casefold() in NATIVE_EXTENSIONS), key=lambda p: p.name.casefold())
+    if len(files) > 2000:
+        raise ValueError("文件数量超过 2000，请拆分预览")
+    entries = []
+    for path in files:
+        model = session.open(str(path), read_only=True, silent=True)
+        try:
+            values = {}
+            for name in properties:
+                result = read_custom_property(model, name)
+                if result.get("exists") and result.get("was_resolved"):
+                    values[name] = result.get("resolved") or ""
+            entries.append({"path": str(path), "properties": values})
+        finally:
+            if any(owned is model for owned in session._owned_documents):
+                session.close(model=model)
     return entries
 
 
-def apply_cut_list_renames(model, name_map: Mapping[str, str]) -> list[dict[str, Any]]:
-    """@brief 按 {旧名: 新名} 重命名焊件切割清单折弯/条目特征。"""
-    results: list[dict[str, Any]] = []
-    for feature in iter_features_recursive(model):
-        current = str(_maybe(feature, "Name") or "")
-        if current in name_map and name_map[current] != current:
-            try:
-                feature.Name = name_map[current]
-                renamed = str(_maybe(feature, "Name") or "")
-                results.append({"old": current, "new": name_map[current], "verified": renamed == name_map[current]})
-            except Exception as exc:  # noqa: BLE001
-                results.append({"old": current, "new": name_map[current], "verified": False, "error": str(exc)})
-    return results
-
-
-def apply_renames_via_pack_and_go(sw, model, plans: Sequence[Mapping[str, Any]], output_dir: str | Path) -> dict[str, Any]:
-    """@brief 通过 SolidWorks 原生 Pack and Go 把 rename 计划写成改名副本（参照安全，保留原文件）。
-
-    只对 status=rename 的项设置 SetDocumentSaveToName；产物必须落盘核对，找不到即 blocked。
-    该 COM 路径版本敏感，任何异常都返回 blocked 而不做破坏参照的裸重命名。
-    """
-    try:
-        from sw_delivery import _get_pack_and_go, _model_doc_extension
-    except ImportError:
-        from .sw_delivery import _get_pack_and_go, _model_doc_extension  # type: ignore
-
-    target = Path(output_dir)
-    target.mkdir(parents=True, exist_ok=True)
-    rename_map = {
-        str(plan.get("old_name")): str(plan.get("new_name"))
-        for plan in plans
-        if plan.get("status") == "rename" and plan.get("new_name")
-    }
-    if not rename_map:
-        return {"status": "skipped", "reason": "无 rename 项", "produced": []}
-
-    try:
-        extension = _model_doc_extension(model)
-        package = _get_pack_and_go(extension)
-        package.FlattenToSingleFolder = True
-        if not package.SetSaveToName(True, str(target) + "\\"):
-            return {"status": "blocked", "reason": "SetSaveToName 拒绝目标目录", "produced": []}
-        document_names = list(get_com_member(package, "GetDocumentNames") or [])
-        save_to = []
-        for doc in document_names:
-            base = Path(str(doc)).name
-            new_name = rename_map.get(base, base)
-            save_to.append(str(target / new_name))
-        package.SetDocumentSaveToNames(save_to)
-        extension.SavePackAndGo(package)
-    except Exception as exc:  # noqa: BLE001
-        return {"status": "blocked", "reason": f"Pack and Go 改名失败: {exc}", "produced": []}
-
-    produced = [str(target / name) for name in rename_map.values() if (target / name).exists()]
-    missing = [name for name in rename_map.values() if not (target / name).exists()]
-    return {
-        "status": "ok" if produced and not missing else "blocked",
-        "reason": "" if not missing else f"缺少产物: {', '.join(missing)}",
-        "produced": produced,
-        "missing": missing,
-    }
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """@brief 命令行入口：扫描文件夹、按属性模板生成改名计划（默认 dry-run）。"""
+def main(argv: list[str] | None = None) -> int:
     import argparse
-    import json
-
-    parser = argparse.ArgumentParser(description="按自定义属性模板批量规划 SolidWorks 文件改名。")
-    parser.add_argument("folder", help="待改名文件所在文件夹。")
-    parser.add_argument("--template", required=True, help='文件名模板，如 "{图号}_{名称}"。')
-    parser.add_argument("--properties", nargs="+", required=True, help="模板用到的自定义属性名列表。")
-    parser.add_argument("--output-csv", default="rename_plan.csv", help="改名计划 CSV 输出路径。")
-    parser.add_argument("--apply", action="store_true", help="执行 Pack and Go 改名（写改名副本，保留原文件）。")
-    parser.add_argument("--apply-output-dir", help="--apply 时改名副本的输出目录。")
+    parser = argparse.ArgumentParser(description="只读生成 SolidWorks 文件属性改名预览；不会执行改名。")
+    parser.add_argument("folder")
+    parser.add_argument("--template", required=True, help="例如 {图号}_{名称}")
+    parser.add_argument("--output", required=True, help="不覆盖已有文件的 JSON 报告路径")
     args = parser.parse_args(argv)
-
-    from sw_session import SolidWorksSession
-
-    session = SolidWorksSession(visible=True)
-    entries = collect_rename_entries(session.sw, args.folder, args.properties)
-    plans = plan_renames(entries, args.template)
-    csv_path = write_plan_csv(plans, args.output_csv)
-    print(f"改名计划 CSV: {csv_path}")
-    print(f"汇总: {summarize_plan(plans)}")
-    for plan in plans:
-        print(f"  {plan['old_name']} -> {plan['new_name'] or '(跳过)'} [{plan['status']}] {plan['reason']}")
-
-    if args.apply:
-        if not args.apply_output_dir:
-            raise SystemExit("--apply 需要同时指定 --apply-output-dir")
-        model = session.active_doc
-        if model is None and entries:
-            model = session.open(entries[0]["path"])
-        result = apply_renames_via_pack_and_go(session.sw, model, plans, args.apply_output_dir)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    fields = template_fields(args.template)
+    try:
+        from .sw_session import SolidWorksSession
+        from .sw_read_guard import SolidWorksReadGuard
+    except ImportError:
+        from sw_session import SolidWorksSession
+        from sw_read_guard import SolidWorksReadGuard
+    with SolidWorksReadGuard():
+        with SolidWorksSession(visible=True) as session:
+            entries = collect_entries(session, Path(os.path.expandvars(args.folder)), fields)
+            plans = plan_renames(entries, args.template)
+    report = {"status": "review_required", "reviewRequired": True, "plans": plans,
+              "limitations": ["仅预览；不执行重命名、不修改引用或源文件", "属性、名称和所有引用需要人工复核"]}
+    output = Path(args.output).expanduser().absolute()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x", encoding="utf-8") as handle:
+        json.dump(report, handle, ensure_ascii=False, indent=2)
+    print(json.dumps({"status": report["status"], "output": str(output), "count": len(plans)}, ensure_ascii=True))
+    return 2
 
 
 if __name__ == "__main__":

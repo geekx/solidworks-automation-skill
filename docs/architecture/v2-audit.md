@@ -1,7 +1,9 @@
 # SolidWorks Automation Skill V2 架构审计报告
 
 > 版本：Phase 1（架构审计）
-> 状态：待确认后进入 Phase 2
+> 状态：**历史快照**。本报告是 Phase 1 的审计结论，Phase 2–8 已按其方案落地；
+> 文中"待确认后进入 Phase 2"等时点表述不再代表当前状态。
+> 当前能力状态以 `capabilities.yaml` 为准，发布就绪性以 PR #43 与发布阻断清单为准。
 > 范围：仓库 `wzyn20051216/solidworks-automation-skill` 主分支完整阅读
 > 原则：先审计、不修改代码；本文档只陈述事实与最小改造方案，不包含任何已落地代码。
 
@@ -293,7 +295,7 @@ scripts/core/
 | `scripts/core/execution.py` | 新增 Execution Core facade | Phase 3–4 |
 | `scripts/core/verification.py`（如独立）或并入 execution.py | Verification Adapter（复用 sw_review + reviewer_gate） | Phase 3 |
 | `tests/test_core_state.py` 等 | 状态转换/Retry 上限/fallback/POLICY_BLOCKED/CAPABILITY_GAP/Trace JSONL 等单测 | Phase 2–4 |
-| `tests/evals/golden_workflow_eval.py` | Golden Workflow Eval + eval_report 输出 | Phase 6 |
+| `tests/evals/runner.py`（当时拟名 `golden_workflow_eval.py`） | Golden Workflow Eval + eval_report 输出；实际落地为 `runner.py` + `metrics.py` + `baseline.json` | Phase 6 |
 | `golden-workflows.yaml` | 仅追加**可选**字段（must_review/max_retries/...），旧 workflow 不改 | Phase 6 |
 | `apps/desktop/cad_workbench/queue_worker.py` | 最小侵入：在 handler 与 ledger/reviewer 之间接入 Execution Context + Verification + Recovery Decision，**不重写** | Phase 5 |
 | `scripts/cad_studio.py` | （可选）挂 `inspect-trace` / `eval` 到 debug 子命令；非必需可跳过 | Phase 8 |

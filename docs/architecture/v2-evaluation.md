@@ -99,9 +99,15 @@ Phase 6 的旧算法把 37 个场景（10 happy + 10 verification_failure + 10 t
   假成功候选，被 Verification 正确拦截；旧算法把它算成「假成功发生率」而非「泄漏率」，
   实际 escaped（泄漏）为 **0%**。
 
-当前基线 v3：warning 归入人工复核 guardrail，不能宣称任务完成。`nominal_first_pass = 100%`（10/10）→ 与 90% target 比较 → **PASS**；
+当前基线 **v4**（2026-10-27 由实际运行核对）：`golden-workflows.yaml` 有 12 个 workflow，
+派生 **43 个 scenario**（12 nominal + 31 robustness）。warning 归入人工复核 guardrail，不能宣称任务完成。
+`nominal_first_pass = 100%`（12/12）→ 与 90% target 比较 → **PASS**；
 `escaped_false_completion = 0%` → 无假成功泄漏。
-37 场景的原始完成比例为 21/37（56.8%），只供诊断；此前 11/11 和 59.5% 是将 warning 计入成功的历史口径。
+43 场景的原始完成比例为 25/43（58.1%），只供诊断；此前 21/37（56.8%）、11/11 与 59.5% 均为历史口径。
+
+> **历史口径注记**：本节上文"37 个场景（10 happy + 10 verification_failure + 10 transient_recovery + 7 跨切面）"
+> 描述的是 Phase 6 当时的场景集，保留原文以便对照当时结论。当前场景集已扩为 43 个，
+> 旧的分母数字（21/37、56.8%、29.7%、33.3%）不得再用作当前指标。
 
 ## 7. deterministic fixture 设计
 

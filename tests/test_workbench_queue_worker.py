@@ -23,6 +23,7 @@ from apps.desktop.cad_workbench.queue_worker import (
     JobCancelled,
     MOCK_HANDLERS,
     _run_command_with_runtime,
+    _snapshot_cad_artifacts,
     acquire_lock,
     approve_job,
     build_handlers,
@@ -448,6 +449,33 @@ def test_reviewer_gate_accepts_matching_cad_spec_evidence(tmp_path: Path) -> Non
     assert any(check["id"] == "spec-hole-diameters" and check["status"] == "pass" for check in review["checks"])
 
 
+def test_worker_baseline_proves_new_cad_measurements_without_reusing_old_json(tmp_path: Path) -> None:
+    from apps.desktop.cad_workbench.reviewer_gate import evaluate_ledger
+
+    measurement = {
+        "cad_spec": {
+            "measurement_source": "SolidWorks API test fixture",
+            "envelope_mm": {"length": 60, "width": 40, "height": 8},
+            "holes": [{"diameter_mm": 6}],
+        },
+    }
+    original = tmp_path / "old.json"
+    original.write_text(json.dumps(measurement), encoding="utf-8")
+    baseline = _snapshot_cad_artifacts([tmp_path], include_measurement_evidence=True)
+    new_report = tmp_path / "new.json"
+    new_report.write_text(original.read_text(encoding="utf-8"), encoding="utf-8")
+    job = {"id": "measurement-freshness", "executor": "agent", "objective": "固定板 60 x 40 x 8 mm，孔直径 6 mm"}
+
+    def checks_for(report: Path) -> dict[str, str]:
+        ledger = build_artifact_ledger(tmp_path, job, {"artifactBaseline": baseline, "artifacts": [str(report)]})
+        assert ledger["artifacts"][0]["producedThisRun"] is None
+        return {check["id"]: check["status"] for check in evaluate_ledger(ledger)["checks"]}
+
+    for check in ("spec-envelope-dimensions", "spec-hole-diameters"):
+        assert checks_for(original)[check] == "fail"
+        assert checks_for(new_report)[check] == "pass"
+
+
 def test_reviewer_gate_accepts_envelope_with_different_axis_order(tmp_path: Path) -> None:
     validation = tmp_path / "validation.json"
     validation.write_text(
@@ -712,6 +740,64 @@ def test_managed_command_refreshes_heartbeat_and_writes_events(tmp_path: Path) -
     assert "codex.completed" in events
 
 
+def test_managed_agent_exits_when_worker_stdin_pipe_stays_open(tmp_path: Path) -> None:
+    job_path = tmp_path / "queue" / "job-stdin.json"
+    job = _queued_job("job-stdin")
+    job.update({"status": "running", "runnerId": "runner-stdin"})
+    write_job(job_path, job)
+    worker = """
+import sys
+from pathlib import Path
+from apps.desktop.cad_workbench.queue_worker import _run_command_with_runtime, read_job
+
+path = Path(sys.argv[1])
+job = read_job(path)
+job["_runtime"] = {"jobPath": str(path), "runnerId": "runner-stdin"}
+result = _run_command_with_runtime(
+    [sys.executable, "-c", "import sys; assert sys.stdin.read() == ''; print('eof')"],
+    path.parent, 4, job,
+)
+assert result.returncode == 0 and result.stdout.strip() == "eof"
+"""
+    with subprocess.Popen(
+        [sys.executable, "-c", worker, str(job_path)],
+        cwd=Path(__file__).resolve().parents[1],
+        stdin=subprocess.PIPE,
+    ) as process:
+        # Wait without communicate(), which would close the worker's input pipe.
+        try:
+            assert process.wait(timeout=10) == 0
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+
+def test_offline_api_setting_propagates_to_agent_child(tmp_path: Path) -> None:
+    queue_dir = tmp_path / "queue"
+    job_path = queue_dir / "job-offline.json"
+    job = _queued_job("job-offline")
+    job.update({"status": "running", "runnerId": "runner-offline", "leaseUntil": "2099-01-01T00:00:00+08:00",
+                "uiConfig": {"knowledgeBase": {"officialApiDocsEnabled": False}}})
+    write_job(job_path, job)
+    job["_runtime"] = {"jobPath": str(job_path), "runnerId": "runner-offline", "leaseSeconds": 10}
+    completed = _run_command_with_runtime(
+        [sys.executable, "-c", "import os; print(os.environ.get('SW_API_LOOKUP_NETWORK'))"], tmp_path, 5, job)
+    assert completed.returncode == 0 and completed.stdout.strip() == "off"
+
+
+def test_parallel_switch_propagates_to_agent_child(tmp_path: Path) -> None:
+    queue_dir = tmp_path / "queue"
+    job_path = queue_dir / "job-no-parallel.json"
+    job = _queued_job("job-no-parallel")
+    job.update({"status": "running", "runnerId": "runner-offline", "leaseUntil": "2099-01-01T00:00:00+08:00",
+                "uiConfig": {"knowledgeBase": {"parallelApiFallbackEnabled": False}}})
+    write_job(job_path, job)
+    job["_runtime"] = {"jobPath": str(job_path), "runnerId": "runner-offline", "leaseSeconds": 10}
+    completed = _run_command_with_runtime(
+        [sys.executable, "-c", "import os; print(os.environ.get('SW_API_LOOKUP_PARALLEL'))"], tmp_path, 5, job)
+    assert completed.returncode == 0 and completed.stdout.strip() == "off"
+
+
 def test_managed_command_stops_when_cancel_requested(tmp_path: Path) -> None:
     queue_dir = tmp_path / "queue"
     job_path = queue_dir / "job-cancel.json"
@@ -889,6 +975,34 @@ def test_codex_executor_fails_when_structured_output_is_missing(tmp_path: Path, 
         assert "未生成结构化结果文件" in str(error)
     else:
         raise AssertionError("Codex 未写结构化结果时必须失败")
+
+
+def test_api_evidence_flows_from_job_to_agent_prompt(tmp_path: Path, monkeypatch) -> None:
+    """验证真实任务编排路径传递 API 证据，而不是只测试孤立格式化函数。"""
+    output_path = tmp_path / "api-result.json"
+    monkeypatch.setattr("apps.desktop.cad_workbench.queue_worker.codex_output_path", lambda job, cwd: output_path)
+    calls = []
+    def lookup(interface, member, version, **kwargs):
+        calls.append((interface, member, version, kwargs["online"]))
+        return {"status": "documented", "target": None, "typelib": None, "warnings": [], "official": {
+            "status": "found", "source": "https://help.solidworks.com/2024/api/example",
+            "title": "CreateCircleByRadius Method (ISketchManager)", "text": "Radius in meters",
+            "sha256": "reference-hash", "version": 2024, "retrieved_at": "2026-10-29T00:00:00+00:00"}}
+    monkeypatch.setattr("scripts.sw_api_lookup.lookup_api", lookup)
+    job = _queued_job("api-evidence", "create_shell")
+    job.update({"executor": "codex", "cwd": str(Path(__file__).resolve().parents[1]),
+                "objective": "SolidWorks 2024 ISketchManager.CreateCircleByRadius",
+                "detail": "私有项目描述不用于联网查询"})
+    commands = []
+    def runner(command, cwd, timeout_seconds):
+        commands.append(command)
+        output_path.write_text(json.dumps({"summary": "ok", "changedFiles": [], "verification": [],
+                                          "risks": [], "nextSteps": []}), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+    result = run_codex_job(job, runner=runner, timeout_seconds=3)
+    assert calls == [("ISketchManager", "CreateCircleByRadius", 2024, True)]
+    assert "Radius in meters" in commands[0][-1] and "help.solidworks.com/2024" in commands[0][-1]
+    assert "official-api" in result["knowledgeContext"]["providers"]
 
 
 def test_codex_executor_parses_structured_artifacts(tmp_path: Path, monkeypatch) -> None:

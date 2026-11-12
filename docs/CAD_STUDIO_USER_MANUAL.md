@@ -45,14 +45,39 @@ CAD Studio 不附带模型额度，也不保存 API Key。模型账号、套餐�
 ### 2.3 真实 CAD 自动化
 
 - Python 3.10 或更高版本，推荐 64 位 Python 3.11/3.12。
-- Python 依赖：`pywin32`、`comtypes`。
-- 当前真机基线为 SolidWorks 2024、SolidWorks 2026 SP01.1 和 AutoCAD 2024；SolidWorks 2026 仅对 `capabilities.yaml` 中明确列出 2026 的能力视为已验证，SolidWorks 2025 和其余能力仍是兼容性目标。
+- 近期 SolidWorks 真机回归以 2026 SP1.1 为基线，部分能力另有 2024 记录。逐项查看 `capabilities.yaml` 的 `verified_versions`、等级和限制。SolidWorks 2025 等未列版本需单独验证。AutoCAD 真机证据覆盖对应的 2024 能力。
 - Python、SolidWorks 和 AutoCAD 应与操作系统保持 64 位一致。
 
-安装 Python 依赖：
+依赖分三层，按需安装：
+
+| 层级 | 内容 | 何时需要 | 安装方式 |
+|---|---|---|---|
+| **最小** | `pywin32`、`comtypes` | 只想驱动 SolidWorks / AutoCAD 的 COM 接口 | `python -m pip install "pywin32>=305" "comtypes>=1.2.0"`（仅 Windows） |
+| **完整** | 另含 `mcp`、`pydantic`、`ezdxf`、`matplotlib`、`PyMuPDF`、`jsonschema` | 需要 MCP server、DXF 读写、预览图与 Schema 校验（CAD Studio 与 Golden 流程都需要） | 同上，`requirements.txt` 已包含 |
+| **开放格式** | `cadquery-ocp`、`trimesh`、`numpy` | 没有 SolidWorks 也要写 STEP/BREP/STL/OBJ/GLB | `python -m pip install -r requirements-occt.txt` |
+
+`requirements.txt` 的实际内容：
+
+```text
+pywin32>=305; sys_platform == 'win32'
+comtypes>=1.2.0; sys_platform == 'win32'
+mcp>=1.27,<2
+pydantic>=2.0
+ezdxf>=1.3,<2
+matplotlib>=3.8,<4
+PyMuPDF>=1.24,<2
+jsonschema>=4.20,<5
+```
+
+只装最小集时，MCP 入口与 `ezdxf` 相关子技能会因缺包而失败；`python scripts/cad_doctor.py`
+会明确列出缺失项，不会静默降级。
+
+安装全部 Python 依赖：
 
 ```powershell
-python -m pip install "pywin32>=305" "comtypes>=1.2.0"
+python -m pip install -r requirements.txt
+# 需要开放格式能力时追加
+python -m pip install -r requirements-occt.txt
 ```
 
 首次安装或环境变化后运行：
@@ -97,7 +122,7 @@ python scripts/cad_studio.py doctor
 当前 CLI 也可独立运行这些受控门禁：
 
 ```powershell
-python scripts\cad_studio.py check-dfm --input .\part.cadstudio.json --output .\output\dfm.json --profile .\supplier-profile.json
+python scripts\cad_studio.py check-dfm --input .\part.cadstudio.json --output .\output\dfm.json --profile "$PWD\supplier-profile.json"
 python scripts\cad_studio.py routing-preflight
 python scripts\cad_studio.py check-routing --input .\route.json --output .\output\routing_report.json
 python scripts\cad_studio.py fea-preflight --solver auto
@@ -116,6 +141,8 @@ python subskills\autocad-automation\scripts\acad_dotnet_preflight.py
 python subskills\autocad-automation\scripts\acad_dotnet_regression.py
 python subskills\autocad-automation\scripts\acad_dotnet_regression.py --real-cad
 ```
+
+.NET 真机回归使用带中文标题栏和 120 × 48 mm 实体标注的样件。运行前需要安装宋体和 `requirements.txt` 中的 PyMuPDF。回归重开 DWG 复验文字、字体和标注，读回能包住全图的视口与打印范围，并检查 PDF 的实际中文文本及原生 PNG 的尺寸、内容和边缘留白。结果写入 `output/autocad-dotnet`，该样件用于回归，制造图纸仍须按实际项目审图。
 
 只有明确授权时才使用 `--install-sdk`；该操作会通过官方 Microsoft 安装源安装 .NET SDK，不会下载 Autodesk 专有 DLL。若系统 PATH 中的 `dotnet.exe` 只有运行时，检查器会继续探测当前用户目录中的真实 SDK。桌面 AutoCAD 加载未签名插件时仍需配置受信任路径或使用签名插件包；真机回归会先读取 `SECURELOAD/FILEDIA/BACKGROUNDPLOT` 原值，只在独占 Core Console 中临时调整，并在退出前恢复。
 
@@ -200,7 +227,13 @@ CAD Studio Windows 桌面版启动后会静默检查一次 GitHub Release。发�
 
 后续对话只需说“把 M6 改成 M8，其他尺寸不变”之类的局部修改。系统会恢复上一次计划，只重跑受影响阶段及其下游。
 
-失败、阻断、取消或待复核任务也可以从交付中心局部重新生成。软件会在清空本轮运行字段前，把上一轮状态、产物账本、工程图/BOM 证据、复核门禁和错误保存为只读版本快照；默认最多保留最近 20 轮任务元数据。重跑策略要求从失败阶段及其后继执行，并强制新产物使用新版本目录或文件名。历史快照只保存路径、大小、哈希和复核证据，不复制 CAD 文件内容，也不会删除旧交付文件。
+明确的对话修改在成功入队后也会标记当前项目的旧结果。比如“把孔径改为 8 mm”从孔槽阶段开始标记，“把需求改成可户外使用”会要求重新核对整个计划。普通追问、假设、否定句和仅引用他人的指令不会触发标记。尽量说清楚修改对象和新要求，例如“把宽度改成 120 mm”。对话指令保存在任务中，工作台的参考尺寸字段可单独编辑。
+
+在任务的「阶段复核」中，可以查看各阶段的验收条件和需要人工确认的环节。条件来自工程计划，实际执行和人工复核结果仍以任务记录为准。
+
+在工作台修改项目的任务目标或长度、宽度、高度、壁厚后，旧任务会显示「待复核」。任务目标变化会要求重新核对整个计划；关键尺寸变化会从零件建模开始标记依赖该阶段的后续环节，保留独立环节的状态。项目输入和复核状态会在重启后保留。旧文件和原复核记录仍可查看，请使用当前输入重新提交任务，再执行复核和交付。
+
+项目输入未变化时，失败、阻断、取消或待复核任务也可以从交付中心局部重新生成。软件会在清空本轮运行字段前，把上一轮状态、产物账本、工程图/BOM 证据、复核门禁和错误保存为只读版本快照；默认最多保留最近 20 轮任务元数据。重跑策略要求从失败阶段及其后继执行，并强制新产物使用新版本目录或文件名。历史快照只保存路径、大小、哈希和复核证据，不复制 CAD 文件内容，也不会删除旧交付文件。
 
 关键尺寸、公差、载荷、材料强度和安全相关参数缺失时，AI 应询问或将结果标记为概念方案，不能擅自当作可制造定稿。
 
@@ -212,7 +245,7 @@ CAD Studio Windows 桌面版启动后会静默检查一次 GitHub Release。发�
 - 特征：孔、槽、螺纹、接口开口和阵列。
 - 图纸：GB/T 图纸、公差、BOM 和格式转换。
 - 复核：检查原生打开、尺寸、特征、产物和风险。
-- 交付：统一判断“可交付 / 待人工复核 / 阻断 / 证据不完整”，展示本轮产物、历史版本、产物关系和后端诊断；STL、GLB/GLTF、OBJ 可旋转缩放，DXF 和图片可只读预览。只有机器证据完整并满足人工复核门禁后才显示“本轮可交付”。
+- 交付：统一判断“可交付 / 待人工复核 / 阻断 / 证据不完整”，展示本轮产物、历史版本、产物关系和后端诊断；STL、GLB/GLTF、OBJ 可旋转缩放，DXF 和图片可只读预览。CAD、图纸和交付文件只有在 `producedThisRun=true` 时才属于本轮产物；旧文件直接标记为未通过，完整性未知的文件必须先人工复核。
 - 设置：AI、CC Switch、本地执行器、输出和知识库。
 - 帮助：首次使用步骤和环境状态。
 
@@ -226,6 +259,16 @@ CAD Studio Windows 桌面版启动后会静默检查一次 GitHub Release。发�
 选择 Claude Code 后，执行按钮、Executor 和路由列表都会切换为 Claude；同步 CC Switch 不会再自动切回 Codex。
 
 CC Switch 不是必需依赖。不使用它时，CAD Studio 直接沿用所选 CLI 的本机登录态和配置。
+
+### LM Studio 本地问答与任务规划
+
+1. 在 [LM Studio 0.4 或更新版本](https://lmstudio.ai/download) 下载并加载对话模型。在 Developer 页启动本地 API，默认地址为 `http://127.0.0.1:1234/v1`。
+2. 在 CAD Studio 展开 **LM Studio 本地问答与任务规划**，点击 **检查连接**，选择模型。
+3. 在 **问答** 模式输入问题，也可以继续追问。切换到 **任务规划** 后，输入独立的任务目标，查看待确认事项、步骤和验收条件。规划需要模型支持 [结构化输出](https://lmstudio.ai/docs/developer/openai-compat/structured-output)。
+
+本地助手在当前项目会话中显示结果。实际 CAD 操作请通过 **AI 执行对话** 提交和审批。切换项目或关闭 CAD Studio 会清空本地助手的临时会话。
+
+如果 LM Studio 使用了其他端口，请在启动 CAD Studio 前设置 `LMSTUDIO_BASE_URL`。只接受本机回环 HTTP 地址。如果服务启用了 API 认证，请为 CAD Studio 进程设置 `LMSTUDIO_API_KEY`。模型列表为空时，加载对话模型并重新检查连接。
 
 ## 9. 审批与复核
 

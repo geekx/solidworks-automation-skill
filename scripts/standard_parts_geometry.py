@@ -3,8 +3,7 @@
 @brief 标准机械零件（直齿轮、压缩弹簧、滚子链链轮）的纯几何生成函数。
 
 本模块不导入任何 COM 依赖，可在无 SolidWorks / 无 pywin32 的环境下离线单测。
-COM 生成器（subskills/solidworks-standard-parts/scripts/*）消费这里的坐标与派生量，
-把“几何是否正确”这一可验证部分与“SolidWorks 特征是否落盘”这一需真机验证部分分离。
+这些轮廓是待复核的近似计算，不代表已实现 SolidWorks 实体或生产级啮合。
 
 单位约定：所有输入与输出长度均为毫米（mm），角度输入为度、内部换算为弧度。
 坐标系：轮廓点位于 XY 平面，零件回转轴为 Z 轴，原点在轴心。
@@ -19,6 +18,8 @@ from dataclasses import dataclass, field
 
 def _finite(name: str, value: float) -> float:
     """@brief 校验有限数值。"""
+    if isinstance(value, bool):
+        raise ValueError(f"{name} 必须是数值而非布尔值")
     number = float(value)
     if not math.isfinite(number):
         raise ValueError(f"{name} 必须是有限数值")
@@ -31,6 +32,12 @@ def _positive(name: str, value: float) -> float:
     if number <= 0.0:
         raise ValueError(f"{name} 必须大于 0")
     return number
+
+
+def _integer(name: str, value: int, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        raise ValueError(f"{name} 必须是 {minimum}..{maximum} 的整数")
+    return value
 
 
 def involute(angle_rad: float) -> float:
@@ -92,9 +99,7 @@ def spur_gear_profile(
     齿廓自齿根圆逐齿生成：右侧齿廓上行 -> 齿顶圆弧 -> 左侧齿廓下行 -> 齿根圆弧到下一齿。
     渐开线仅在基圆以上有效，基圆低于齿根圆时用径向线延伸到齿根（近似根切）。
     """
-    z = int(teeth)
-    if z < 4:
-        raise ValueError("齿数至少为 4")
+    z = _integer("teeth", teeth, 4, 300)
     m = _positive("module", module_mm)
     alpha = math.radians(_finite("pressure_angle", pressure_angle_deg))
     if not (0.0 < alpha < math.pi / 2.0):
@@ -102,7 +107,7 @@ def spur_gear_profile(
     ha = _finite("addendum_coeff", addendum_coeff)
     hf = _finite("dedendum_coeff", dedendum_coeff)
     x_shift = _finite("profile_shift_coeff", profile_shift_coeff)
-    samples = max(3, int(samples_per_flank))
+    samples = _integer("samples_per_flank", samples_per_flank, 3, 64)
 
     r_pitch = m * z / 2.0
     r_base = r_pitch * math.cos(alpha)
@@ -202,6 +207,7 @@ class CompressionSpringGeometry:
     right_handed: bool
     spring_rate_n_per_mm: float | None
     helix_xyz_mm: list[tuple[float, float, float]] = field(default_factory=list)
+    limitations: list[str] = field(default_factory=list)
 
 
 def compression_spring_helix(
@@ -219,16 +225,16 @@ def compression_spring_helix(
 
     @param wire_diameter_mm 线径 d。
     @param mean_diameter_mm 中径 D（螺旋中心线直径）。
-    @param free_length_mm 自由长度 L。
+    @param free_length_mm 历史字段名；实际表示螺旋中心线轴向行程，不是实体自由高度。
     @param total_coils 总圈数 Nt。
-    @param end_type closed_ground / closed / open，决定有效圈数与实体长度。
+    @param end_type closed_ground / closed / open，只用于近似估算有效圈数与压并高度，不会生成对应端部。
     @param right_handed 右旋为 True。
     @param shear_modulus_mpa 剪切模量 G（MPa），提供则计算刚度。
     @param samples_per_coil 每圈采样点数。
     @return CompressionSpringGeometry；helix_xyz_mm 沿 +Z 递增。
 
-    实体长度按端型近似：closed_ground=Nt*d，closed=(Nt+1)*d，open=(Nt+1)*d。
-    有效圈数：closed/closed_ground 取 Nt-2，open 取 Nt。
+    压并高度和有效圈数仅为理想化估算；中心线始终等螺距，未模拟并紧或磨平。
+    刚度也仅为理想线性估算，不能据此判断制造性能。
     """
     d = _positive("wire_diameter", wire_diameter_mm)
     mean_d = _positive("mean_diameter", mean_diameter_mm)
@@ -239,6 +245,8 @@ def compression_spring_helix(
         raise ValueError("end_type 必须为 closed_ground、closed 或 open")
     if mean_d <= d:
         raise ValueError("中径必须大于线径")
+    if not isinstance(right_handed, bool):
+        raise ValueError("right_handed 必须为布尔值")
 
     if end == "closed_ground":
         active = nt - 2.0
@@ -254,8 +262,12 @@ def compression_spring_helix(
     if solid >= length:
         raise ValueError("实体长度不小于自由长度，请增大自由长度或减少圈数")
 
-    pitch = (length - (solid - active * d)) / active if end != "open" else length / nt
+    # 当前坐标只生成等螺距中心线，不模拟并紧/磨平端圈；返回值须与点列一致。
+    pitch = length / nt
     radius = mean_d / 2.0
+    _integer("samples_per_coil", samples_per_coil, 3, 360)
+    if samples_per_coil * nt > 20000:
+        raise ValueError("螺旋采样点数超过 20000")
     winding = 1.0 if right_handed else -1.0
     total_points = max(2, int(round(samples_per_coil * nt)) + 1)
     points: list[tuple[float, float, float]] = []
@@ -286,11 +298,14 @@ def compression_spring_helix(
         right_handed=bool(right_handed),
         spring_rate_n_per_mm=rate,
         helix_xyz_mm=points,
+        limitations=["free_length_mm 为中心线轴向行程，不是实体自由高度",
+                     "中心线为等螺距，end_type 不生成并紧或磨平端圈",
+                     "压并高度和刚度仅为理想化估算，不用于制造验收"],
     )
 
 
 # ---------------------------------------------------------------------------
-# 滚子链链轮（ANSI/ISO 简化齿形）
+# 滚子链链轮（非标准的简化齿形）
 # ---------------------------------------------------------------------------
 
 
@@ -306,6 +321,7 @@ class RollerSprocketGeometry:
     root_diameter_mm: float
     seating_radius_mm: float
     bore_diameter_mm: float
+    profile_min_diameter_mm: float
     profile_xy_mm: list[tuple[float, float]] = field(default_factory=list)
 
 
@@ -326,17 +342,15 @@ def roller_sprocket_profile(
     @param seat_samples 每个滚子座圆弧采样点数。
     @return RollerSprocketGeometry；profile_xy_mm 逆时针闭合。
 
-    采用 ANSI B29.1 常用近似：
+    采用简化的近似尺寸，不声称符合任何链轮标准：
       节圆直径 PD = P / sin(pi/N)
       齿顶圆直径 OD = P*(0.6 + cot(pi/N))
       滚子座半径 Rs = 0.505*Dr
-      齿根圆直径 RD = PD - Dr
+      名义齿根圆直径 RD = PD - Dr；离散轮廓的实际最小直径另行计算
     滚子座（凹弧）位于每个节点，齿顶位于相邻节点之间，齿廓侧面用直线近似连接。
-    该齿形用于生成可视化/打印级链轮；精确啮合齿形仍需人工按标准复核。
+    该齿形仅供几何和外观验证，未经啮合、强度或制造验证。
     """
-    n = int(teeth)
-    if n < 6:
-        raise ValueError("链轮齿数至少为 6")
+    n = _integer("teeth", teeth, 6, 300)
     p = _positive("chain_pitch", chain_pitch_mm)
     dr = _positive("roller_diameter", roller_diameter_mm)
     if dr >= p:
@@ -356,7 +370,7 @@ def roller_sprocket_profile(
     if bore >= rd:
         raise ValueError("中心孔直径必须小于齿根圆直径")
 
-    seats = max(3, int(seat_samples))
+    seats = _integer("seat_samples", seat_samples, 3, 64)
     points: list[tuple[float, float]] = []
     for i in range(n):
         seat_angle = 2.0 * math.pi * i / n
@@ -365,13 +379,26 @@ def roller_sprocket_profile(
         seat_span = math.pi  # 半圆座
         base_dir = seat_angle + math.pi  # 指向轴心方向
         for s in range(seats + 1):
-            arc = base_dir - seat_span / 2.0 + seat_span * s / seats
+            # 座弧从当前节圆节点的后一侧走到前一侧，才能按全轮廓逆时针拼接。
+            arc = base_dir + seat_span / 2.0 - seat_span * s / seats
             px = seat_center[0] + seat_radius * math.cos(arc)
             py = seat_center[1] + seat_radius * math.sin(arc)
             points.append((px, py))
         # 齿顶点：相邻节点之间。
         tip_angle = 2.0 * math.pi * (i + 0.5) / n
         points.append(_polar_to_xy(r_out, tip_angle))
+
+    # 逐线段求到原点的最近距离；仅检查名义齿根圆会容许轴孔与实际轮廓相交。
+    min_radius = math.inf
+    for a, b in zip(points, points[1:] + points[:1]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length_squared = dx * dx + dy * dy
+        if length_squared <= 0.0:
+            raise ValueError("链轮轮廓包含零长度线段")
+        t = max(0.0, min(1.0, -(a[0] * dx + a[1] * dy) / length_squared))
+        min_radius = min(min_radius, math.hypot(a[0] + t * dx, a[1] + t * dy))
+    if bore >= 2.0 * min_radius:
+        raise ValueError("中心孔直径必须小于离散齿廓的实际最小直径")
 
     return RollerSprocketGeometry(
         chain_pitch_mm=p,
@@ -382,6 +409,7 @@ def roller_sprocket_profile(
         root_diameter_mm=rd,
         seating_radius_mm=seat_radius,
         bore_diameter_mm=bore,
+        profile_min_diameter_mm=2.0 * min_radius,
         profile_xy_mm=points,
     )
 

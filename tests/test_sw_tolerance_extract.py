@@ -1,153 +1,72 @@
-"""SolidWorks 公差抽取的无 COM 回归测试。"""
+"""尺寸公差提取的单位、证据缺失和输出安全回归。"""
 from __future__ import annotations
 
 import csv
+import math
+from types import SimpleNamespace
 
 import pytest
 
-from scripts import sw_tolerance_extract as tol
-
-
-def test_tolerance_type_label_and_flag():
-    assert tol.tolerance_type_label(tol.SW_TOL_BILAT) == "bilateral"
-    assert tol.tolerance_type_label(tol.SW_TOL_SYMMETRIC) == "symmetric"
-    assert tol.tolerance_type_label(999).startswith("unknown")
-    assert tol.is_toleranced(tol.SW_TOL_LIMIT)
-    assert not tol.is_toleranced(tol.SW_TOL_NONE)
-    assert not tol.is_toleranced(tol.SW_TOL_BASIC)
-
-
-def test_format_tolerance_variants():
-    assert tol.format_tolerance(50, tol.SW_TOL_NONE, 0, 0) == "50"
-    assert tol.format_tolerance(50, tol.SW_TOL_SYMMETRIC, 0.05, -0.05) == "50 ±0.05"
-    assert tol.format_tolerance(50, tol.SW_TOL_BILAT, 0.05, -0.02) == "50 +0.05/-0.02"
-    assert tol.format_tolerance(50, tol.SW_TOL_LIMIT, 0.05, -0.02) == "50.05/49.98"
-    assert tol.format_tolerance(50, tol.SW_TOL_MIN, 0, 0) == "50 min"
-    assert tol.format_tolerance(50, tol.SW_TOL_MAX, 0, 0) == "50 max"
-
-
-def test_normalize_tolerance_row_zeroes_untoleranced():
-    row = tol.normalize_tolerance_row(
-        name="D1", feature="Boss", nominal_mm=20.0, type_code=tol.SW_TOL_NONE, upper_mm=0.3, lower_mm=-0.3
-    )
-    assert row["toleranced"] is False
-    assert row["upper_mm"] == 0.0 and row["lower_mm"] == 0.0
-    assert row["display"] == "20"
-
-
-def test_summarize_tolerances_counts_and_tightest():
-    rows = [
-        tol.normalize_tolerance_row(name="A", feature="f", nominal_mm=10, type_code=tol.SW_TOL_BILAT, upper_mm=0.1, lower_mm=-0.1),
-        tol.normalize_tolerance_row(name="B", feature="f", nominal_mm=10, type_code=tol.SW_TOL_SYMMETRIC, upper_mm=0.02, lower_mm=-0.02),
-        tol.normalize_tolerance_row(name="C", feature="f", nominal_mm=10, type_code=tol.SW_TOL_NONE, upper_mm=0, lower_mm=0),
-    ]
-    summary = tol.summarize_tolerances(rows)
-    assert summary["total"] == 3
-    assert summary["toleranced"] == 2
-    assert summary["by_type"]["bilateral"] == 1
-    assert summary["tightest_dimension"] == "B"
-    assert summary["tightest_band_mm"] == pytest.approx(0.04)
-
-
-# ---- COM 遍历用 Fake 对象 ----
-
-
-class FakeTolerance:
-    def __init__(self, type_code, upper_m, lower_m):
-        self._type = type_code
-        self._upper = upper_m
-        self._lower = lower_m
-
-    @property
-    def Type(self):
-        return self._type
-
-    def GetMaxValue2(self):
-        return self._upper
-
-    def GetMinValue2(self):
-        return self._lower
+from scripts import sw_tolerance_extract as tool
 
 
 class FakeDimension:
-    def __init__(self, name, value_m, tolerance):
-        self._name = name
-        self._value = value_m
-        self.Tolerance = tolerance
-
-    @property
-    def FullName(self):
-        return self._name
-
-    def GetSystemValue3(self, _mode, _cfg):
-        return self._value
-
-
-class FakeDisplayDimension:
-    def __init__(self, dimension):
-        self._dimension = dimension
-
-    def GetDimension2(self, _index):
-        return self._dimension
-
-
-class FakeFeature:
-    def __init__(self, name, display_dimensions):
-        self.Name = name
-        self._dims = display_dimensions
-        self._next = None
-
-    def GetFirstDisplayDimension5(self):
-        return self._dims[0] if self._dims else None
-
-    def GetNextDisplayDimension(self, current):
-        index = self._dims.index(current)
-        return self._dims[index + 1] if index + 1 < len(self._dims) else None
-
-    def GetNextFeature(self):
-        return self._next
-
-
-class FakePartModel:
-    def __init__(self, features):
-        self._features = features
-        for a, b in zip(features, features[1:]):
-            a._next = b
+    def __init__(self, kind, value, tolerance_type=2):
+        self.FullName = "D1@Sketch1@part"
+        self.Tolerance = SimpleNamespace(Type=tolerance_type)
+        self.kind = kind
+        self.value = value
 
     def GetType(self):
-        return 1  # swDocPART
+        return self.kind
 
-    @property
-    def FirstFeature(self):
-        return self._features[0] if self._features else None
-
-
-def test_extract_tolerances_from_fake_part():
-    dim1 = FakeDimension("D1@Boss", 0.05, FakeTolerance(tol.SW_TOL_BILAT, 0.00005, -0.00002))
-    dim2 = FakeDimension("D2@Boss", 0.02, FakeTolerance(tol.SW_TOL_NONE, 0.0, 0.0))
-    feature = FakeFeature("Boss-Extrude1", [FakeDisplayDimension(dim1), FakeDisplayDimension(dim2)])
-    model = FakePartModel([feature])
-
-    rows = tol.extract_tolerances(model)
-    assert len(rows) == 2
-    first = rows[0]
-    assert first["name"] == "D1@Boss"
-    assert first["feature"] == "Boss-Extrude1"
-    assert first["nominal_mm"] == pytest.approx(50.0)
-    assert first["type"] == "bilateral"
-    assert first["upper_mm"] == pytest.approx(0.05)
-    assert first["lower_mm"] == pytest.approx(-0.02)
-    assert rows[1]["toleranced"] is False
+    def GetSystemValue3(self, mode, names):
+        assert mode == 1 and names is None
+        return [self.value]
 
 
-def test_write_tolerance_csv_roundtrip(tmp_path):
-    rows = [
-        tol.normalize_tolerance_row(name="A", feature="f", nominal_mm=10, type_code=tol.SW_TOL_BILAT, upper_mm=0.1, lower_mm=-0.1),
-    ]
-    path = tol.write_tolerance_csv(rows, tmp_path / "t.csv")
-    assert path.exists()
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        parsed = list(csv.DictReader(handle))
-    assert parsed[0]["name"] == "A"
-    assert parsed[0]["type"] == "bilateral"
-    assert parsed[0]["display"] == "10 +0.1/-0.1"
+def test_linear_and_angular_values_and_tolerances_have_correct_units(monkeypatch):
+    monkeypatch.setattr(tool, "_tolerance_bound", lambda obj, name: ((-0.001 if "Min" in name else 0.002), None))
+    linear, error = tool._dimension_row(FakeDimension(0, 0.05), "Feature")
+    assert error is None
+    assert linear["unit"] == "mm" and linear["nominal"] == 50
+    assert linear["lower"] == -1 and linear["upper"] == 2
+    angular, error = tool._dimension_row(FakeDimension(1, math.pi / 2), "Feature")
+    assert error is None
+    assert angular["unit"] == "deg" and angular["nominal"] == pytest.approx(90)
+    assert angular["upper"] == pytest.approx(math.degrees(0.002))
+
+
+def test_unknown_tolerance_and_missing_values_are_not_guessed(monkeypatch):
+    monkeypatch.setattr(tool, "_tolerance_bound", lambda obj, name: (None, "not valid"))
+    row, error = tool._dimension_row(FakeDimension(0, 0.05), "Feature")
+    assert error is None and row["status"] == "incomplete"
+    assert row["lower"] is None and row["upper"] is None
+    assert tool._dimension_row(FakeDimension(2, 10), "Feature")[0] is None
+    assert tool._dimension_row(FakeDimension(0, None), "Feature")[0] is None
+    assert tool._dimension_row(FakeDimension(0, 0.05, 100), "Feature")[0] is None
+
+
+def test_not_toleranced_does_not_fabricate_limits(monkeypatch):
+    monkeypatch.setattr(tool, "_tolerance_bound", lambda *_: pytest.fail("should not read bounds"))
+    row, error = tool._dimension_row(FakeDimension(0, 0.04, 0), "Feature")
+    assert error is None and row["status"] == "not_toleranced"
+    assert row["lower"] is None and row["upper"] is None
+
+
+def test_csv_prevents_overwrite_and_formula_interpretation(tmp_path):
+    output = tmp_path / "tolerances.csv"
+    tool.write_csv([{"name": "=1+1", "nominal": 5.0, "unit": "mm"}], output)
+    with output.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["name"] == "'=1+1"
+    with pytest.raises(FileExistsError):
+        tool.write_csv([], output)
+
+
+def test_unknown_document_type_is_blocked():
+    assert tool.extract_tolerances(SimpleNamespace(GetType=lambda: 99))["status"] == "blocked"
+
+
+def test_unavailable_feature_tree_is_not_reported_as_an_empty_result():
+    assert tool.extract_tolerances(SimpleNamespace(GetType=lambda: 1))["status"] == "blocked"

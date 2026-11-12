@@ -734,7 +734,7 @@ def add_sketch_relation(model, relation_type):
 # 特征操作
 # ============================================================
 
-def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
+def extrude_boss(model, sketch_name, depth, direction=True, merge=True, start_offset=0.0):
     """
     凸台拉伸
 
@@ -744,6 +744,7 @@ def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
         depth: 拉伸深度（米）
         direction: True=反转默认方向；凸台默认沿草图法向
         merge: True=合并结果
+        start_offset: 从草图法向偏移起点（米）；负数反向，默认保持原行为
     """
     _ensure_sketch_selected(model, sketch_name)
     return model.FeatureManager.FeatureExtrusion3(
@@ -767,13 +768,13 @@ def extrude_boss(model, sketch_name, depth, direction=True, merge=True):
         merge,        # Merge
         False,        # UseFeatScope
         True,         # UseAutoSelect
-        0,            # T0: 从草图平面开始
-        0.0,          # StartOffset
-        False         # FlipStartOffset
+        3 if start_offset else 0,  # swStartOffset=3，SW2026 原厂枚举核对
+        abs(start_offset),
+        start_offset < 0
     )
 
 
-def extrude_cut(model, sketch_name, depth, direction=True, flip=False):
+def extrude_cut(model, sketch_name, depth, direction=True, flip=False, both_directions=False):
     """
     切除拉伸
 
@@ -783,6 +784,7 @@ def extrude_cut(model, sketch_name, depth, direction=True, flip=False):
         depth: 切除深度（米），0 表示完全贯穿
         direction: True=反转默认方向；切除默认逆草图法向
         flip: True=切除轮廓外侧，False=切除轮廓内侧
+        both_directions: 两个方向使用同样终止条件，默认保持单向行为
     """
     _ensure_sketch_selected(model, sketch_name)
     if depth == 0:
@@ -793,8 +795,8 @@ def extrude_cut(model, sketch_name, depth, direction=True, flip=False):
         end_condition = 0  # swEndCondBlind
 
     return model.FeatureManager.FeatureCut4(
-        True, bool(flip), bool(direction),  # Sd, Flip, Dir
-        end_condition, 0, depth, 0,
+        not both_directions, bool(flip), bool(direction),  # Sd, Flip, Dir
+        end_condition, end_condition if both_directions else 0, depth, depth if both_directions else 0,
         False, False, False, False, 0.0, 0.0,
         False, False, False, False, False,
         True, True, False, False,  # assembly-scope flags -> False for part docs

@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +37,9 @@ class KnowledgeChunk:
     score: float
     sha256: str
     provider: str = "local"
+    version: int | None = None
+    retrieved_at: str | None = None
+    evidence_level: str | None = None
 
 
 def default_knowledge_roots() -> list[Path]:
@@ -216,7 +219,67 @@ def retrieve_cloud_knowledge(query: str, config: dict[str, Any], timeout_seconds
     return chunks
 
 
-def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
+def _api_knowledge(query: str, config: dict[str, Any], cancelled: Callable[[], bool] | None) -> tuple[list[KnowledgeChunk], list[str]]:
+    """显式引用优先，其次从本项目已验证的操作中选择候选；不外发任务全文。"""
+    from scripts.api_intent import task_candidates, task_years
+    references, explicit_keys = task_candidates(query)
+    if not references:
+        return [], []
+    from scripts.sw_api_lookup import lookup_api
+
+    years = task_years(query)
+    if len(years) > 1:
+        return [], ["任务提到了多个 SolidWorks 年份，请明确指定目标版本后再查证 API。"]
+    year = next(iter(years)) if len(years) == 1 else None
+    results: list[KnowledgeChunk] = []
+    warnings: list[str] = []
+    inferred = [f"{interface}.{member}" for interface, member in references if (interface.casefold(), member.casefold()) not in explicit_keys]
+    if inferred:
+        warnings.append("根据自然语言识别的 API 查证候选：" + "、".join(inferred) + "；实际方法须由任务规划与版本证据确认。")
+    online_setting = config.get("officialApiDocsEnabled", True)
+    if not isinstance(online_setting, bool):
+        warnings.append("官方 API 文档联网设置无效，已使用离线查证。")
+        online_setting = False
+    parallel_setting = config.get("parallelApiFallbackEnabled", True)
+    if not isinstance(parallel_setting, bool):
+        warnings.append("Parallel 备用设置无效，已关闭该服务。")
+        parallel_setting = False
+    for interface, member in references:
+        result = lookup_api(interface, member, year, online=online_setting, parallel_fallback=parallel_setting,
+                            cancelled=cancelled)
+        warnings.extend(result.get("warnings") or [])
+        target = result.get("target") or {}
+        library = result.get("typelib") or {}
+        if library.get("member_found"):
+            text = json.dumps({"target": target, "declarations": library.get("declarations"),
+                               "runtime_verified": False}, ensure_ascii=False)
+            results.append(KnowledgeChunk(
+                source=f"{library.get('file')} (SolidWorks {target.get('year')})",
+                title=f"{interface}.{member} 本地类型库声明", text=text, score=0.0,
+                sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(), provider="local-api",
+                version=target.get("year"), evidence_level="type_library_declaration"))
+        local_help = result.get("local_help") or {}
+        if local_help.get("status") == "found":
+            results.append(KnowledgeChunk(
+                source=local_help["source"], title=local_help["title"], text=local_help["text"], score=0.0,
+                sha256=local_help["sha256"], provider="local-api-help", version=local_help.get("version"),
+                retrieved_at=local_help.get("retrieved_at"), evidence_level=("local_help_signed_installer" if
+                    local_help.get("version_evidence") == "signed_installer_product_and_file_hash" else "local_help_version_unverified")))
+        official = result.get("official") or {}
+        if official.get("status") == "found":
+            is_parallel = official.get("provider") == "parallel-anonymous"
+            results.append(KnowledgeChunk(
+                source=official["source"], title=official["title"], text=official["text"],
+                score=0.0, sha256=official["sha256"], provider="parallel-api" if is_parallel else "official-api",
+                version=official.get("version"), retrieved_at=official.get("retrieved_at"),
+                evidence_level=("cached_parallel_reference" if is_parallel else "cached_official_document")
+                    if official.get("cache_status") else ("parallel_extracted_official" if is_parallel else "official_document")))
+        if result.get("status") in {"unknown", "not_found", "conflict"}:
+            warnings.append(f"{interface}.{member} 的目标版本或接口尚未确认：{result.get('status')}。")
+    return results, warnings
+
+
+def build_job_knowledge_context(job: dict[str, Any], *, cancelled: Callable[[], bool] | None = None) -> dict[str, Any]:
     """@brief 根据任务目标构建可注入 Codex Prompt 的可审计 RAG 上下文。"""
     query = "\n".join(
         str(value)
@@ -232,6 +295,8 @@ def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
             roots.append(path)
     chunks = retrieve_local_knowledge(query, roots=roots, top_k=int(knowledge_config.get("topK") or 6))
     warnings: list[str] = []
+    api_chunks, api_warnings = _api_knowledge(query, knowledge_config, cancelled)
+    warnings.extend(api_warnings)
     if knowledge_config.get("cloudEnabled") is True:
         capabilities = job.get("capabilities") if isinstance(job.get("capabilities"), list) else []
         if "external_network" not in capabilities:
@@ -247,12 +312,13 @@ def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
     limited: list[KnowledgeChunk] = []
     seen: set[tuple[str, str]] = set()
     remaining_chars = 12_000
-    for item in chunks:
+    for item in [*api_chunks, *chunks]:
         key = (item.source, item.sha256)
         if key in seen or remaining_chars <= 0 or len(limited) >= 12:
             continue
         seen.add(key)
-        text = item.text[:remaining_chars]
+        # Prompt 每段最多展示 4000 字符；哈希必须对应实际送给 Agent 的片段。
+        text = item.text[:min(remaining_chars, 4000)]
         if not text:
             continue
         limited.append(
@@ -261,8 +327,11 @@ def build_job_knowledge_context(job: dict[str, Any]) -> dict[str, Any]:
                 title=item.title,
                 text=text,
                 score=item.score,
-                sha256=item.sha256,
+                sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 provider=item.provider,
+                version=item.version,
+                retrieved_at=item.retrieved_at,
+                evidence_level=item.evidence_level,
             )
         )
         remaining_chars -= len(text)

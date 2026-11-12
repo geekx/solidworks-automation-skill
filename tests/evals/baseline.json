@@ -1,18 +1,19 @@
 {
   "schema_version": "2.0",
-  "baseline_version": "3",
-  "workflow_count": 10,
-  "scenario_count": 37,
+  "baseline_version": "4",
+  "workflow_count": 12,
+  "scenario_count": 43,
   "generated_from": "tests/evals/runner.py (Deterministic Execution Reliability Benchmark)",
+  "counts_derived_from": "golden-workflows.yaml 的 workflows 数 + build_scenarios() 生成的场景数",
   "nominal_metrics": {
-    "scenario_count": 10,
+    "scenario_count": 12,
     "task_success_rate": 1.0,
     "first_pass_success_rate": 1.0,
     "average_tool_calls": 1.0,
     "average_duration_ms": 0.0
   },
   "robustness_metrics": {
-    "scenario_count": 27,
+    "scenario_count": 31,
     "expected_outcome_accuracy": 1.0,
     "recovery_success_rate": 1.0,
     "failure_detection_rate": 1.0,
@@ -28,9 +29,9 @@
     "escaped_false_completion_rate": 0.0
   },
   "overall_diagnostic_metrics": {
-    "scenario_count": 37,
-    "raw_task_completion_rate": 0.5676,
-    "average_tool_calls": 1.27,
-    "average_duration_ms": 0.0
+    "scenario_count": 43,
+    "raw_task_completion_rate": 0.5814,
+    "average_tool_calls": 1.279,
+    "average_duration_ms": 0.7
   }
 }

@@ -32,6 +32,14 @@ DEFAULT_LIMITS: dict[str, float] = {
 }
 
 
+def _boolean(spec: Mapping[str, Any], key: str, default: bool, *, where: str) -> bool:
+    """要求显式布尔值，避免字符串 'false' 被误判为已安装抱闸。"""
+    value = spec.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{where}{key} 必须是布尔值")
+    return value
+
+
 def _num(spec: Mapping[str, Any], key: str, *, default: float | None = None, minimum: float | None = None,
          positive: bool = False, where: str = "") -> float:
     value = spec.get(key, default)
@@ -91,12 +99,14 @@ def validate_drive_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
         "external_force_n": _num(load, "external_force_n", default=0.0, where="load."),
         "return_external_force_n": _num(load, "return_external_force_n", default=0.0, where="load."),
     }
+    if not 0.0 <= norm["load"]["incline_deg"] <= 90.0:
+        raise ValueError("load.incline_deg 必须在 0..90 度之间")
     norm["motion"] = {
         "distance_m": _num(motion, "distance_mm", positive=True, where="motion.") / 1000.0,
         "max_speed_m_s": _num(motion, "max_speed_mm_s", positive=True, where="motion.") / 1000.0,
         "accel_m_s2": _num(motion, "accel_mm_s2", positive=True, where="motion.") / 1000.0,
         "dwell_s": _num(motion, "dwell_s", default=0.0, minimum=0.0, where="motion."),
-        "round_trip": bool(motion.get("round_trip", True)),
+        "round_trip": _boolean(motion, "round_trip", True, where="motion."),
     }
     eff = _num(trans, "efficiency", default=0.9, positive=True, where="transmission.")
     if eff > 1.0:
@@ -111,6 +121,8 @@ def validate_drive_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
         t["lead_m"] = _num(trans, "lead_mm", positive=True, where="transmission.") / 1000.0
         d = trans.get("screw_diameter_mm")
         length = trans.get("screw_length_mm")
+        if (d is None) != (length is None):
+            raise ValueError("丝杠直径和长度必须同时提供，或同时省略")
         if d is not None and length is not None:
             t["screw_diameter_m"] = _num(trans, "screw_diameter_mm", positive=True, where="transmission.") / 1000.0
             t["screw_length_m"] = _num(trans, "screw_length_mm", positive=True, where="transmission.") / 1000.0
@@ -120,7 +132,7 @@ def validate_drive_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     norm["transmission"] = t
 
     motor = spec.get("motor") if isinstance(spec.get("motor"), Mapping) else {}
-    m: dict[str, Any] = {"has_brake": bool(motor.get("has_brake", False))}
+    m: dict[str, Any] = {"has_brake": _boolean(motor, "has_brake", False, where="motor.")}
     for key in ("rated_torque_nm", "peak_torque_nm", "rated_speed_rpm", "max_speed_rpm"):
         if motor.get(key) is not None:
             m[key] = _num(motor, key, positive=True, where="motor.")
@@ -158,8 +170,10 @@ def compute_drive(spec: Mapping[str, Any]) -> dict[str, Any]:
 
     alpha_motor = motion["accel_m_s2"] * k * ratio                  # 电机轴角加速度 rad/s²
     j_rotor = s["motor"].get("rotor_inertia_kgm2")
-    j_total = j_reflected + (j_rotor or 0.0)
-    t_acc = j_total * alpha_motor
+    # 折算惯量仍用于惯量比；驱动平动负载的加速转矩需考虑传动效率。
+    # 丝杠及额外惯量位于减速机输出侧，不经过丝杠/皮带的线性传动效率。
+    j_acc = (j_load / trans["efficiency"] + j_screw + trans["extra_inertia_kgm2"]) / (ratio ** 2 * gear_eff)
+    t_acc = (j_acc + (j_rotor or 0.0)) * alpha_motor
 
     def trans_torque(force: float) -> float:
         return force * force_to_torque * t_motor_per_trans
@@ -219,7 +233,17 @@ def evaluate_drive(spec: Mapping[str, Any], limits: Mapping[str, float] | None =
     """@brief 计算并判定。返回 {result, checks, controlling, limits}；checks 可直接并入 DRC。"""
     lim = dict(DEFAULT_LIMITS)
     if limits:
-        lim.update({k: float(v) for k, v in limits.items() if k in DEFAULT_LIMITS})
+        unknown = set(limits) - set(DEFAULT_LIMITS)
+        if unknown:
+            raise ValueError(f"未知电机选型阈值: {', '.join(sorted(unknown))}")
+        for key in limits:
+            lim[key] = _num(limits, key, positive=True, where="limits.")
+    if lim["driveRmsUtilizationMax"] > 1:
+        raise ValueError("limits.driveRmsUtilizationMax 必须在 (0, 1]")
+    if lim["driveTorqueSafetyFactor"] < 1:
+        raise ValueError("limits.driveTorqueSafetyFactor 不能小于 1")
+    if lim["driveInertiaRatioWarn"] > lim["driveInertiaRatioMax"]:
+        raise ValueError("惯量比告警阈值不能大于上限")
     r = compute_drive(spec)
     motor = r["spec"]["motor"]
     tid = r["spec"]["id"]
@@ -235,7 +259,8 @@ def evaluate_drive(spec: Mapping[str, Any], limits: Mapping[str, float] | None =
         margin = (t_max - need) / t_max * 100.0
         margins["DRC-DRV-001"] = margin
         ok = need <= t_max
-        checks.append(_check("DRC-DRV-001", "pass" if ok else "fail", "info" if ok else "major",
+        status = "info" if ok else "fail"
+        checks.append(_check("DRC-DRV-001", status, "info" if ok else "major",
                              f"驱动 {tid} 峰值转矩 {r['t_peak_nm']:.3f}×SF{lim['driveTorqueSafetyFactor']:g}={need:.3f} N·m "
                              f"{'≤' if ok else '>'} 电机峰值 {t_max:g} N·m（余量 {margin:.1f}%）", target=tid, margin_pct=round(margin, 2)))
 
@@ -248,7 +273,8 @@ def evaluate_drive(spec: Mapping[str, Any], limits: Mapping[str, float] | None =
         margin = (allowed - r["t_rms_nm"]) / allowed * 100.0
         margins["DRC-DRV-002"] = margin
         ok = r["t_rms_nm"] <= allowed
-        checks.append(_check("DRC-DRV-002", "pass" if ok else "fail", "info" if ok else "major",
+        status = "info" if ok else "fail"
+        checks.append(_check("DRC-DRV-002", status, "info" if ok else "major",
                              f"驱动 {tid} RMS 转矩 {r['t_rms_nm']:.3f} N·m {'≤' if ok else '>'} "
                              f"{lim['driveRmsUtilizationMax']:g}×额定 {t_rated:g}={allowed:.3f} N·m（余量 {margin:.1f}%）", target=tid, margin_pct=round(margin, 2)))
 
@@ -260,6 +286,8 @@ def evaluate_drive(spec: Mapping[str, Any], limits: Mapping[str, float] | None =
         checks.append(_check("DRC-DRV-003", "fail", "major", f"驱动 {tid} 需求转速 {r['n_max_rpm']:.0f} rpm 超过电机最高转速 {n_max:g} rpm", target=tid))
     elif n_rated is not None and r["n_max_rpm"] > n_rated:
         checks.append(_check("DRC-DRV-003", "warning", "warning", f"驱动 {tid} 需求转速 {r['n_max_rpm']:.0f} rpm 超过额定转速 {n_rated:g} rpm（额定转矩区之外，需核对转矩-转速曲线）", target=tid))
+    elif n_max is None:
+        checks.append(_check("DRC-DRV-003", "info", "info", f"驱动 {tid} 未提供最高转速，无法核对绝对转速上限", target=tid))
     else:
         checks.append(_check("DRC-DRV-003", "pass", "info", f"驱动 {tid} 需求转速 {r['n_max_rpm']:.0f} rpm 在电机转速范围内", target=tid))
 
@@ -277,13 +305,18 @@ def evaluate_drive(spec: Mapping[str, Any], limits: Mapping[str, float] | None =
     # DRC-DRV-005 垂直/倾斜轴保持
     if r["holds_gravity"]:
         if motor["has_brake"]:
-            checks.append(_check("DRC-DRV-005", "pass", "info", f"驱动 {tid} 为倾斜/垂直轴且电机带抱闸", target=tid))
+            checks.append(_check("DRC-DRV-005", "info", "info", f"驱动 {tid} 声明带抱闸；必须核对保持转矩、失电状态和制动能力", target=tid))
         else:
             checks.append(_check("DRC-DRV-005", "fail", "critical", f"驱动 {tid} 为倾斜/垂直轴但未声明抱闸；断电/急停会坠落（丝杠自锁性因导程/效率而异，不能默认依赖）", target=tid))
 
     controlling = min(margins, key=margins.get) if margins else None
     return {"result": {k: v for k, v in r.items() if k != "spec"}, "checks": checks,
-            "controlling": controlling, "limits": lim, "driveId": tid}
+            "controlling": controlling, "limits": lim, "driveId": tid,
+            "reviewRequired": True,
+            "limitations": ["仅为选型初筛，需工程师核对实际负载与电机转矩-转速曲线",
+                            "减速和反向驱动效率未单独建模；峰值及 RMS 转矩满足阈值时仍需复核，不视为通过",
+                            "未建模自锁、丝杠临界转速、皮带张力及寿命",
+                            "未提供转子或传动惯量时，转矩计算可能偏低；驻留假设已声明抱闸投入"]}
 
 
 def main(argv: list[str] | None = None) -> int:

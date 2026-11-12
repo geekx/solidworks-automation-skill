@@ -42,7 +42,7 @@ def test_head_dimensions_table():
 
 
 def test_parse_fastener_hole():
-    f = {"id": "C1", "type": "hole", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}, "matingSide": "back"}}
+    f = {"id": "C1", "type": "hole", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}, "matingSide": "back"}}
     h = fa.parse_fastener_hole(f)
     assert h["sink_type"] == "counterbore"
     assert h["head_type"] == "socket_cap"
@@ -53,35 +53,35 @@ def test_parse_fastener_hole():
 
 
 def test_invalid_counterbore_geometry():
-    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 10, "thread": "M6", "counterbore": {"diameter": 9, "depth": 5, "side": "front"}, "matingSide": "back"}})
+    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 10, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 9, "depth": 5, "side": "front"}, "matingSide": "back"}})
     checks = _ids(fa.audit_fastener_hole(h))
     assert checks["DRC-CSK-001"]["status"] == "fail"  # 沉孔 9 <= 主孔 10
 
 
 def test_head_accommodation():
-    small = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 9, "depth": 5, "side": "front"}, "matingSide": "back"}})
+    small = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 9, "depth": 5, "side": "front"}, "matingSide": "back"}})
     checks = _ids(fa.audit_fastener_hole(small))
     assert checks["DRC-CSK-002"]["status"] == "fail"   # 9 < 10.5
     assert checks["DRC-CSK-003"]["status"] == "warning"  # 深度 5 < 头高 6
 
 
 def test_orientation_toward_mating_face_fails():
-    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 11, "depth": 6.5, "side": "back"}, "matingSide": "back"}})
+    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 11, "depth": 6.5, "side": "back"}, "matingSide": "back"}})
     checks = _ids(fa.audit_fastener_hole(h))
     assert checks["DRC-CSK-004"]["status"] == "fail"
     assert checks["DRC-CSK-004"]["severity"] == "critical"
 
 
 def test_good_counterbore_all_pass():
-    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}, "matingSide": "back"}})
+    h = fa.parse_fastener_hole({"id": "C", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}, "matingSide": "back"}})
     checks = _ids(fa.audit_fastener_hole(h))
     assert all(checks[k]["status"] == "pass" for k in ("DRC-CSK-001", "DRC-CSK-002", "DRC-CSK-003", "DRC-CSK-004"))
 
 
 def test_orientation_consistency_group():
     holes = [
-        fa.parse_fastener_hole({"id": "C1", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}}}),
-        fa.parse_fastener_hole({"id": "C2", "parameters": {"diameter": 6.6, "thread": "M6", "counterbore": {"diameter": 11, "depth": 6.5, "side": "back"}}}),
+        fa.parse_fastener_hole({"id": "C1", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 11, "depth": 6.5, "side": "front"}}}),
+        fa.parse_fastener_hole({"id": "C2", "parameters": {"diameter": 6.6, "thread": "M6", "headType": "socket_cap", "counterbore": {"diameter": 11, "depth": 6.5, "side": "back"}}}),
     ]
     checks = _ids(fa.audit_orientation_consistency(holes))
     assert checks["DRC-CSK-005"]["status"] == "warning"
@@ -94,6 +94,15 @@ def test_relief_pilot():
     assert ok["DRC-FIT-001"]["status"] == "pass"
     gap = _ids(fa.audit_relief([{"id": "S3", "protrudes": True, "matingHasRelief": False, "gapMm": 1.0}]))
     assert gap["DRC-FIT-001"]["status"] == "pass"
+
+
+def test_unknown_head_and_relief_are_not_treated_as_verified():
+    hole = fa.parse_fastener_hole({"id": "H", "parameters": {"counterbore": {"diameter": 11, "depth": 7}}})
+    checks = _ids(fa.audit_fastener_hole(hole))
+    assert checks["DRC-CSK-001"]["status"] == "info"
+    assert checks["DRC-CSK-002"]["status"] == "info"
+    for item in ({"protrudes": "false"}, {"protrudes": True, "matingHasRelief": "false"}):
+        assert _ids(fa.audit_relief([item]))["DRC-FIT-001"]["status"] == "info"
 
 
 def test_counterbores_from_cylinders_pairs_coaxial():

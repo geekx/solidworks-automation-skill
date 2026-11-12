@@ -223,12 +223,17 @@ Gear Mate 不负责防止齿轮实体穿透；它只建立旋转比例关系。�
 - 用 Mate Controller 保存几个关键位置并生成 Motion Study 动画。
 
 ```python
-interference = asm.InterferenceDetection
-interference.TreatSubAssembliesAsComponents = False
-interference.TreatCoincidenceAsInterference = False
-interference.Done()
-count = interference.GetInterferenceCount()
+from scripts.sw_measure import inspect_interference
+
+result = inspect_interference(asm)
+print(result["status"], result["interference_count"], result["items"])
+# status=blocked 或 count=None 是证据未知，不能解释为零干涉。
 ```
+
+原生对象为 `IAssemblyDoc.InterferenceDetectionManager`；`GetInterferences()` 执行计算，
+必须在读取数量、干涉体积和组件之后才调用 `Done()` 释放管理器。零干涉不能单独证明装配正确。
+多零件结构 Golden 的 Mate、约束状态、自由度和交付验收规范见
+[P0-2 双指夹爪验收](../docs/architecture/real-golden-parallel-gripper-acceptance.md)。
 
 ## 大型装配体建议
 

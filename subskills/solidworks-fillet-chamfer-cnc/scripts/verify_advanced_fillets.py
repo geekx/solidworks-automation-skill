@@ -46,6 +46,7 @@ from hold_line_bridge import (  # noqa: E402
     unsafe_hold_line_probe_enabled,
 )
 from sw_appearance import set_document_appearance  # noqa: E402
+from cad_installation import discover_installations  # noqa: E402
 from sw_connect import create_empty_dispatch_variant, get_com_member, mm  # noqa: E402
 from sw_export import export_to_step  # noqa: E402
 from sw_review import run_review  # noqa: E402
@@ -120,13 +121,25 @@ def _typed_feature_data(data, interface_name: str):
 
 
 def _find_typelib(explicit: Path | None) -> Path:
-    """@brief 定位本机 SolidWorks 主类型库。"""
+    """@brief 定位本机 SolidWorks 主类型库。
+
+    候选来源：`discover_installations()` 发现目录 → 环境变量 `SOLIDWORKS_TYPELIB_DIRS`
+    → 通用安装路径。不再内置开发者机器的固定盘符；需要指定时用 `--typelib`。
+    """
     if explicit:
         return explicit.resolve()
-    candidates = [
-        Path(r"E:\SolidWroks2026\SOLIDWORKS\sldworks.tlb"),
-        Path(r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\sldworks.tlb"),
-    ]
+    candidates: list[Path] = []
+    for installation in discover_installations("solidworks"):
+        executable = installation.get("executable")
+        if executable:
+            candidates.append(Path(executable).parent / "sldworks.tlb")
+    for directory in str(os.environ.get("SOLIDWORKS_TYPELIB_DIRS", "")).split(os.pathsep):
+        if directory.strip():
+            candidates.append(Path(directory.strip()).expanduser() / "sldworks.tlb")
+    candidates.extend([
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "SOLIDWORKS Corp" / "SOLIDWORKS" / "sldworks.tlb",
+        Path(r"C:\Program Files\Dassault Systemes\SOLIDWORKS\sldworks.tlb"),
+    ])
     for candidate in candidates:
         if candidate.is_file():
             return candidate

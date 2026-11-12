@@ -139,6 +139,7 @@
       "label": "SolidWorks 常规模型、装配、工程图和导出",
       "capability_ids": [
         "part_and_features",
+        "external_spur_gear_geometry",
         "holes_and_finishing",
         "assembly_and_mates",
         "drawing_dimension_insertion",
@@ -700,8 +701,9 @@
         "solidworks_inspect_drawing"
       ],
       "limitations": [
-        "工程图生成与审视已抽离到 solidworks-engineering-drawing 子技能；SW2026 已验证三视图、6 个真实尺寸实体、PDF 和非空 BMP",
-        "IAnnotation 不提供尺寸文字原生包围盒，只能用锚点/字体保守估算并人工目视复核",
+        "工程图生成与审视已抽离到 solidworks-engineering-drawing 子技能；SW2026 已验证三视图、真实尺寸实体、PDF 和非空 BMP",
+        "SW2026 原生 GD&T 副本限单页单零件 A3 毫米；结构化 DrawingSpec 自动落图支持 A4..A0 单零件尺寸/基本尺寸、14 种符号、独立多框/复合框、基准 M/L/S、公共/子基准组、投影公差带、轮廓偏置/CZ/SZ、局部范围/MAX、互易和框内修饰，保存重开逐项核验并保持 review_required；自由文字 GD&T、装配体原生标注及未实现专业字段仍阻断",
+        "尺寸文字使用最终 PDF 矢量文字框；新增基准、公差框、引线和制造语义仍需目视复核",
         "图框、标题栏、尺寸链、孔表和 GB/T 风格必须人工目视复核",
         "钣金缺少可靠展开证据时返回 blocked/pilot"
       ],
@@ -1357,6 +1359,217 @@
         "当前仅支持标准全齿高外啮合直齿轮；齿根为径向过渡+齿根圆弧，不是滚刀生成的精确 trochoid",
         "齿廓在 SolidWorks 中为弦线离散近似；高采样密度会显著增加建模、导出和 B-Rep 复核时间",
         "不包含斜齿、锥齿、内齿、齿条、蜗轮蜗杆、变位、侧隙、修形、公差、材料或强度校核"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "open_helical_spring",
+      "label": "开放端等螺距弹簧实体",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "仅 SW2026 SP1.1 两组尺寸和方向示例已验证",
+        "开放端未并紧或磨平；中心线高度不等于实体自由高度；材料、刚度、强度、疲劳和制造要求需复核"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "approximate_roller_sprocket",
+      "label": "近似滚子链链轮实体",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "仅 SW2026 SP1.1 的单个 17 齿示例验证过实体、轴孔、体积与重开",
+        "齿廓为折线近似，未验证链条啮合、强度或标准；草图未完全参数化与约束，必须人工复核"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "assembly_rename_copy",
+      "label": "装配体改名副本",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com",
+        "local-filesystem"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "仅单配置、完全解析组件及无外部引用的单实体非 Toolbox 零件；SW2026 已验证一组两层装配及一个重合配合",
+        "仅在新目录创建副本，不修改源文件或更新外部使用位置；图纸、多配置、虚拟和压缩组件不支持，必须人工复核"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "standalone_part_rename_copy",
+      "label": "独立零件改名副本",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com",
+        "local-filesystem"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "仅支持引用检查为空的单配置、单实体 SLDPRT；SW2026 SP1.1 两零件示例已验证",
+        "只复制到新目录，保留源文件，不更新其他文件引用；检查不能证明不存在所有潜在引用"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "property_rename_preview",
+      "label": "基于文件属性的批量改名预览",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com",
+        "local-filesystem"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "只生成计划，不执行文件重命名或更新外部引用",
+        "SW2026 SP1.1 单零件文件级属性已验证；多配置、装配与图纸引用需后续验证"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "displayed_dimension_tolerance_extraction",
+      "label": "已显示尺寸公差只读提取",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com",
+        "local-filesystem"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "SolidWorks",
+        "pywin32"
+      ],
+      "limitations": [
+        "仅 SW2026 SP1.1 零件线性尺寸和双向公差经过真机核对；角度、装配、图纸及其他版本仍需验证",
+        "只遍历当前配置的已显示尺寸，不能声称覆盖隐藏尺寸和其他配置；输出必须人工复核"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "drilling_panel_analysis",
+      "label": "钻孔面板孔位与基准候选分析",
+      "level": "pilot",
+      "backends": [
+        "solidworks-com",
+        "local-agent"
+      ],
+      "verified_versions": [
+        "2026"
+      ],
+      "dependencies": [
+        "python"
+      ],
+      "limitations": [
+        "只验证过 SW2026 SP1.1 四孔矩形板；基准、孔型和公差由工程师确认",
+        "候选规格不等于生成工程图，复杂面板和实际 GD&T/孔表落图未验证"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "design_rule_audit",
+      "label": "中性文档设计规则与电机选型初筛",
+      "level": "pilot",
+      "backends": [
+        "local-agent",
+        "local-filesystem"
+      ],
+      "verified_versions": [],
+      "dependencies": [
+        "python"
+      ],
+      "limitations": [
+        "只检查提供的中性文档证据，缺失证据必须复核；电机选型不替代厂商计算及工程签署",
+        "规则与阈值需按实际工况复核，不得将此报告作为无人值守交付依据"
+      ],
+      "allowed_modes": [
+        "interactive",
+        "reviewed"
+      ]
+    },
+    {
+      "id": "native_round_sweeps",
+      "label": "原生圆截面路径与机械导入",
+      "level": "pilot",
+      "backends": [
+        "solidworks-csharp-pia"
+      ],
+      "verified_versions": [
+        "SOLIDWORKS 2026 SP4.1",
+        "SOLIDWORKS 2026 SP01.1"
+      ],
+      "dependencies": [
+        "python",
+        "SOLIDWORKS PIA"
+      ],
+      "limitations": [
+        "严格 Bezier/直线路径与矩形拉伸；不是 SOLIDWORKS Routing。",
+        "只支持空零件构建和固定唯一组件替换；失败可能留下未保存特征，需要审查。",
+        "真实 CAD 验证及电缆工艺确认是交付前提。"
       ],
       "allowed_modes": [
         "interactive",

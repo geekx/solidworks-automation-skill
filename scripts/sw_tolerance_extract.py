@@ -1,326 +1,169 @@
-"""
-@file sw_tolerance_extract.py
-@brief 从 SolidWorks 零件/装配/工程图的尺寸中批量抽取公差，输出表格与 CSV。
+"""只读提取 SolidWorks 已显示尺寸的公差信息，输出须人工复核。
 
-对标 t84RT/SW-software---Macro-command 中的“自动提取公差”宏（第三方 VBA，与达索无隶属关系），
-这里用 Python 重写并把可验证部分（公差分类、显示格式化、汇总统计）与需真机的 COM 尺寸遍历分离。
-
-- 纯函数：`tolerance_type_label`、`format_tolerance`、`normalize_tolerance_row`、`summarize_tolerances`，
-  可在无 SolidWorks 环境下离线单测。
-- COM 函数：`extract_tolerances` 遍历特征/视图的 IDisplayDimension -> IDimension -> ITolerance。
-- 输出：`write_tolerance_csv` 写 CSV，`write_tolerance_summary_property` 可选写回自定义属性。
-
-长度统一以毫米（mm）呈现；SolidWorks 系统值为米，读取后乘 1000。
-能力等级：pilot——公差逻辑已单测，尺寸遍历与 ITolerance 读取需真机与图纸人工复核。
+模型遍历不保证覆盖所有配置、隐藏尺寸或图纸视图。不会修改用户文档；文件输出不覆盖已有文件。
 """
 from __future__ import annotations
 
 import csv
+import math
+import os
+import sys
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 try:
-    from .sw_connect import get_com_member, safe_get_com_member
-except ImportError:  # 直接以脚本方式运行
-    from sw_connect import get_com_member, safe_get_com_member
+    from .sw_connect import get_com_member
+except ImportError:
+    from sw_connect import get_com_member
 
-# swTolType_e
-SW_TOL_NONE = 0
-SW_TOL_BASIC = 1
-SW_TOL_BILAT = 2
-SW_TOL_LIMIT = 3
-SW_TOL_SYMMETRIC = 4
-SW_TOL_MIN = 5
-SW_TOL_MAX = 6
-SW_TOL_FIT = 7
-SW_TOL_FITWITHTOL = 8
-SW_TOL_FITTOLONLY = 9
-
-_TOL_LABELS = {
-    SW_TOL_NONE: "none",
-    SW_TOL_BASIC: "basic",
-    SW_TOL_BILAT: "bilateral",
-    SW_TOL_LIMIT: "limit",
-    SW_TOL_SYMMETRIC: "symmetric",
-    SW_TOL_MIN: "min",
-    SW_TOL_MAX: "max",
-    SW_TOL_FIT: "fit",
-    SW_TOL_FITWITHTOL: "fit_with_tol",
-    SW_TOL_FITTOLONLY: "fit_tol_only",
-}
-
-_TOLERANCED_TYPES = {
-    SW_TOL_BILAT,
-    SW_TOL_LIMIT,
-    SW_TOL_SYMMETRIC,
-    SW_TOL_MIN,
-    SW_TOL_MAX,
-    SW_TOL_FIT,
-    SW_TOL_FITWITHTOL,
-    SW_TOL_FITTOLONLY,
-}
-
-CSV_COLUMNS = ["name", "feature", "nominal_mm", "type", "upper_mm", "lower_mm", "toleranced", "display"]
+FIELDS = ("name", "owner", "dimension_kind", "unit", "nominal", "tolerance_type", "lower", "upper", "status")
+TOLERANCE_TYPES = {0: "none", 1: "basic", 2: "bilateral", 3: "limit", 4: "symmetric",
+                   5: "min", 6: "max", 7: "fit", 8: "fit_with_tol", 9: "fit_tol_only"}
 
 
-def tolerance_type_label(type_code: int) -> str:
-    """@brief 将 swTolType_e 数值转成稳定英文标签。"""
-    return _TOL_LABELS.get(int(type_code), f"unknown({int(type_code)})")
-
-
-def is_toleranced(type_code: int) -> bool:
-    """@brief 判断该公差类型是否携带实际公差（排除 none/basic）。"""
-    return int(type_code) in _TOLERANCED_TYPES
-
-
-def _fmt(value: float) -> str:
-    """@brief 数值格式化：去掉多余尾零。"""
-    return f"{float(value):g}"
-
-
-def format_tolerance(nominal_mm: float, type_code: int, upper_mm: float, lower_mm: float) -> str:
-    """@brief 生成公差显示串。
-
-    @param nominal_mm 公称尺寸 mm。
-    @param type_code swTolType_e。
-    @param upper_mm 上偏差 mm（相对公称，通常为正）。
-    @param lower_mm 下偏差 mm（相对公称，通常为负）。
-    @return 例如 "50 +0.05/-0.02"、"50 ±0.05"、"50 (10-15 limit)"。
-    """
-    nominal = _fmt(nominal_mm)
-    code = int(type_code)
-    if code in {SW_TOL_NONE, SW_TOL_BASIC}:
-        return nominal
-    if code == SW_TOL_SYMMETRIC:
-        return f"{nominal} ±{_fmt(abs(upper_mm))}"
-    if code == SW_TOL_MIN:
-        return f"{nominal} min"
-    if code == SW_TOL_MAX:
-        return f"{nominal} max"
-    if code == SW_TOL_LIMIT:
-        upper = _fmt(nominal_mm + upper_mm)
-        lower = _fmt(nominal_mm + lower_mm)
-        return f"{upper}/{lower}"
-    # bilateral / fit* 一律用上下偏差表示
-    up = upper_mm
-    lo = lower_mm
-    sign_up = "+" if up >= 0 else "-"
-    sign_lo = "+" if lo >= 0 else "-"
-    return f"{nominal} {sign_up}{_fmt(abs(up))}/{sign_lo}{_fmt(abs(lo))}"
-
-
-def normalize_tolerance_row(
-    *,
-    name: str,
-    feature: str,
-    nominal_mm: float,
-    type_code: int,
-    upper_mm: float,
-    lower_mm: float,
-) -> dict[str, Any]:
-    """@brief 把一条原始尺寸公差数据归一为标准行（含显示串与是否带公差）。"""
-    toleranced = is_toleranced(type_code)
-    return {
-        "name": str(name),
-        "feature": str(feature),
-        "nominal_mm": round(float(nominal_mm), 6),
-        "type": tolerance_type_label(type_code),
-        "upper_mm": round(float(upper_mm), 6) if toleranced else 0.0,
-        "lower_mm": round(float(lower_mm), 6) if toleranced else 0.0,
-        "toleranced": toleranced,
-        "display": format_tolerance(nominal_mm, type_code, upper_mm, lower_mm),
-    }
-
-
-def summarize_tolerances(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """@brief 汇总统计：总数、带公差数、按类型计数、最紧公差带。"""
-    by_type: dict[str, int] = {}
-    tightest = None
-    tightest_name = None
-    toleranced_count = 0
-    for row in rows:
-        label = str(row.get("type", "unknown"))
-        by_type[label] = by_type.get(label, 0) + 1
-        if row.get("toleranced"):
-            toleranced_count += 1
-            band = abs(float(row.get("upper_mm", 0.0)) - float(row.get("lower_mm", 0.0)))
-            if band > 0.0 and (tightest is None or band < tightest):
-                tightest = band
-                tightest_name = str(row.get("name", ""))
-    return {
-        "total": len(rows),
-        "toleranced": toleranced_count,
-        "by_type": by_type,
-        "tightest_band_mm": tightest,
-        "tightest_dimension": tightest_name,
-    }
-
-
-# ---------------------------------------------------------------------------
-# COM 遍历（pilot，需真机验证）
-# ---------------------------------------------------------------------------
-
-
-def _maybe(obj, name: str, *args):
-    """@brief 防御式读取 COM 成员；成员不存在或调用失败时返回 None，不抛出。"""
+def _optional(obj: Any, name: str, *args: Any) -> Any:
     if obj is None:
         return None
     try:
-        return safe_get_com_member(obj, name, *args)
-    except Exception:  # noqa: BLE001
+        return get_com_member(obj, name, *args)
+    except Exception:
         return None
 
 
-def _read_tolerance(dimension) -> tuple[int, float, float]:
-    """@brief 从 IDimension 读取公差类型与上下偏差（mm）。"""
-    tol = _maybe(dimension, "Tolerance")
-    if tol is None:
-        return SW_TOL_NONE, 0.0, 0.0
-    type_code = int(_maybe(tol, "Type") or SW_TOL_NONE)
-    upper = _maybe(tol, "GetMaxValue2")
-    lower = _maybe(tol, "GetMinValue2")
-    if upper is None:
-        upper = _maybe(tol, "GetMaxValue")
-    if lower is None:
-        lower = _maybe(tol, "GetMinValue")
-    upper_mm = float(upper) * 1000.0 if upper is not None else 0.0
-    lower_mm = float(lower) * 1000.0 if lower is not None else 0.0
-    return type_code, upper_mm, lower_mm
+def _tolerance_bound(tolerance: Any, method: str) -> tuple[float | None, str | None]:
+    """2026 API: 返回状态码，实际值通过 VT_BYREF | VT_R8 输出。"""
+    try:
+        import pythoncom
+        from win32com.client import VARIANT
+        output = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_R8, 0.0)
+        status = get_com_member(tolerance, method, output)
+        value = output.value
+        if isinstance(status, bool) or status != 0 or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return None, f"{method} 返回非有效状态或非有限值"
+        return float(value), None
+    except Exception as exc:
+        return None, f"{method} 读取失败: {type(exc).__name__}"
 
 
-def _dimension_nominal_mm(dimension) -> float:
-    """@brief 读取尺寸公称值（系统米->毫米）。"""
-    value = _maybe(dimension, "GetSystemValue3", 0, None)
-    if value is None:
-        value = _maybe(dimension, "Value")
-    if isinstance(value, (list, tuple)) and value:
-        value = value[0]
-    return float(value) * 1000.0 if value is not None else 0.0
+def _dimension_row(dimension: Any, owner: str) -> tuple[dict[str, Any] | None, str | None]:
+    name = str(_optional(dimension, "FullName") or "")
+    kind = _optional(dimension, "GetType")
+    # swDimensionParamType_e: double linear=0，double angular=1。
+    if isinstance(kind, bool) or kind not in (0, 1):
+        return None, f"{name or '<unnamed>'}: 未支持的尺寸类型 {kind!r}"
+    value = _optional(dimension, "GetSystemValue3", 1, None)  # swThisConfiguration
+    if isinstance(value, (tuple, list)):
+        value = value[0] if len(value) == 1 else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None, f"{name or '<unnamed>'}: 无法读取当前配置的尺寸值"
+    scale = 1000.0 if kind == 0 else 180.0 / math.pi
+    tolerance = _optional(dimension, "Tolerance")
+    type_code = _optional(tolerance, "Type")
+    if isinstance(type_code, bool) or not isinstance(type_code, int) or type_code not in TOLERANCE_TYPES:
+        return None, f"{name or '<unnamed>'}: 公差类型不可用或未支持"
+    lower = upper = None
+    row_status = "not_toleranced" if type_code in (0, 1) else "measured"
+    if type_code not in (0, 1):
+        lower, error_min = _tolerance_bound(tolerance, "GetMinValue2")
+        upper, error_max = _tolerance_bound(tolerance, "GetMaxValue2")
+        if error_min or error_max:
+            row_status = "incomplete"
+        if lower is not None:
+            lower *= scale
+        if upper is not None:
+            upper *= scale
+    return {"name": name, "owner": owner, "dimension_kind": "linear" if kind == 0 else "angular",
+            "unit": "mm" if kind == 0 else "deg", "nominal": float(value) * scale,
+            "tolerance_type": TOLERANCE_TYPES[type_code], "lower": lower, "upper": upper,
+            "status": row_status}, None
 
 
-def _iter_display_dimensions_of(owner):
-    """@brief 遍历特征或视图上的 IDisplayDimension（兼容链式与数组接口）。"""
-    current = _maybe(owner, "GetFirstDisplayDimension5") or _maybe(owner, "GetFirstDisplayDimension")
-    while current is not None:
-        yield current
-        current = _maybe(owner, "GetNextDisplayDimension", current)
-
-
-def _iter_feature_chain(model):
-    """@brief 遍历模型顶层特征链。"""
-    feature = _maybe(model, "FirstFeature")
-    guard = 0
-    while feature is not None and guard < 20000:
-        yield feature
-        feature = _maybe(feature, "GetNextFeature")
-        guard += 1
-
-
-def extract_tolerances(model) -> list[dict[str, Any]]:
-    """@brief 遍历零件/装配特征或工程图视图，抽取每个尺寸的公差行。
-
-    对零件/装配：遍历特征链，读每个特征挂的 DisplayDimension。
-    对工程图：遍历图纸各视图的 DisplayDimension。
-    """
+def extract_tolerances(model: Any) -> dict[str, Any]:
+    """读取零件/装配特征或工程图视图上的已显示尺寸，不宣称完整覆盖。"""
+    doc_type = _optional(model, "GetType")
+    if doc_type not in (1, 2, 3):
+        return {"status": "blocked", "rows": [], "warnings": ["文档类型未知或不受支持"], "reviewRequired": True}
     rows: list[dict[str, Any]] = []
-    doc_type = int(_maybe(model, "GetType") or 1)
-
-    def collect(owner, feature_name: str) -> None:
-        for disp in _iter_display_dimensions_of(owner):
-            dimension = _maybe(disp, "GetDimension2", 0) or _maybe(disp, "GetDimension")
+    warnings: list[str] = []
+    seen: set[str] = set()
+    owner = _optional(model, "GetFirstView" if doc_type == 3 else "FirstFeature")
+    if owner is None:
+        return {"status": "blocked", "rows": [], "warnings": ["无法读取文档的特征或视图，不能判断尺寸是否为空"], "reviewRequired": True}
+    for _ in range(20000):
+        if owner is None:
+            break
+        owner_name = str(_optional(owner, "GetName2") or _optional(owner, "Name") or "")
+        display = _optional(owner, "GetFirstDisplayDimension5") or _optional(owner, "GetFirstDisplayDimension")
+        for _ in range(2000):
+            if display is None:
+                break
+            dimension = _optional(display, "GetDimension2", 0) or _optional(display, "GetDimension")
             if dimension is None:
-                continue
-            name = str(_maybe(dimension, "FullName") or _maybe(dimension, "Name") or "")
-            type_code, upper_mm, lower_mm = _read_tolerance(dimension)
-            rows.append(
-                normalize_tolerance_row(
-                    name=name,
-                    feature=feature_name,
-                    nominal_mm=_dimension_nominal_mm(dimension),
-                    type_code=type_code,
-                    upper_mm=upper_mm,
-                    lower_mm=lower_mm,
-                )
-            )
-
-    if doc_type == 3:  # swDocDRAWING
-        view = _maybe(model, "GetFirstView")
-        while view is not None:
-            view_name = str(_maybe(view, "GetName2") or _maybe(view, "Name") or "view")
-            collect(view, view_name)
-            view = _maybe(view, "GetNextView")
+                warnings.append("部分显示尺寸无法解析")
+            else:
+                row, error = _dimension_row(dimension, owner_name)
+                if error:
+                    warnings.append(error)
+                elif row is not None:
+                    # 同一模型尺寸可能经特征树重复枚举；无名称时保留并提示人工检查。
+                    key = row["name"] if doc_type != 3 else f"{owner_name}\x00{row['name']}"
+                    if not row["name"] or key not in seen:
+                        rows.append(row)
+                        if row["name"]:
+                            seen.add(key)
+                        else:
+                            warnings.append("存在未命名尺寸，无法可靠去重")
+            display = _optional(owner, "GetNextDisplayDimension", display)
+        else:
+            warnings.append("显示尺寸遍历达到上限，结果不完整")
+        owner = _optional(owner, "GetNextView" if doc_type == 3 else "GetNextFeature")
     else:
-        for feature in _iter_feature_chain(model):
-            feature_name = str(_maybe(feature, "Name") or "")
-            collect(feature, feature_name)
+        warnings.append("特征或视图遍历达到上限，结果不完整")
+    if any(row["status"] == "incomplete" for row in rows):
+        warnings.append("部分公差值未能读取，不能按零处理")
+    warnings.append("仅覆盖当前配置的已显示尺寸，隐藏尺寸及其他配置需另行核对")
+    return {"status": "review_required", "rows": rows, "warnings": warnings, "reviewRequired": True}
 
-    return rows
 
-
-def write_tolerance_csv(rows: Sequence[Mapping[str, Any]], output_path: str | Path) -> Path:
-    """@brief 将公差行写入 UTF-8 BOM CSV（Excel 中文友好）。"""
-    path = Path(output_path)
+def write_csv(rows: list[dict[str, Any]], destination: str | Path) -> Path:
+    path = Path(destination).expanduser().absolute()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+    with path.open("x", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDS, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
-            writer.writerow({key: row.get(key, "") for key in CSV_COLUMNS})
+            safe = {key: ("'" + value if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")) else value)
+                    for key, value in row.items()}
+            writer.writerow(safe)
     return path
 
 
-def write_tolerance_summary_property(model, summary: Mapping[str, Any]) -> bool:
-    """@brief 把公差汇总写入模型自定义属性（可选）。"""
-    extension = _maybe(model, "Extension")
-    manager = _maybe(extension, "CustomPropertyManager", "")
-    if manager is None:
-        return False
-    total = int(summary.get("total", 0))
-    toleranced = int(summary.get("toleranced", 0))
-    tightest = summary.get("tightest_band_mm")
-    manager.Add3("公差尺寸总数", 30, str(total), 2)
-    manager.Add3("带公差尺寸数", 30, str(toleranced), 2)
-    manager.Add3("最紧公差带", 30, f"{tightest:g} mm" if tightest else "无", 2)
-    return True
-
-
-def extract_and_export(model, output_csv: str | Path, *, write_property: bool = False) -> dict[str, Any]:
-    """@brief 一站式：抽取公差 -> 写 CSV -> 汇总（可选写属性）。"""
-    rows = extract_tolerances(model)
-    csv_path = write_tolerance_csv(rows, output_csv)
-    summary = summarize_tolerances(rows)
-    if write_property:
-        summary["property_written"] = write_tolerance_summary_property(model, summary)
-    return {"csv_path": str(csv_path), "rows": rows, "summary": summary}
-
-
-def _iter_rows_for_cli(rows: Iterable[Mapping[str, Any]]) -> None:
-    """@brief 在终端打印公差行。"""
-    for row in rows:
-        print(f"  {row['name'] or '<匿名>'} [{row['feature']}]: {row['display']} ({row['type']})")
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """@brief 命令行入口：打开模型/图纸，抽取公差并导出 CSV。"""
+def main(argv: list[str] | None = None) -> int:
     import argparse
-
-    parser = argparse.ArgumentParser(description="从 SolidWorks 模型/工程图抽取尺寸公差并导出 CSV。")
-    parser.add_argument("input", help="SLDPRT/SLDASM/SLDDRW 文件路径；传 active 使用当前活动文档。")
-    parser.add_argument("--output-csv", default="tolerances.csv", help="CSV 输出路径。")
-    parser.add_argument("--write-property", action="store_true", help="把公差汇总写回模型自定义属性。")
+    import json
+    parser = argparse.ArgumentParser(description="只读提取已显示尺寸的公差；输出必须是新文件。")
+    parser.add_argument("model", help="已保存的 SLDPRT、SLDASM 或 SLDDRW")
+    parser.add_argument("--output", required=True, help="不覆盖的 CSV 路径")
     args = parser.parse_args(argv)
-
-    from sw_session import SolidWorksSession
-
-    session = SolidWorksSession(visible=True)
-    model = session.active_doc if args.input.strip().lower() == "active" else session.open(args.input)
-    if model is None:
-        raise RuntimeError("未获取到可用的 SolidWorks 文档")
-    result = extract_and_export(model, args.output_csv, write_property=args.write_property)
-    print(f"CSV: {result['csv_path']}")
-    print(f"汇总: {result['summary']}")
-    _iter_rows_for_cli(result["rows"])
-    return 0
+    try:
+        from .sw_session import SolidWorksSession
+        from .sw_read_guard import SolidWorksReadGuard
+    except ImportError:
+        from sw_session import SolidWorksSession
+        from sw_read_guard import SolidWorksReadGuard
+    source = Path(os.path.expandvars(args.model)).expanduser().resolve()
+    if not source.is_file() or source.suffix.casefold() not in {".sldprt", ".sldasm", ".slddrw"}:
+        parser.error("需要已保存的 SolidWorks 模型或图纸")
+    with SolidWorksReadGuard():
+        with SolidWorksSession(visible=True) as session:
+            model = session.open(str(source), read_only=True, silent=True)
+            result = extract_tolerances(model)
+    if result["status"] == "blocked":
+        print(json.dumps(result, ensure_ascii=True))
+        return 1
+    result["csv_path"] = str(write_csv(result["rows"], args.output))
+    print(json.dumps(result, ensure_ascii=True, indent=2))
+    return 2
 
 
 if __name__ == "__main__":

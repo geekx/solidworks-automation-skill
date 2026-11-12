@@ -1,4 +1,4 @@
-"""为 Smithery 构建带完整 MCP 工具 schema 的 MCPB 发布包。"""
+"""为 Smithery 构建与运行模式一致的 MCPB 工具清单。"""
 
 from __future__ import annotations
 
@@ -9,12 +9,15 @@ import zipfile
 from pathlib import Path
 
 
-def collect_tool_cards(repo_root: Path) -> list[dict[str, object]]:
-    """@brief 从 FastMCP 注册表读取工具名称、说明和真实 inputSchema。"""
+def collect_tool_cards(repo_root: Path, mode: str = "search") -> list[dict[str, object]]:
+    """@brief 从完整注册表选择与运行模式一致的工具卡。"""
+    if mode not in ("search", "full"):
+        raise ValueError(f"未知 MCP 模式: {mode}")
     server_dir = repo_root / "mcp-server"
     if str(server_dir) not in sys.path:
         sys.path.insert(0, str(server_dir))
     import server  # noqa: PLC0415
+    from gate import DISCOVERY_TOOLS  # noqa: PLC0415
 
     return [
         {
@@ -23,13 +26,14 @@ def collect_tool_cards(repo_root: Path) -> list[dict[str, object]]:
             "inputSchema": tool.parameters,
         }
         for tool in server.mcp._tool_manager._tools.values()
+        if (tool.name in DISCOVERY_TOOLS) == (mode == "search")
     ]
 
 
-def build_smithery_bundle(source: Path, target: Path) -> int:
-    """@brief 将标准 MCPB 的工具清单替换为 Smithery 所需的完整工具卡。"""
-    repo_root = source.resolve().parent.parent
-    tools = collect_tool_cards(repo_root)
+def build_smithery_bundle(source: Path, target: Path, mode: str = "search", repo_root: Path | None = None) -> int:
+    """@brief 将 MCPB 工具卡和启动模式同步，避免宣告不可见的工具。"""
+    repo_root = (repo_root or source.resolve().parent.parent).resolve()
+    tools = collect_tool_cards(repo_root, mode=mode)
     if not tools:
         raise RuntimeError("MCP Server 未注册任何工具")
 
@@ -37,8 +41,9 @@ def build_smithery_bundle(source: Path, target: Path) -> int:
         manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
         manifest.pop("tools_generated", None)
         manifest["tools"] = tools
+        manifest.setdefault("server", {}).setdefault("mcp_config", {}).setdefault("env", {})["SW_MCP_DISCOVERY"] = mode
         target.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as output:
+        with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as output:
             for info in archive.infolist():
                 if info.filename != "manifest.json":
                     output.writestr(info, archive.read(info.filename))
@@ -54,8 +59,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="mcpb pack 生成的标准 MCPB")
     parser.add_argument("target", type=Path, help="供 Smithery 发布的 MCPB")
+    parser.add_argument("--mode", choices=("search", "full"), default="search", help="打包的工具模式")
+    parser.add_argument("--repo-root", type=Path, help="仓库根目录，默认从包的上级目录推断")
     args = parser.parse_args()
-    count = build_smithery_bundle(args.source, args.target)
+    count = build_smithery_bundle(args.source, args.target, mode=args.mode, repo_root=args.repo_root)
     print(f"Smithery MCPB 已生成: {args.target} ({count} 个工具 schema)")
     return 0
 

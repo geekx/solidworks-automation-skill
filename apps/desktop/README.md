@@ -1,5 +1,20 @@
 # CAD 自动化交付工作台桌面原型
 
+> **⚠️ 遗留原型（legacy）**
+>
+> 当前正式桌面产品是 **`apps/workbench-ui/`**（Tauri + React），从
+> [GitHub Releases](https://github.com/wzyn20051216/solidworks-automation-skill/releases)
+> 获取安装包。本目录是更早的 PySide6 原型，**不再作为发布目标**，其界面与交互不代表当前产品。
+>
+> **请勿删除。** `scripts/build_windows_release.ps1` 仍依赖本目录下的
+> `apps/desktop/cad_workbench/queue_worker.py` 与
+> `apps/desktop/cad_workbench/schemas/automation_job.schema.json`
+> （作为任务队列实现与 Schema 来源被打包进正式产物）。归档时须先解除该依赖。
+>
+> 下方内容保留为历史记录，其中的界面截图与安装步骤只适用于原型本身。
+
+---
+
 这是 `solidworks-automation-skill` 的第一版本地桌面软件原型。
 
 当前版本先跑通用户体验闭环:

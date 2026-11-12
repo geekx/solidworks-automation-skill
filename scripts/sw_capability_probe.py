@@ -7,6 +7,7 @@ import glob
 import json
 import os
 from pathlib import Path
+from typing import Mapping
 
 try:
     from .sw_preflight import import_com_dependencies, missing_com_dependencies, solidworks_installed
@@ -21,21 +22,21 @@ except ImportError:
 TYPELIB_PATTERNS = {
     "solidworks_core": [
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS*\sldworks.tlb",
-        r"E:\Solidworks\SOLIDWORKS\sldworks.tlb",
     ],
     "motion_study": [
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS*\swmotionstudy.tlb",
-        r"E:\Solidworks\SOLIDWORKS\swmotionstudy.tlb",
     ],
     "routing": [
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS*\SWRoutingLib.tlb",
-        r"E:\Solidworks\SOLIDWORKS\SWRoutingLib.tlb",
     ],
     "simulation_motion": [
         r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS*\cmotionswapi.tlb",
-        r"E:\Solidworks\SOLIDWORKS\cmotionswapi.tlb",
     ],
 }
+
+#: 非标准安装位置由环境变量显式给出，避免把某一台开发机的盘符写进生产代码。
+#: 多个目录用 os.pathsep 分隔；优先级低于注册表/快捷方式发现，高于通用 glob。
+TYPELIB_DIRS_ENV = "SOLIDWORKS_TYPELIB_DIRS"
 
 CAPABILITY_KEYWORDS = {
     "part_and_features": ("IPartDoc", "IFeatureManager", "ISketchManager"),
@@ -64,8 +65,18 @@ CAPABILITY_ALIASES = {
 }
 
 
+def _env_typelib_dirs(env: Mapping[str, str] | None = None) -> list[Path]:
+    """@brief 读取 SOLIDWORKS_TYPELIB_DIRS 给出的显式目录，供非标准安装位置使用。"""
+    raw = (env if env is not None else os.environ).get(TYPELIB_DIRS_ENV, "")
+    return [Path(part).expanduser() for part in str(raw).split(os.pathsep) if str(part).strip()]
+
+
 def _find_typelib(patterns: list[str]) -> Path | None:
-    """@brief 从实际安装目录和兼容路径中返回第一个类型库。"""
+    """@brief 从实际安装目录和兼容路径中返回第一个类型库。
+
+    候选顺序：`discover_installations()` 发现的真实安装 → 环境变量显式目录 →
+    通用安装路径 glob。不再内置任何开发者机器的固定盘符。
+    """
     target_name = Path(patterns[0]).name if patterns else ""
     if target_name:
         for installation in discover_installations("solidworks"):
@@ -73,6 +84,10 @@ def _find_typelib(patterns: list[str]) -> Path | None:
             if not executable:
                 continue
             path = Path(executable).parent / target_name
+            if path.is_file():
+                return path.resolve()
+        for directory in _env_typelib_dirs():
+            path = directory / target_name
             if path.is_file():
                 return path.resolve()
     for pattern in patterns:

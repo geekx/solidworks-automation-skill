@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date, datetime, timezone
 from typing import Any, Mapping, Sequence
 
 ACTIONABLE_STATUSES = {"fail", "warning"}
@@ -102,6 +103,16 @@ def validate_waiver(waiver: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("waiver 必须提供 reason")
     if not str(waiver.get("owner") or "").strip():
         raise ValueError("waiver 必须提供 owner（责任人）")
+    for key in ("createdOn", "expiresOn"):
+        if waiver.get(key) is not None:
+            try:
+                value = waiver[key]
+                if not isinstance(value, str) or date.fromisoformat(value).isoformat() != value:
+                    raise ValueError
+            except ValueError as exc:
+                raise ValueError(f"waiver.{key} 必须是有效 YYYY-MM-DD 日期") from exc
+    if waiver.get("createdOn") and waiver.get("expiresOn") and waiver["createdOn"] > waiver["expiresOn"]:
+        raise ValueError("waiver 生效日期不能晚于到期日期")
     return {
         "fingerprint": waiver.get("fingerprint"),
         "ruleId": waiver.get("ruleId"),
@@ -123,10 +134,19 @@ def apply_waivers(
 
     @return {"checks": 带 waived 标记的副本, "applied": [...], "expired": [...], "unused": [...]}。
     """
+    if as_of_date is None:
+        as_of_date = datetime.now(timezone.utc).date().isoformat()
+    try:
+        if not isinstance(as_of_date, str) or date.fromisoformat(as_of_date).isoformat() != as_of_date:
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError("as_of_date 必须是有效 YYYY-MM-DD 日期") from exc
     validated = [validate_waiver(w) for w in waivers]
-    active, expired = [], []
+    active, expired, not_yet_valid = [], [], []
     for waiver in validated:
-        if waiver.get("expiresOn") and not _date_le(as_of_date, waiver["expiresOn"]):
+        if waiver.get("createdOn") and not _date_le(waiver["createdOn"], as_of_date):
+            not_yet_valid.append(waiver)
+        elif waiver.get("expiresOn") and not _date_le(as_of_date, waiver["expiresOn"]):
             expired.append(waiver)
         else:
             active.append(waiver)
@@ -148,16 +168,18 @@ def apply_waivers(
                     break
         annotated.append(item)
     unused = [waiver for i, waiver in enumerate(active) if i not in used]
-    return {"checks": annotated, "applied": applied, "expired": expired, "unused": unused}
+    return {"checks": annotated, "applied": applied, "expired": expired, "notYetValid": not_yet_valid, "unused": unused}
 
 
 def gated_status(checks: Sequence[Mapping[str, Any]]) -> str:
-    """@brief 门禁状态：忽略 waived 的 finding。fail>warning>pass。"""
+    """@brief 缺失证据或未执行的规则不能视为完整通过。"""
     statuses = {c.get("status") for c in checks if not c.get("waived")}
     if "fail" in statuses:
         return "fail"
     if "warning" in statuses:
         return "warning"
+    if not statuses or "info" in statuses:
+        return "review_required"
     return "pass"
 
 
@@ -207,6 +229,7 @@ def summarize_audit(
         "waivers": {
             "applied": waiver_result["applied"],
             "expired": waiver_result["expired"],
+            "notYetValid": waiver_result["notYetValid"],
             "unused": waiver_result["unused"],
         },
     }
@@ -249,6 +272,17 @@ def assert_no_regression(
     for finding in blocked_new:
         reasons.append(f"新增 {finding.get('severity')} 级问题 {finding.get('id')}（{finding.get('target') or '-'}）：{finding.get('message', '')}")
 
+    # 问题因缺失证据而消失时，不能把它当作修复。
+    info_checks = [item for item in candidate if item.get("status") == "info"]
+    uncertain = [finding for finding in diff["fixed"] if any(
+        info.get("id") == finding.get("id") or
+        (info.get("category") == finding.get("category") and
+         str(info.get("id", "")).endswith(("-EVIDENCE", "-000")))
+        for info in info_checks
+    )]
+    if uncertain:
+        reasons.append("候选版本对应类别缺少证据，不能确认基线问题已修复")
+
     return {
         "passed": not reasons,
         "reasons": reasons,
@@ -261,4 +295,5 @@ def assert_no_regression(
         "fixedCount": diff["counts"]["fixed"],
         "persistingCount": diff["counts"]["persisting"],
         "newBlocking": [{"id": f.get("id"), "target": f.get("target"), "severity": f.get("severity")} for f in blocked_new],
+        "unverifiedFixed": [{"id": f.get("id"), "target": f.get("target")} for f in uncertain],
     }

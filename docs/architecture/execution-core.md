@@ -165,14 +165,16 @@ references → official API / SDK → alternate backend → minimal implementati
 
 ## 11. Reliability Eval（`tests/evals/`）
 
-`golden-workflows.yaml` 是 Golden Workflow 唯一真源。Eval 派生 37 个 deterministic scenario，
+`golden-workflows.yaml` 是 Golden Workflow 唯一真源。Eval 从其中 **12 个 workflow** 派生
+**43 个 deterministic scenario**（12 nominal + 31 robustness），
 按口径分组（nominal / recovery / fault_injection / guardrail），用 Fake Handler/Reviewer 验证
 执行控制逻辑。指标分四组：Nominal / Robustness / Safety / Overall Diagnostic。
+场景计数由 `build_scenarios()` 从源数据派生，不在测试中硬编码。
 详见 [`v2-evaluation.md`](v2-evaluation.md) 与 [`v2-regression-report.md`](v2-regression-report.md)。
 
 ## 12. Compatibility
 
-- Skill 使用方式、原有 60 个 MCP Tool Name / Input Schema、CLI 命令和 Queue Schema 保持兼容；新增只读产物工具与可选 HTTP 传输；
+- Skill 使用方式、CLI 命令和 Queue Schema 保持兼容；MCP 工具**当前共 61 个**——原有 60 个的名称与完整 Input Schema 保持一致，新增 1 个只读产物工具与可选 HTTP 传输；
 - `capabilities.yaml` 仍唯一真源，`golden-workflows.yaml` 向后兼容；
 - 新增字段全部 additive / optional；
 - 2026-10-08 的方案 B 修复执行事实、草图/阵列和资源生命周期；验收范围为 SolidWorks 2026，详见 [`scheme-b-reliability.md`](scheme-b-reliability.md)。

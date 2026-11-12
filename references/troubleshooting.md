@@ -641,7 +641,7 @@ SolidWorks 会对"当前轮廓"执行圆角，产生难以排查的错误特征�
 而且失败是静默的（返回 `False` 但后续特征不报错）。
 
 稳定写法：改用 `sw_edge_select.select_edges()` 按 B-Rep 几何条件选边。详见
-[references/edge-selection.md](references/edge-selection.md)。
+[references/edge-selection.md](edge-selection.md)。
 
 ```python
 from sw_edge_select import select_edges

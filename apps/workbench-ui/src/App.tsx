@@ -41,9 +41,12 @@ import { ConversationControls } from "./components/ConversationControls";
 import { EnvironmentRemediationPanel } from "./components/EnvironmentRemediationPanel";
 import { ManualReviewPanel } from "./components/ManualReviewPanel";
 import { ProjectSwitcher } from "./components/ProjectSwitcher";
+import { StageReviewPanel } from "./components/StageReviewPanel";
 import { TaskSequence } from "./components/TaskSequence";
 import { PreviewShowcase } from "./preview/PreviewShowcase";
 import { collectJobArtifacts, deliveryFormatStatus, groupedArtifacts } from "./domain/artifacts";
+import { classifyChatEngineeringChange } from "./domain/chatEngineeringChange";
+import { chatHistoryForPrompt } from "./domain/chatHistory";
 import {
   artifactVersionComparison,
   assessDelivery,
@@ -53,7 +56,17 @@ import {
   retryStageLabel,
 } from "./domain/delivery";
 import { conciseTaskTitle, jobDisplayTitle, jobStatusLabel } from "./domain/jobs";
+import {
+  chatInputRevision,
+  engineeringInputRevision,
+  jobInputChange,
+  recordChatChange,
+  restoreQueuedChatChanges,
+  restoreStageReview,
+  updateStageReview,
+} from "./domain/stageReview";
 import { isTauriRuntime, readPersistedState, writePersistedState } from "./persistence";
+import { LocalModelPanel } from "./components/LocalModelPanel";
 import {
   DEFAULT_PROJECT,
   duplicateProjectRecord,
@@ -164,7 +177,7 @@ const SETTINGS_KEY = "cad-studio.settings.v1";
 const QUEUE_KEY = "cad-studio.queue.v1";
 const CHAT_KEY = "cad-studio.agent-chat.v1";
 const CONVERSATIONS_KEY = "cad-studio.agent-conversations.v1";
-const APP_VERSION = "0.3.4";
+const APP_VERSION = "2.1.1";
 const LEGACY_CONVERSATION_ID = "conversation-legacy";
 const manualReviewOptions = [
   ["native-open", "已用目标 CAD 软件原生打开并确认无报错"],
@@ -296,6 +309,8 @@ const wallpaperMotionLabels: Record<WallpaperMotionMode, string> = {
 };
 const defaultKnowledgeBase: KnowledgeBaseConfig = {
   cloudEnabled: false,
+  officialApiDocsEnabled: true,
+  parallelApiFallbackEnabled: true,
   localRoots: [],
   endpoint: "",
   namespace: "mechanical-engineering",
@@ -483,6 +498,7 @@ function loadSettings(payload?: unknown): AppSettings | null {
             createdAt: typeof item.createdAt === "string" ? item.createdAt : "",
             updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : "",
             archivedAt: typeof item.archivedAt === "string" ? item.archivedAt : undefined,
+            stageReview: restoreStageReview(item.stageReview),
           }))
       : [];
     const normalizedProjects = projects.length ? projects : [migratedProject];
@@ -521,6 +537,8 @@ function loadSettings(payload?: unknown): AppSettings | null {
       knowledgeBase: parsed.knowledgeBase
         ? {
             cloudEnabled: parsed.knowledgeBase.cloudEnabled === true,
+            officialApiDocsEnabled: parsed.knowledgeBase.officialApiDocsEnabled === undefined || parsed.knowledgeBase.officialApiDocsEnabled === true,
+            parallelApiFallbackEnabled: parsed.knowledgeBase.parallelApiFallbackEnabled === undefined || parsed.knowledgeBase.parallelApiFallbackEnabled === true,
             localRoots: Array.isArray(parsed.knowledgeBase.localRoots) ? parsed.knowledgeBase.localRoots.filter((item): item is string => typeof item === "string").slice(0, 8) : [],
             endpoint: parsed.knowledgeBase.endpoint ?? "",
             namespace: parsed.knowledgeBase.namespace ?? defaultKnowledgeBase.namespace,
@@ -671,16 +689,14 @@ function buildChatPrompt(
   projectPath?: string,
   runtime?: RuntimeHealth | null,
 ) {
-  const recentHistory = history
-    .slice(-8)
-    .map((message) => `${message.role === "user" ? "用户" : message.role === "assistant" ? "AI" : "系统"}: ${message.content}`)
-    .join("\n");
+  const recentHistory = chatHistoryForPrompt(history);
   return [
     buildCodexPrompt(config, projectPath, runtime),
     "",
     "CAD Studio 对话执行要求:",
     "- 你正在响应软件内的 AI 执行对话框，不要输出隐藏推理；请输出可给用户看的执行计划、关键决策、工具调用结果、文件路径和验证结论。",
     "- 如果用户说继续改、重做、调整审美或补充尺寸，需要基于上文和本地文件继续推进，而不是从零开始。",
+    "- 本次指令中明确修改的需求和尺寸优先于上面的参考配置和旧对话；普通追问应直接回答。",
     "- 面向普通用户表达，不暴露无关开发者配置；必要的命令、文件路径和失败原因要写清楚。",
     "- 若涉及 SolidWorks 或 AutoCAD，本轮仍遵循本地 skills 和中国机械制图/可制造规范。",
     `- 当前 AI 接入方式: ${apiModeLabel(api.mode)}；Provider: ${api.providerName}；Endpoint: ${api.endpoint}；Model: ${api.model}；Key: ${keyStatusLabel(api.keyStatus)}。`,
@@ -898,6 +914,7 @@ function App() {
   const [manualReviewDrafts, setManualReviewDrafts] = useState<Record<string, ManualReviewDraft>>({});
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus>({ running: false, message: "桌面端可启动" });
   const [workerAction, setWorkerAction] = useState<"start" | "stop" | "restart" | null>(null);
+  const workerStartingRef = useRef(false);
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
   const [submissionKind, setSubmissionKind] = useState<SubmissionKind>(null);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>(null);
@@ -908,7 +925,7 @@ function App() {
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth | null>(null);
   const [runtimeMessage, setRuntimeMessage] = useState("正在检测 Agent、skills 与 CAD 环境...");
   const [windowHint, setWindowHint] = useState("窗口控制就绪");
-  const [codexConfig, setCodexConfig] = useState<CodexConfig>({
+  const [baseCodexConfig, setCodexConfig] = useState<CodexConfig>({
     objective: "根据用户输入自动判断最佳 CAD 任务类型、制造方式、材料和交付格式，生成可制造结果并解释选择理由。",
     cadApplication: "auto",
     target: "auto",
@@ -928,11 +945,16 @@ function App() {
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
   const bridgeRef = useRef<HTMLElement>(null);
   const completedChatJobIdsRef = useRef<Set<string>>(new Set());
+  const settingsWriteRef = useRef(Promise.resolve());
   const reducedMotion = useReducedMotion();
 
   const activeProject = useMemo(
     () => projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? DEFAULT_PROJECT,
     [activeProjectId, projects],
+  );
+  const codexConfig = useMemo(
+    () => ({ ...baseCodexConfig, ...activeProject.stageReview?.inputs }),
+    [baseCodexConfig, activeProject.stageReview?.inputs],
   );
   const activeProjectJobs = useMemo(
     () => jobs.filter((job) => jobProjectId(job) === activeProject.id),
@@ -955,8 +977,9 @@ function App() {
     [activeConversation, agentMessages],
   );
   const queueSummary = useMemo(() => {
-    const approvalRequired = activeProjectJobs.filter((job) => job.status === "approval_required").length;
-    const reviewRequired = activeProjectJobs.filter((job) => job.status === "review_required").length;
+    const approvalRequired = activeProjectJobs.filter((job) => job.status === "approval_required" && !jobInputChange(job, activeProject.stageReview)).length;
+    const reviewRequired = activeProjectJobs.filter((job) => job.status === "review_required"
+      || (["passed", "approval_required"].includes(job.status) && jobInputChange(job, activeProject.stageReview))).length;
     const running = activeProjectJobs.filter((job) => job.status === "running").length;
     const queued = activeProjectJobs.filter((job) => job.status === "queued").length;
     if (approvalRequired > 0) return `${approvalRequired} 个待审批`;
@@ -964,7 +987,7 @@ function App() {
     if (running > 0) return `${running} 个执行中`;
     if (queued > 0) return `${queued} 个排队`;
     return activeProjectJobs.length > 0 ? "队列就绪" : "暂无任务";
-  }, [activeProjectJobs]);
+  }, [activeProject.stageReview, activeProjectJobs]);
 
   const workerLabel = useMemo(() => {
     const health = workerStatus.health?.status;
@@ -990,6 +1013,8 @@ function App() {
     () => activeAgentJob || activeProjectJobs.find((job) => collectJobArtifacts(job).length > 0 || job.reviewGate?.checks?.length || job.result?.message || job.error),
     [activeAgentJob, activeProjectJobs],
   );
+  const activeAgentInputChange = jobInputChange(activeAgentJob, activeProject.stageReview);
+  const resultInputChange = jobInputChange(resultJob, activeProject.stageReview);
   const resultArtifacts = useMemo(() => collectJobArtifacts(resultJob), [resultJob]);
   const selectedPreviewArtifact = useMemo(
     () => resultArtifacts.find((artifact) => artifact.path === selectedPreviewArtifactPath)
@@ -1026,7 +1051,35 @@ function App() {
   }, [apiConfig.agentProvider, apiConfig.model, selectedCcSwitchProviders]);
 
   function updateCodexConfig(patch: Partial<CodexConfig>) {
-    setCodexConfig((config) => ({ ...config, ...patch }));
+    const { objective, length, width, height, wallThickness, ...other } = patch;
+    if (Object.keys(other).length) setCodexConfig((config) => ({ ...config, ...other }));
+    setProjects((items) => items.map((item) => {
+      if (item.id !== activeProject.id) return item;
+      const stageReview = updateStageReview(item.stageReview, { objective, length, width, height, wallThickness }, baseCodexConfig);
+      return stageReview === item.stageReview ? item : { ...item, stageReview };
+    }));
+  }
+
+  function createProjectJob(kind: AutomationJobKind, overrides: Partial<AutomationJob>) {
+    return createJob(kind, recentProjectPath, {
+      ...overrides,
+      projectId: activeProject.id,
+      uiConfig: {
+        chatInputRevision: chatInputRevision(activeProject.stageReview),
+        ...overrides.uiConfig,
+        engineeringInputRevision: engineeringInputRevision(activeProject.stageReview),
+      },
+    });
+  }
+
+  function blockOutdatedJobAction(id: string) {
+    const job = jobs.find((item) => item.id === id);
+    if (!job) return false;
+    const project = projects.find((item) => item.id === jobProjectId(job));
+    const change = jobInputChange(job, project?.stageReview);
+    if (!change) return false;
+    setWindowHint(`${change.reason} · 请按当前输入重新提交任务`);
+    return true;
   }
 
   function updateConversationRuntime(provider: AgentProviderId, model: string) {
@@ -1148,7 +1201,10 @@ function App() {
       setWorkerStatus({ running: false, message: "请在桌面端启动 worker" });
       return;
     }
+    if (workerStartingRef.current) return;
+    workerStartingRef.current = true;
     setWorkerAction("start");
+    setWorkerStatus({ running: false, message: "正在检测并配置本地环境，首次启动可能需要几分钟。" });
     try {
       const status = await invoke<WorkerStatus>("start_worker", {
         repoPath: runtimeHealth?.skillRoot ?? "",
@@ -1159,7 +1215,8 @@ function App() {
     } catch (error) {
       setWorkerStatus({ running: false, message: `worker 启动失败: ${String(error)}` });
     } finally {
-      setWorkerAction(null);
+      workerStartingRef.current = false;
+      setWorkerAction((current) => current === "start" ? null : current);
     }
   }
 
@@ -1181,7 +1238,10 @@ function App() {
       setWorkerStatus({ running: false, message: "请在桌面端重启 worker" });
       return;
     }
+    if (workerStartingRef.current) return;
+    workerStartingRef.current = true;
     setWorkerAction("restart");
+    setWorkerStatus({ running: false, message: "正在重启执行器并检查本地环境。" });
     try {
       const stopped = await invoke<WorkerStatus>("stop_worker");
       const status = await invoke<WorkerStatus>("start_worker", {
@@ -1197,6 +1257,7 @@ function App() {
     } catch (error) {
       setWorkerStatus({ running: false, message: `worker 重启失败: ${String(error)}` });
     } finally {
+      workerStartingRef.current = false;
       setWorkerAction(null);
     }
   }
@@ -1304,8 +1365,7 @@ function App() {
     ];
     const capabilities = capabilityIdsForConfig(config);
     const providerMeta = agentProviderCatalog[apiConfig.agentProvider];
-    const job = createJob("agent_task", recentProjectPath, {
-      projectId: activeProjectId,
+    const job = createProjectJob("agent_task", {
       executor: "agent",
       title: conciseTaskTitle(config.objective, `${codexTargets[config.target]}任务`),
       detail: `${cadApplicationLabels[config.cadApplication]} · ${codexTargets[config.target]} · ${resolvedExpectedOutput(config)}`,
@@ -1403,6 +1463,10 @@ function App() {
   async function submitAgentMessage() {
     const text = agentInput.trim();
     if (!text || submissionKind) return;
+    if (isTauriRuntime() && (!settingsLoaded || !queueLoaded || queueLoadError)) {
+      setWindowHint("请等待项目和任务队列就绪后再发送");
+      return;
+    }
 
     const conversation = activeConversation ?? createAgentConversation(conciseTaskTitle(text, "新对话"));
     const userMessage = createChatMessage("user", text, undefined, conversation.id, activeProject.id);
@@ -1435,8 +1499,18 @@ function App() {
     }
     const prompt = buildChatPrompt(codexConfig, apiConfig, text, [...activeConversationMessages, userMessage], recentProjectPath, activeRuntime);
     const providerMeta = agentProviderCatalog[apiConfig.agentProvider];
-    const job = createJob("agent_task", recentProjectPath, {
-      projectId: activeProjectId,
+    const changeRoots = classifyChatEngineeringChange(text);
+    const submittedChatRevision = chatInputRevision(activeProject.stageReview) + (changeRoots.length ? 1 : 0);
+    const conversationSourceJob = changeRoots.length ? activeProjectJobs
+      .filter((candidate) => candidate.conversationId === conversation.id && candidate.result?.engineeringPlan?.phases?.length)
+      .reduce<AutomationJob | undefined>((latest, candidate) =>
+        !latest || candidate.createdAt > latest.createdAt ? candidate : latest, undefined) : undefined;
+    const selectedFormJob = activeAgentJob && !activeAgentJob.conversationId && activeAgentJob.result?.engineeringPlan?.phases?.length
+      ? activeAgentJob : undefined;
+    const sourceJob = changeRoots.length ? conversationSourceJob ?? selectedFormJob : undefined;
+    const priorRoots = jobInputChange(sourceJob, activeProject.stageReview)?.roots ?? [];
+    const replanRoots = [...new Set([...priorRoots, ...changeRoots])];
+    const job = createProjectJob("agent_task", {
       conversationId: conversation.id,
       executor: "agent",
       title: conciseTaskTitle(text, "AI CAD 对话任务"),
@@ -1482,7 +1556,10 @@ function App() {
           retry: "局部修改只重规划受影响阶段及其下游",
           cadConcurrency: 1,
         },
-        sourceJobId: activeAgentJob?.id,
+        chatInputRevision: submittedChatRevision,
+        chatReviewRoots: changeRoots.length ? changeRoots : undefined,
+        chatReplanRoots: sourceJob ? replanRoots : undefined,
+        sourceJobId: sourceJob?.id,
         apiRuntime: apiConfig,
         cadRuntime: {
           application: codexConfig.cadApplication,
@@ -1499,12 +1576,19 @@ function App() {
     try {
       setWindowHint("正在写入对话任务...");
       await persistJob(job);
+      if (changeRoots.length) {
+        setProjects((items) => items.map((project) => project.id === activeProject.id
+          ? { ...project, stageReview: recordChatChange(project.stageReview, submittedChatRevision, changeRoots) }
+          : project));
+      }
       setActiveAgentJobId(job.id);
       setExpandedJobId(job.id);
       setAgentMessages((messages) => [
         ...messages,
         userMessage,
-        createChatMessage("assistant", `收到，我已经把这句话转成一条本地 ${providerMeta.name} 执行任务。你可以在下方看到公开步骤、审批、日志和结果；不满意就继续补充要求。`, job.id, conversation.id, activeProject.id),
+        createChatMessage("assistant", changeRoots.length
+          ? "变更任务已进入本地队列。当前项目旧结果中受影响的阶段已标为待复核。"
+          : `收到，我已经把这句话转成一条本地 ${providerMeta.name} 执行任务。你可以在下方看到公开步骤、审批、日志和结果；不满意就继续补充要求。`, job.id, conversation.id, activeProject.id),
       ].slice(-200));
       upsertJob(job);
       setWindowHint("对话任务已进入本地队列");
@@ -1522,13 +1606,11 @@ function App() {
   }
 
   function selectTemplate(template: (typeof taskTemplates)[number]) {
-    const nextConfig = {
-      ...codexConfig,
+    updateCodexConfig({
       target: template.target,
       expectedOutput: template.output,
       objective: `${template.title}: ${template.detail}。请根据用户导入的资料或当前配置生成可制造 CAD 结果，并输出必要的复核记录。`,
-    } satisfies CodexConfig;
-    setCodexConfig(nextConfig);
+    });
     setSelectedTemplateKey(template.key);
     setWindowHint(`已载入“${template.title}”配置 · 确认后再执行`);
     requestAnimationFrame(() => bridgeRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" }));
@@ -1772,13 +1854,13 @@ function App() {
   }
 
   function enqueueDeliveryTask() {
+    if (resultJob && blockOutdatedJobAction(resultJob.id)) return;
     const nextConfig = {
       ...codexConfig,
       target: "package",
       expectedOutput: "auto",
       objective: "整理当前项目的真实 CAD 产物，验证文件存在性和格式，生成本地交付清单；缺失文件必须明确报错，不能用占位文件代替。",
     } satisfies CodexConfig;
-    setCodexConfig(nextConfig);
     void enqueueCodexTaskWithConfig(nextConfig);
   }
 
@@ -1794,8 +1876,7 @@ function App() {
     try {
       const activeRuntime = await ensureRuntimeHealth();
       const capabilityIds = ["dfm_checks"];
-      const job = createJob("dfm_review", recentProjectPath, {
-        projectId: activeProjectId,
+      const job = createProjectJob("dfm_review", {
         title: "DFM 制造风险复核",
         detail: `${processLabels[codexConfig.process]} · ${materialLabels[codexConfig.material]} · 配置包络`,
         target: "DFM",
@@ -1862,7 +1943,7 @@ function App() {
   }
 
   async function retryJob(id: string) {
-    if (retryingJobId) return;
+    if (retryingJobId || blockOutdatedJobAction(id)) return;
     setRetryingJobId(id);
     try {
       if (isTauriRuntime()) {
@@ -1921,6 +2002,7 @@ function App() {
   }
 
   async function approveJob(id: string) {
+    if (blockOutdatedJobAction(id)) return;
     if (isTauriRuntime()) {
       try {
         const approvedJob = await invoke<AutomationJob>("approve_queue_job", { id });
@@ -1947,6 +2029,7 @@ function App() {
   }
 
   async function reviewJob(id: string, approved: boolean) {
+    if (blockOutdatedJobAction(id)) return;
     const job = jobs.find((item) => item.id === id);
     const draft = manualReviewDrafts[id] ?? { note: "", checks: [] };
     const requiredChecks = reviewOptionsFor(job).map(([key]) => key);
@@ -2395,6 +2478,7 @@ function App() {
         const savedJobs = await invoke<AutomationJob[]>("read_queue_jobs");
         if (disposed) return;
         setQueueLoadError(null);
+        setProjects((items) => restoreQueuedChatChanges(items, savedJobs));
         const nextJobs = savedJobs
           .filter((job) => typeof job.id === "string")
           .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
@@ -2425,6 +2509,7 @@ function App() {
       }
     }
 
+    if (!settingsLoaded) return;
     void loadQueue();
     if (!isTauriRuntime()) return () => {
       disposed = true;
@@ -2449,7 +2534,7 @@ function App() {
       window.clearTimeout(debounceTimer);
       unlisten?.();
     };
-  }, [activeAgentJobId, activeProjectId, expandedJobId]);
+  }, [activeAgentJobId, activeProjectId, expandedJobId, settingsLoaded]);
 
   useEffect(() => {
     void refreshWorkerStatus();
@@ -2515,8 +2600,11 @@ function App() {
       apiConfig,
       knowledgeBase,
     };
-    void writePersistedState("settings", SETTINGS_KEY, settings)
-      .then((result) => result.degraded && setPersistenceWarning("SQLite 写入失败，设置已安全保存到本地回退副本。"))
+    settingsWriteRef.current = settingsWriteRef.current
+      .then(() => writePersistedState("settings", SETTINGS_KEY, settings))
+      .then((result) => {
+        if (result.degraded) setPersistenceWarning("SQLite 写入失败，设置已安全保存到本地回退副本。");
+      })
       .catch((error) => setPersistenceWarning(`设置保存失败：${error instanceof Error ? error.message : String(error)}`));
   }, [activeProjectId, activeWallpaper, apiConfig, customWallpaper?.sourcePath, knowledgeBase, projectName, projects, recentProjectPath, recentWallpapers, settingsLoaded, wallpaperBlur, wallpaperBrightness, wallpaperMotionMode, wallpaperMotionStrength, wallpaperVignette, workspaceOpacity]);
 
@@ -2615,7 +2703,7 @@ function App() {
               <p className="eyebrow">REVIEW</p>
               <h2>{resultJob ? jobDisplayTitle(resultJob) : "等待任务完成"}</h2>
             </div>
-            <span className="status-pill">{jobReviewStatusLabel(resultJob)}</span>
+            <span className="status-pill">{resultInputChange ? "待复核" : jobReviewStatusLabel(resultJob)}</span>
           </div>
           <div className="review-table">
             {resultChecks.length > 0 ? (
@@ -2666,13 +2754,13 @@ function App() {
 
   function renderExportPanel() {
     const grouped = groupedArtifacts(resultArtifacts);
-    const assessment = assessDelivery(resultJob);
+    const assessment = assessDelivery(resultJob, resultInputChange?.reason);
     const retryStage = retryStageForJob(resultJob);
     const versionComparison = artifactVersionComparison(resultJob);
     const diagnostics = backendDiagnosticsFor(resultJob);
     const history = resultJob?.runHistory ?? [];
     const relations = resultJob?.artifactRelations ?? [];
-    const canRetry = Boolean(resultJob && ["failed", "blocked", "cancelled", "review_required"].includes(resultJob.status));
+    const canRetry = Boolean(resultJob && !resultInputChange && ["failed", "blocked", "cancelled", "review_required"].includes(resultJob.status));
     const groupLabels: Array<[keyof typeof grouped, string]> = [
       ["model", "模型"],
       ["drawing", "工程图"],
@@ -2696,7 +2784,7 @@ function App() {
                   {retryingJobId === resultJob.id ? "正在排队" : `从${retryStageLabel(retryStage)}重新生成`}
                 </motion.button>
               ) : null}
-              <motion.button className="primary-button compact-action shine" type="button" onClick={enqueueDeliveryTask} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.975 }}>
+              <motion.button className="primary-button compact-action shine" type="button" disabled={Boolean(resultInputChange)} onClick={enqueueDeliveryTask} whileHover={reducedMotion ? undefined : { y: -2 }} whileTap={{ scale: 0.975 }}>
                 <Archive size={17} weight="duotone" />
                 生成交付包
               </motion.button>
@@ -2721,7 +2809,7 @@ function App() {
           </div>
           {selectedPreviewArtifact ? (
             <section className="delivery-preview-stage">
-              <div className="delivery-section-heading"><strong>当前预览</strong><span>{selectedPreviewArtifact.path?.split(/[\\/]/).pop()}</span></div>
+              <div className="delivery-section-heading"><strong>{resultInputChange ? "历史产物预览" : "当前预览"}</strong><span>{selectedPreviewArtifact.path?.split(/[\\/]/).pop()}</span></div>
               <ArtifactBrowser artifacts={[]} selected={selectedPreviewArtifact} onSelect={setSelectedPreviewArtifactPath} />
             </section>
           ) : null}
@@ -2758,15 +2846,15 @@ function App() {
             {deliveryFormats.map((format) => {
               const status = deliveryFormatStatus(format, resultJob, resultArtifacts);
               return (
-                <span className={status} key={format}>
-                  {format} · {status === "ready" ? "已生成" : status === "missing" ? "缺失" : "未要求"}
+                <span className={resultInputChange && status === "ready" ? "missing" : status} key={format}>
+                  {format} · {status === "ready" ? (resultInputChange ? "待复核" : "已生成") : status === "missing" ? "缺失" : "未要求"}
                 </span>
               );
             })}
           </div>
           <div className="review-mini">
             <span>复核状态</span>
-            <strong>{resultJob ? jobReviewStatusLabel(resultJob) : "等待生成后复核"}</strong>
+            <strong>{resultInputChange ? "待复核" : resultJob ? jobReviewStatusLabel(resultJob) : "等待生成后复核"}</strong>
           </div>
           {resultJob?.drawingEvidence ? <div className="review-mini"><span>工程图证据</span><strong>{reviewStatusLabel(resultJob.drawingEvidence.status)}</strong><small>{resultJob.drawingEvidence.error_code || retryStageLabel(resultJob.drawingEvidence.stage)}</small></div> : null}
           {resultJob?.bomEvidence ? <div className="review-mini"><span>BOM 证据</span><strong>{reviewStatusLabel(resultJob.bomEvidence.status)}</strong><small>{resultJob.bomEvidence.error_code || retryStageLabel(resultJob.bomEvidence.stage)}</small></div> : null}
@@ -2787,7 +2875,7 @@ function App() {
             <div className="delivery-versions">
               <div className="delivery-section-heading"><strong>版本记录</strong><span>{history.length + 1} 轮</span></div>
               <div className="delivery-version-row current">
-                <span>当前</span><strong>{resultJob.runId}</strong><small>{jobStatusLabel(resultJob.status)} · {resultArtifacts.length} 项</small>
+                <span>{resultInputChange ? "历史" : "当前"}</span><strong>{resultJob.runId}</strong><small>{jobStatusLabel(resultJob.status)} · {resultArtifacts.length} 项</small>
               </div>
               {[...history].reverse().slice(0, 5).map((run, index) => (
                 <div className="delivery-version-row" key={`${run.runId}-${index}`}>
@@ -2895,8 +2983,8 @@ function App() {
             <span>本地执行</span>
             <strong>{workerStatus.running ? `运行中 · PID ${workerStatus.pid ?? "-"}` : "未启动"}</strong>
             <p>{workerStatus.health?.heartbeatAt ? `最近心跳 ${workerStatus.health.heartbeatAt}` : runtimeMessage}</p>
-            <button type="button" onClick={() => void (workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
-              {workerStatus.running ? "停止本地执行器" : "启动本地执行器"}
+            <button type="button" disabled={workerAction !== null && workerAction !== "start"} onClick={() => void (workerAction === "start" || workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
+              {workerAction === "start" ? "取消启动" : workerStatus.running ? "停止本地执行器" : "启动本地执行器"}
             </button>
           </article>
           <article className="setting-card status-setting amber">
@@ -2918,6 +3006,15 @@ function App() {
               <button type="button" className={!knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: false }))}>本地</button>
               <button type="button" className={knowledgeBase.cloudEnabled ? "active" : ""} onClick={() => setKnowledgeBase((config) => ({ ...config, cloudEnabled: true }))}>云端增强</button>
             </div>
+            <label>
+              <input type="checkbox" checked={knowledgeBase.officialApiDocsEnabled !== false} onChange={(event) => setKnowledgeBase((config) => ({ ...config, officialApiDocsEnabled: event.target.checked }))} />
+              查询 SolidWorks 官方 API 文档
+            </label>
+            <label>
+              <input type="checkbox" checked={knowledgeBase.parallelApiFallbackEnabled !== false} disabled={knowledgeBase.officialApiDocsEnabled === false} onChange={(event) => setKnowledgeBase((config) => ({ ...config, parallelApiFallbackEnabled: event.target.checked }))} />
+              官网读取失败时使用免费 Parallel 备用查询
+            </label>
+            <p>仅发送版本、接口、方法名和官方链接；匿名服务有使用限制。关闭官方查询后仅使用本地资料。</p>
             {knowledgeBase.cloudEnabled ? (
               <div className="knowledge-fields">
                 <label>
@@ -3597,6 +3694,7 @@ function App() {
               <span>{queueLoaded ? queueSummary : "队列加载中"}</span>
             </div>
 
+            <LocalModelPanel key={activeProjectId} />
             <section className="agent-console" aria-live="polite">
               <div className="agent-head">
                 <div>
@@ -3622,7 +3720,7 @@ function App() {
                   onSelectProvider={selectAgentProvider}
                   onSelectModel={selectAgentModel}
                 />
-                <span>{activeAgentJob ? `${jobStatusLabel(activeAgentJob.status)} · ${activeAgentJob.progress}%` : activeConversation ? "等待指令" : "新建对话后开始"}</span>
+                <span>{activeAgentJob ? `${activeAgentInputChange ? "待复核 · " : ""}${jobStatusLabel(activeAgentJob.status)} · ${activeAgentJob.progress}%` : activeConversation ? "等待指令" : "新建对话后开始"}</span>
               </div>
 
               <div className={activeAgentJob ? "agent-body" : "agent-body single"}>
@@ -3650,7 +3748,7 @@ function App() {
                   <div className="live-head">
                     <ChatCircleText size={18} weight="duotone" />
                     <strong>{activeAgentJob ? jobDisplayTitle(activeAgentJob) : "等待第一条任务"}</strong>
-                    <span>{activeAgentJob ? jobStatusLabel(activeAgentJob.status) : "待命"}</span>
+                    <span>{activeAgentInputChange ? "待复核" : jobStatusLabel(activeAgentJob.status)}</span>
                   </div>
                   <div className="live-progress">
                     <i style={{ width: `${activeAgentJob?.progress ?? 0}%` }} />
@@ -3658,25 +3756,13 @@ function App() {
                   <div className="live-summary">
                     <p>{activeAgentJob ? compactJobMessage(activeAgentJob, activeAgentEvents) : "输入你的要求后，这里会显示 AI 的公开执行过程、工具结果和输出文件。"}</p>
                   </div>
-                  {activeAgentJob.result?.engineeringPlan?.phases?.length ? (
-                    <div className="engineering-plan-view">
-                      <strong>AI 工程路径</strong>
-                      <div>
-                        {activeAgentJob.result.engineeringPlan.phases.map((phase, index) => (
-                          <span className={phase.human_gate ? "human-gate" : ""} key={phase.id || `${phase.name}-${index}`}>
-                            <i>{index + 1}</i>
-                            {phase.name || phase.id}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  {activeAgentJob?.status === "approval_required" ? (
+                  <StageReviewPanel phases={activeAgentJob.result?.engineeringPlan?.phases ?? []} change={activeAgentInputChange} />
+                  {!activeAgentInputChange && activeAgentJob.status === "approval_required" ? (
                     <button className="approval-button" type="button" onClick={() => void approveJob(activeAgentJob.id)}>
                       批准本机执行
                     </button>
                   ) : null}
-                  {activeAgentJob?.status === "review_required" ? (
+                  {!activeAgentInputChange && activeAgentJob.status === "review_required" ? (
                     <ManualReviewPanel
                       draft={activeManualReviewDraft}
                       options={activeManualReviewOptions}
@@ -3739,8 +3825,8 @@ function App() {
                       {workerAction === "restart" ? "重启中" : "重启执行器"}
                     </button>
                   ) : null}
-                  <button type="button" disabled={workerAction !== null} onClick={() => void (workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
-                    {workerAction === "start" ? "启动中" : workerAction === "stop" ? "停止中" : workerStatus.running ? "停止" : "启动"}
+                  <button type="button" disabled={workerAction !== null && workerAction !== "start"} onClick={() => void (workerAction === "start" || workerStatus.running ? stopLocalWorker() : startLocalWorker())}>
+                    {workerAction === "start" ? "取消启动" : workerAction === "stop" ? "停止中" : workerStatus.running ? "停止" : "启动"}
                   </button>
                   <span>{queueLoaded ? queueSummary : "加载中"}</span>
                 </div>
@@ -3754,6 +3840,7 @@ function App() {
                   </div>
                 ) : (
                   activeProjectJobs.slice(0, 4).map((job) => {
+                    const inputChange = jobInputChange(job, activeProject.stageReview);
                     const expanded = expandedJobId === job.id;
                     const events = jobEvents[job.id] ?? [];
                     const logs = jobLogTails[job.id] ?? {};
@@ -3765,7 +3852,7 @@ function App() {
                             <strong>{jobDisplayTitle(job)}</strong>
                             <small>{compactJobMessage(job, events)}</small>
                           </div>
-                          <span>{jobStatusLabel(job.status)}</span>
+                          <span>{inputChange ? `待复核 · ${jobStatusLabel(job.status)}` : jobStatusLabel(job.status)}</span>
                         </div>
                         <div className="job-progress" aria-label={`${jobDisplayTitle(job)} 进度 ${job.progress}%`}>
                           <i style={{ width: `${job.progress}%` }} />
@@ -3780,12 +3867,12 @@ function App() {
                               对话跟随
                             </button>
                           ) : null}
-                          {job.status === "approval_required" ? (
+                          {!inputChange && job.status === "approval_required" ? (
                             <button type="button" onClick={() => void approveJob(job.id)}>
                               批准
                             </button>
                           ) : null}
-                          {job.status === "review_required" ? (
+                          {!inputChange && job.status === "review_required" ? (
                             <button type="button" onClick={() => {
                               setActiveAgentJobId(job.id);
                               setExpandedJobId(job.id);
@@ -3793,7 +3880,7 @@ function App() {
                               填写复核
                             </button>
                           ) : null}
-                          {job.status === "failed" ? (
+                          {!inputChange && job.status === "failed" ? (
                             <button type="button" disabled={retryingJobId !== null} onClick={() => void retryJob(job.id)}>
                               <ArrowClockwise className={retryingJobId === job.id ? "spin" : undefined} size={15} weight="bold" />
                               {retryingJobId === job.id ? "重新排队中" : "重新执行"}
@@ -3832,6 +3919,9 @@ function App() {
                                 </div>
                               </div>
 
+                              {job.id !== activeAgentJob?.id ? (
+                                <StageReviewPanel phases={job.result?.engineeringPlan?.phases ?? []} change={inputChange} />
+                              ) : null}
                               {job.approvalReasons?.length ? (
                                 <div className="process-note warning">
                                   <strong>需要审批</strong>

@@ -2,6 +2,12 @@
 
 > 此文保留 Phase 7/7.5 的历史记录。2026-10-08 后使用基线 v3：nominal 10/10，warning 阻断等待人工复核；当前验证结果见 [`scheme-b-reliability.md`](scheme-b-reliability.md)。
 
+> **历史口径注记（2026-10-27）**：本文表格中的 `Overall Scenario Count 37`、`raw completion 0.5946`、
+> `21/37` 等数字均为 Phase 7 当时的口径，**不是当前指标**。当前 `golden-workflows.yaml` 有 12 个 workflow，
+> 派生 43 个 scenario（12 nominal + 31 robustness），baseline 已更新为 v4
+> （当前原始完成比例 25/43 = 58.1%，见 `tests/evals/baseline.json` 的 `raw_task_completion_rate`）。
+> 本文结论（"V2 未造成回归"）仍然成立，但请勿引用其计数。
+
 > 阶段：Phase 7（Full Regression + Baseline Freeze）+ Phase 7.5（Evaluation Semantics Correction）
 > 结论：V2 未造成任何回归；Eval 口径已修正（Nominal/Robustness/Safety 分离）；Baseline 已按修正后口径冻结。
 

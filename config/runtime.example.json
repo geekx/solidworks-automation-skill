@@ -1,0 +1,6 @@
+{
+  "part_template": null,
+  "material_database": null,
+  "connect_timeout_seconds": 60,
+  "cleanup_timeout_seconds": 30
+}

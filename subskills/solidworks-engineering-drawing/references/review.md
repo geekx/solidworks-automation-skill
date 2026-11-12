@@ -13,9 +13,11 @@
 
 - 尺寸 ID 必须精确匹配，且逐项验证视图、种类、数值/文字、尺寸公差和基准；`D1` 不得命中 `D10`。
 - 孔要求必须按规格、数量和每个位置一一匹配。螺纹规格只接受专用螺纹/孔标注证据，不能由同名数字或光孔直径推断。
+- PDF 中直径符号可能是矢量图形，文字层只返回 `4X 10`；审查器会将这种数量前缀文本作为尺寸位置匹配候选，但文字层本身不能证明直径符号存在，也不能证明孔数量正确，仍须结合原生尺寸、模型孔证据和目视复核。
 - BOM 只接受 `swTableAnnotation_BillOfMaterials`，并要求存在非空数据行；请求配置时必须精确一致。
 - 标题栏模板候选不等于字段内容已验证；无法回读时保持 `review_required`。
 - DrawingSpec 请求的标准、轴测、剖视和局部视图都必须在结构证据中逐项出现。
 - 专业标注必须来自 `IView` 的中心标记、中心线、基准、GTOL、表面粗糙度或焊接符号实体，孔标注必须来自 `IDisplayDimension.IsHoleCallout`；不能用相同文字的普通注释替代。
 - 注解型中心标记优先通过 `IView.GetFirstCenterMark2` 与 `ICenterMark.GetNext` 遍历；`GetCenterMarks` 只作为旧版本回退，不能单独覆盖全部中心标记类型。
 - `professionalAnnotations` 按视图、类型、数量和文字逐项匹配。基准标签精确匹配，`A` 不得命中 `AB`。
+- SolidWorks 2026 的新版 GTol 框按 1 起始序号读取 `IGtolFrame.GetSymbolXml`，提取符号、主公差和基准字母；未知格式或无法解析时不虚构框内容。此回读仅提供标注证据，不验证完整 GD&T 语义或制造适用性。[官方接口说明](https://help.solidworks.com/2024/english/api/sldworksapi/SolidWorks.interop.sldworks~SolidWorks.interop.sldworks.IGtolFrame~GetSymbolXml.html)。

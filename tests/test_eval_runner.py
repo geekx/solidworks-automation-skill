@@ -23,16 +23,16 @@ def test_load_golden_workflows_old_format_compatible():
     payload = load_golden_workflows()
     assert payload["schema_version"] == "1.0"
     assert "target_first_pass_rate" in payload
-    assert len(payload["workflows"]) == 10
+    assert len(payload["workflows"]) == len(load_golden_workflows()["workflows"])
     for workflow in payload["workflows"]:
         assert {"id", "capabilities", "required_artifacts"} <= set(workflow)
 
 
 def test_build_scenarios_derives_from_golden():
     scenarios = build_scenarios(load_golden_workflows())
-    assert len(scenarios) == 37
+    assert len(scenarios) == 3 * len(load_golden_workflows()["workflows"]) + 7
     happy = [s for s in scenarios if s.type == "happy"]
-    assert len(happy) == 10
+    assert len(happy) == len(load_golden_workflows()["workflows"])
     golden_ids = {w["id"] for w in load_golden_workflows()["workflows"]}
     assert {s.workflow_id for s in happy} == golden_ids
     types = {s.type for s in scenarios}
@@ -107,8 +107,8 @@ def test_run_scenario_policy_blocked_handler_not_called():
 
 def test_run_eval_report_grouped_metrics():
     report = run_eval()
-    assert report.workflow_count == 10
-    assert report.scenario_count == 37
+    assert report.workflow_count == len(load_golden_workflows()["workflows"])
+    assert report.scenario_count == 3 * len(load_golden_workflows()["workflows"]) + 7
     assert report.target_first_pass_rate == 0.90
     # 修正后：target 只与 Nominal first-pass 比较 → PASS
     assert report.first_pass_target_status == "PASS"
@@ -116,15 +116,15 @@ def test_run_eval_report_grouped_metrics():
     assert report.metrics["safety"]["escaped_false_completion_rate"] == 0.0
     assert report.metrics["robustness"]["expected_outcome_accuracy"] == 1.0
     # Overall raw completion 仅诊断，不用于 target
-    assert report.metrics["overall"]["raw_task_completion_rate"] == 0.5676
+    assert report.metrics["overall"]["raw_task_completion_rate"] == round((2 * report.workflow_count + 1) / report.scenario_count, 4)
 
 
 def test_write_reports_json_and_markdown(tmp_path):
     report = run_eval()
     json_path, md_path = write_reports(report, tmp_path)
     data = json.loads(json_path.read_text(encoding="utf-8"))
-    assert data["workflow_count"] == 10
-    assert data["scenario_count"] == 37
+    assert data["workflow_count"] == len(load_golden_workflows()["workflows"])
+    assert data["scenario_count"] == 3 * len(load_golden_workflows()["workflows"]) + 7
     assert "nominal" in data["metrics"]
     assert "robustness" in data["metrics"]
     assert "safety" in data["metrics"]

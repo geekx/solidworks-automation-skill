@@ -29,10 +29,10 @@ ai_team/*
 !ai_team/ui-layout-check.cjs
 !ai_team/workbench-e2e-final.cjs
 !ai_team/delivery-gate-e2e.cjs
+!ai_team/preview-viewport-e2e.cjs
 apps/workbench-ui/ai_team/
 apps/workbench-ui/.playwright-cli/
 .spec-workflow/
-
 # SolidWorks files
 *.SLDPRT
 *.SLDASM
@@ -43,19 +43,16 @@ apps/workbench-ui/.playwright-cli/
 ~$*.SLDPRT
 ~$*.SLDASM
 ~$*.SLDDRW
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
 # OS
 .DS_Store
 Thumbs.db
 desktop.ini
-
 # Output files
 *.step
 *.stp
@@ -67,6 +64,26 @@ desktop.ini
 *.dwg
 output/
 exports/
-
+# 公开证据目录：只放行清单/摘要类文本（.json / .md / .csv）。
+# 二进制几何、渲染图与压缩包一律不入库——26 MB 的原始证据包留在维护者本机。
+# 这里只加"排除"，不放宽任何既有忽略规则；需要新格式入库时连同隐私审查单独提案。
+docs/architecture/evidence/**/*.zip
+docs/architecture/evidence/**/*.7z
+docs/architecture/evidence/**/*.tar.gz
+docs/architecture/evidence/**/*.SLDPRT
+docs/architecture/evidence/**/*.SLDASM
+docs/architecture/evidence/**/*.SLDDRW
+docs/architecture/evidence/**/*.png
+docs/architecture/evidence/**/*.bmp
+# 本次本地交接和验证材料包含机器配置、会话记录及路径；保留在本机，
+# 未经过逐项脱敏与核对前不作为公开证据提交。
+/HANDOFF.md
+/docs/architecture/evidence/mcp-discovery-20261029/
+# 治理证明签名私钥：仅存于维护者本机，任何情况下不得入库
+*.private.pem
+.ed25519-private.pem
+.cad-governance/
+# scripts/evaluate_skill.py 的默认输出目录（--out-dir 缺省值），属运行产物不入库
+eval-output/
 pytest-of-*/
 .venv-test/

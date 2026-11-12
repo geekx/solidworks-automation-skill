@@ -6,6 +6,14 @@ import pytest
 from scripts import design_audit as audit
 
 
+def test_regression_gate_does_not_treat_missing_evidence_as_a_fix():
+    baseline = [{"id": "DRC-HOLE-001", "category": "holes", "status": "fail", "severity": "major", "target": "H1"}]
+    candidate = [{"id": "DRC-HOLE-EVIDENCE", "category": "holes", "status": "info", "severity": "info"}]
+    result = audit.assert_no_regression(baseline, candidate)
+    assert result["passed"] is False
+    assert result["unverifiedFixed"] == [{"id": "DRC-HOLE-001", "target": "H1"}]
+
+
 def _checks():
     return [
         {"id": "DRC-HOLE-001", "category": "holes", "status": "fail", "severity": "major", "target": "H1", "message": "边距不足"},
@@ -57,6 +65,22 @@ def test_expired_waiver_does_not_apply():
     result = audit.apply_waivers(checks, waivers, as_of_date="2026-09-08")
     assert len(result["applied"]) == 0
     assert len(result["expired"]) == 1
+
+
+def test_default_date_never_applies_an_old_expired_waiver():
+    waiver = {"ruleId": "DRC-STD-004", "reason": "r", "owner": "o", "expiresOn": "2000-01-01"}
+    result = audit.apply_waivers(_checks(), [waiver])
+    assert not result["applied"]
+    assert len(result["expired"]) == 1
+
+
+def test_waiver_dates_are_valid_and_future_waivers_do_not_apply():
+    with pytest.raises(ValueError):
+        audit.validate_waiver({"ruleId": "X", "reason": "r", "owner": "o", "expiresOn": "2026-99-99"})
+    waiver = {"ruleId": "DRC-STD-004", "reason": "r", "owner": "o", "createdOn": "2026-12-01"}
+    result = audit.apply_waivers(_checks(), [waiver], as_of_date="2026-01-01")
+    assert not result["applied"]
+    assert len(result["notYetValid"]) == 1
 
 
 def test_risk_score_weights_and_band():

@@ -26,6 +26,30 @@ SolidWorks 是 Windows 桌面 COM 应用，不是原生 MCP 服务。MCP Server 
 - 多客户端并发容易让 SolidWorks 文档状态混乱。
 - 远程访问还需要身份认证、Origin 校验和桌面会话隔离。
 
+## 工具发现与审批
+
+默认模式 `SW_MCP_DISCOVERY=search` 只暴露三个入口（`sw_search_tools` / `sw_describe_tool` /
+`sw_call_tool`），69 个原生命名工具按需检索。`SW_MCP_DISCOVERY=full` 保留全部命名工具，
+用于需要客户端逐工具权限提示的场景。
+
+使用 `sw_search_tools` 搜索“API 接口签名”，再调用 `solidworks_lookup_api`；提供 `interface` 和 `member`，或改为提供自然语言 `task`，可选 `version` / `process_id`。默认按需自动配置依赖，因此工具注解标记为可能修改环境；`auto_install=false` 禁用安装，`offline=true` 禁用联网和安装，服务端会按参数区分副作用级别，保留客户端与服务端原有授权模式。官网直读失败且本地无缓存时，默认使用匿名 Parallel 提取对应版本的官方页面，使用 `parallel_fallback=false` 关闭。Parallel 的版本依据弱于官网结构化数据；所有结果都不能代替目标版本的真机验证。详情见 `references/api-lookup.md`。
+
+实现上把 FastMCP 的 `_tool_manager` 换成 `ToolGate` 代理。`list_tools` 和 `call_tool` 都在
+调用时读取这个属性，因此 stdio、streamable-http、以及客户端直接点名调用被隐藏工具，全部
+经过同一套检查：
+
+- `mcp-server/discovery.py`：离线检索，只读工具元数据，不承担授权与执行。
+- `mcp-server/policy.py`：副作用唯一真源（READ / WRITE / DESTRUCTIVE / UNKNOWN）；
+  未登记的工具默认拒绝，新增工具必须先补分级，`tests/test_mcp_discovery.py` 会强制对齐注册表。
+- `mcp-server/gate.py`：可见性控制、执行前策略检查、写操作审批。
+- `mcp-server/approval.py`：可选的 HMAC 签名一次性批准账本；批准绑定工具、参数摘要、服务端会话和有效期。严格模式可绑定已保存文档的进程 ID 与路径，但不能证明文档内容未改变。
+- `scripts/sw_mcp_approve.py`：通过交互式终端确认；模型在 MCP 参数里传 `approved: true` 不生效。TTY 不证明真人，同一操作系统用户的进程可模拟终端或访问账本，不能将它视作隔离不可信 Agent 的安全边界。
+
+审批模式 `SW_MCP_APPROVAL`：`auto`（默认，发现模式→`task`，完整模式→`client`）、
+`task`、`server`、`client`、`elicit`、`off`。`task` 信任客户端任务授权，服务端不会验证其是否经过用户确认。
+`elicit` 依赖客户端支持 MCP elicitation，且可能被
+agent 自动应答，不作为默认。服务端账本同样不隔离具有相同操作系统权限的进程。
+
 ## 多客户端注册策略
 
 安装器会调用 `mcp-server/register_all_ai_mcp.js`，尽量自动注册常见本地 AI 客户端：

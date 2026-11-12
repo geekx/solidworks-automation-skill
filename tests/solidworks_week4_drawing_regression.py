@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from sw_connect import create_empty_dispatch_variant, get_com_member, get_sw_version  # noqa: E402
+from cad_installation import discover_installations  # noqa: E402
 from sw_drawing import (  # noqa: E402
     auto_arrange_drawing_dimensions,
     auto_insert_center_marks,
@@ -41,20 +42,35 @@ def _require_file(path: Path, label: str) -> dict:
 
 
 def _sheet_format_candidates() -> list[str]:
-    """@brief 返回本机可用的 A3/GB 图框候选路径。"""
-    roots = [
-        Path(r"E:\SolidWroks2026\SOLIDWORKS"),
-        Path(r"E:\Solidworks\SOLIDWORKS"),
-        Path(r"C:\ProgramData\SOLIDWORKS"),
-    ]
+    """@brief 返回本机可用的 A3/GB 图框候选路径。
+
+    候选来源：`discover_installations()` 发现的真实安装目录 → 环境变量
+    `SOLIDWORKS_TYPELIB_DIRS` 显式目录 → 通用 ProgramData 目录。
+    不再内置开发者机器的固定盘符。
+    """
+    roots: list[Path] = []
+    for installation in discover_installations("solidworks"):
+        executable = installation.get("executable")
+        if executable:
+            roots.append(Path(executable).parent)
+    for directory in str(os.environ.get("SOLIDWORKS_TYPELIB_DIRS", "")).split(os.pathsep):
+        if directory.strip():
+            roots.append(Path(directory.strip()).expanduser())
+    roots.append(Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "SOLIDWORKS")
     candidates: list[str] = []
+    seen: set[str] = set()
     for root in roots:
         if not root.is_dir():
             continue
         try:
-            candidates.extend(str(path) for path in root.rglob("*.slddrt") if "a3" in path.name.casefold())
+            found = [str(path) for path in root.rglob("*.slddrt") if "a3" in path.name.casefold()]
         except OSError:
             continue
+        for path in found:
+            key = os.path.normcase(os.path.abspath(path))
+            if key not in seen:
+                seen.add(key)
+                candidates.append(path)
     return candidates
 
 

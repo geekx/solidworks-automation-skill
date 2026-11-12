@@ -224,3 +224,38 @@ def test_discover_installation_prefers_newest_uninstall_registry_entry(monkeypat
     assert result["version"] == "2026"
     assert result["servicePack"] == "SP01.1"
     assert result["executable"] == r"E:\SolidWroks2026\SOLIDWORKS\SLDWORKS.exe"
+
+
+def test_candidate_drives_keeps_preferred_order_then_appends_others(monkeypatch):
+    """@brief 盘符枚举必须保持 D:/E: 优先，并追加其余本机盘符。"""
+    monkeypatch.setattr(cad_installation.os, "listdrives", lambda: ["C://", "D://", "E://", "F://"], raising=False)
+
+    assert cad_installation._candidate_drives() == ("D:", "E:", "C:", "F:")
+
+
+def test_candidate_drives_falls_back_when_enumeration_unavailable(monkeypatch):
+    """@brief 非 Windows 或枚举失败时退回历史固定列表，不得抛错。"""
+
+    def _unavailable():
+        raise AttributeError("listdrives")
+
+    monkeypatch.setattr(cad_installation.os, "listdrives", _unavailable, raising=False)
+
+    assert cad_installation._candidate_drives() == ("D:", "E:")
+
+
+def test_candidate_drives_skips_unmounted_preferred_drive(monkeypatch):
+    """@brief 未挂载的 D:/E: 不应继续参与候选扫描。"""
+    monkeypatch.setattr(cad_installation.os, "listdrives", lambda: ["C://"], raising=False)
+
+    assert cad_installation._candidate_drives() == ("C:",)
+
+
+def test_common_candidates_scan_drives_beyond_e(monkeypatch):
+    """@brief 安装在 F: 等更高盘符时，注册表与快捷方式都缺失也必须能构造候选。"""
+    monkeypatch.setattr(cad_installation.os, "listdrives", lambda: ["F://"], raising=False)
+    monkeypatch.setattr(cad_installation.glob, "glob", lambda _pattern: [])
+
+    candidates = cad_installation._common_candidates("solidworks")
+
+    assert any(str(path).lower().startswith("f:") for path in candidates)

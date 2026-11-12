@@ -1,87 +1,72 @@
-"""SolidWorks 属性驱动批量改名的无 COM 回归测试。"""
+"""只读改名预览：名称安全、冲突和用户文档归属。"""
 from __future__ import annotations
 
-import csv
+from types import SimpleNamespace
 
-from scripts import sw_file_rename as rename
+import pytest
 
-
-def test_sanitize_filename():
-    assert rename.sanitize_filename("a/b:c*d") == "a_b_c_d"
-    assert rename.sanitize_filename("  ..name..  ") == "name"
-    assert rename.sanitize_filename("x///y") == "x_y"
+from scripts import sw_document_data, sw_file_rename as rename
 
 
-def test_render_name_template_and_missing():
-    name, missing = rename.render_name_template("{图号}_{名称}", {"图号": "A-001", "名称": "底板"})
-    assert name == "A-001_底板"
-    assert missing == []
-    name2, missing2 = rename.render_name_template("{图号}_{名称}", {"图号": "A-001"})
-    assert missing2 == ["名称"]
-
-
-def test_plan_renames_statuses():
+def test_plan_reports_missing_unsafe_and_duplicate_names():
     entries = [
-        {"path": "/x/old1.SLDPRT", "properties": {"图号": "A-001", "名称": "底板"}},
-        {"path": "/x/A-002_盖板.SLDASM", "properties": {"图号": "A-002", "名称": "盖板"}},
-        {"path": "/x/nomiss.SLDPRT", "properties": {"图号": "", "名称": "x"}},
-        {"path": "/x/blank.SLDPRT", "properties": {}},
+        {"path": "a.SLDPRT", "properties": {"图号": "A1"}},
+        {"path": "b.SLDPRT", "properties": {"图号": "a1"}},
+        {"path": "c.SLDPRT", "properties": {"图号": "CON"}},
+        {"path": "d.SLDPRT", "properties": {}},
     ]
-    plans = rename.plan_renames(entries, "{图号}_{名称}")
-    by_old = {p["old_name"]: p for p in plans}
-    assert by_old["old1.SLDPRT"]["status"] == "rename"
-    assert by_old["old1.SLDPRT"]["new_name"] == "A-001_底板.SLDPRT"
-    assert by_old["A-002_盖板.SLDASM"]["status"] == "skip_noop"
-    assert by_old["nomiss.SLDPRT"]["status"] == "skip_missing"
-    assert by_old["blank.SLDPRT"]["status"] in {"skip_missing", "skip_empty"}
+    plans = rename.plan_renames(entries, "{图号}")
+    assert [plan["status"] for plan in plans] == ["blocked"] * 4
+    assert "冲突" in plans[0]["reason"]
+    assert "保留" in plans[2]["reason"]
+    assert "缺少属性" in plans[3]["reason"]
 
 
-def test_plan_renames_detects_conflict():
-    entries = [
-        {"path": "/x/a.SLDPRT", "properties": {"图号": "SAME", "名称": "n"}},
-        {"path": "/x/b.SLDPRT", "properties": {"图号": "SAME", "名称": "n"}},
-    ]
-    plans = rename.plan_renames(entries, "{图号}_{名称}")
-    assert all(p["status"] == "conflict" for p in plans)
+def test_plan_detects_existing_source_name_and_allows_distinct_output():
+    entries = [{"path": "a.SLDPRT", "properties": {"name": "b"}},
+               {"path": "b.SLDPRT", "properties": {"name": "new"}}]
+    plans = rename.plan_renames(entries, "{name}")
+    assert plans[0]["status"] == "blocked"
+    assert plans[1]["status"] == "planned" and plans[1]["new_name"] == "new.SLDPRT"
 
 
-def test_plan_cut_list_renames():
-    items = [
-        {"name": "切割清单项目1", "properties": {"材料": "Q235", "长度": "1200"}},
-        {"name": "Q235-800", "properties": {"材料": "Q235", "长度": "800"}},
-        {"name": "切割清单项目3", "properties": {"材料": "", "长度": "500"}},
-    ]
-    plans = rename.plan_cut_list_renames(items, "{材料}-{长度}")
-    assert plans[0]["status"] == "rename" and plans[0]["new_name"] == "Q235-1200"
-    assert plans[1]["status"] == "skip_noop"
-    assert plans[2]["status"] == "skip_missing"
+@pytest.mark.parametrize("template", ["{x.__class__}", "{x[0]}", "{x!r}", "{x:>3}", "missing fields"])
+def test_rejects_non_declarative_templates(template):
+    with pytest.raises(ValueError):
+        rename.template_fields(template)
 
 
-def test_summarize_and_write_plan_csv(tmp_path):
-    plans = rename.plan_renames(
-        [{"path": "/x/old.SLDPRT", "properties": {"图号": "A", "名称": "b"}}], "{图号}_{名称}"
-    )
-    summary = rename.summarize_plan(plans)
-    assert summary["rename"] == 1
-    path = rename.write_plan_csv(plans, tmp_path / "plan.csv")
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.DictReader(handle))
-    assert rows[0]["old_name"] == "old.SLDPRT"
-    assert rows[0]["new_name"] == "A_b.SLDPRT"
-    assert rows[0]["status"] == "rename"
+def test_collection_never_closes_preexisting_user_document(tmp_path, monkeypatch):
+    for name in ("already.SLDPRT", "owned.SLDPRT", "~$already.SLDPRT"):
+        (tmp_path / name).write_text("test")
+    preexisting, owned = object(), object()
+    closed = []
+
+    class Session:
+        _owned_documents = []
+        def open(self, path, **kwargs):
+            assert kwargs == {"read_only": True, "silent": True}
+            if path.endswith("already.SLDPRT"):
+                return preexisting
+            self._owned_documents.append(owned)
+            return owned
+        def close(self, *, model):
+            closed.append(model)
+            self._owned_documents.remove(model)
+
+    monkeypatch.setattr(sw_document_data, "read_custom_property", lambda model, name: {"exists": True, "was_resolved": True, "resolved": "P1"})
+    entries = rename.collect_entries(Session(), tmp_path, ["编号"])
+    assert len(entries) == 2
+    assert closed == [owned]
+    assert preexisting not in closed
 
 
-class FakeCutListFeature:
-    def __init__(self, name):
-        self.Name = name
-
-
-def test_apply_cut_list_renames(monkeypatch):
-    features = [FakeCutListFeature("切割清单项目1"), FakeCutListFeature("Keep")]
-    monkeypatch.setattr(rename, "get_com_member", lambda obj, name, *a: getattr(obj, name))
-    monkeypatch.setattr(rename, "iter_features_recursive", lambda _model: features)
-    results = rename.apply_cut_list_renames(object(), {"切割清单项目1": "Q235-1200"})
-    assert len(results) == 1
-    assert results[0]["verified"] is True
-    assert features[0].Name == "Q235-1200"
-    assert features[1].Name == "Keep"
+def test_unresolved_property_does_not_become_a_filename(tmp_path, monkeypatch):
+    (tmp_path / "part.SLDPRT").write_text("test")
+    document = object()
+    session = SimpleNamespace(_owned_documents=[], open=lambda *a, **k: document)
+    monkeypatch.setattr(sw_document_data, "read_custom_property", lambda *a: {
+        "exists": True, "was_resolved": False, "raw": "linked expression", "resolved": ""
+    })
+    entries = rename.collect_entries(session, tmp_path, ["编号"])
+    assert rename.plan_renames(entries, "{编号}")[0]["status"] == "blocked"

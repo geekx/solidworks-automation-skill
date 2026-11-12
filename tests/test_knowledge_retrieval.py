@@ -1,6 +1,7 @@
 """@brief CAD Studio 专业知识检索回归测试。"""
 
 from pathlib import Path
+import hashlib
 import urllib.error
 
 import pytest
@@ -77,6 +78,18 @@ def test_prompt_includes_rag_source_and_hash() -> None:
     assert "C:/kb/bearing.md" in prompt
     assert "abc123" in prompt
     assert "不可信参考数据" in prompt
+
+
+def test_knowledge_hash_matches_bounded_prompt_excerpt(monkeypatch) -> None:
+    from apps.desktop.cad_workbench.knowledge_retrieval import KnowledgeChunk
+    text = "测试内容" * 1500
+    chunk = KnowledgeChunk(source="example", title="demo", text=text, score=1.0, sha256="original")
+    monkeypatch.setattr("apps.desktop.cad_workbench.knowledge_retrieval.retrieve_local_knowledge", lambda *a, **k: [chunk])
+    context = build_job_knowledge_context({"objective": "test"})
+    actual = context["chunks"][0]
+    assert len(actual["text"]) == 4000
+    assert actual["sha256"] == hashlib.sha256(actual["text"].encode("utf-8")).hexdigest()
+    assert actual["text"] in compile_codex_prompt({"_knowledgeContext": context})
 
 
 def test_prompt_enforces_versioned_stage_retry_without_overwrite() -> None:

@@ -120,6 +120,9 @@ def validate_profile(payload: Mapping[str, Any]) -> dict[str, Any]:
     unknown_t = set(thresholds_in) - set(THRESHOLD_FIELDS)
     _require(not unknown_t, f"thresholds 含未知项: {', '.join(sorted(unknown_t))}")
     thresholds = {key: _number(value, key) for key, value in thresholds_in.items()}
+    _require(all(value > 0 for value in thresholds.values()), "阈值必须大于零；要停用规则请显式设置 disabledRules")
+    _require(thresholds.get("driveRmsUtilizationMax", 1.0) <= 1.0, "driveRmsUtilizationMax 不能大于 1")
+    _require(thresholds.get("driveTorqueSafetyFactor", 1.0) >= 1.0, "driveTorqueSafetyFactor 不能小于 1")
 
     disabled_in = payload.get("disabledRules") or []
     _require(isinstance(disabled_in, (list, tuple)), "disabledRules 必须是数组")
@@ -135,6 +138,7 @@ def validate_profile(payload: Mapping[str, Any]) -> dict[str, Any]:
     custom = [_validate_custom_rule(rule) for rule in custom_in]
     ids = [rule["id"] for rule in custom]
     _require(len(ids) == len(set(ids)), "自定义规则 id 不能重复")
+    _require(not any(value.upper().startswith("DRC-") for value in ids), "自定义规则不能使用保留的 DRC- 前缀")
 
     return {
         "schema": PROFILE_SCHEMA,

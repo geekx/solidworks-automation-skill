@@ -8,6 +8,7 @@ via pytest fixture discovery (no imports needed).
 """
 import os
 import sys
+import tempfile
 import types
 import importlib.util
 from contextlib import contextmanager
@@ -18,6 +19,16 @@ SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
+
+# MCP 服务端在导入时读取运行模式。发布默认是 search（精简发现），而既有回归
+# 针对的是完整工具面和逐工具行为，这里显式固定成 full，避免默认值变化悄悄
+# 改变这些测试的语义；发现模式本身在 test_mcp_discovery.py 里单独覆盖。
+os.environ.setdefault("SW_MCP_DISCOVERY", "full")
+os.environ.setdefault("SW_MCP_APPROVAL", "client")
+os.environ.setdefault(
+    "SW_MCP_APPROVAL_DIR",
+    os.path.join(tempfile.gettempdir(), "sw-mcp-test-approvals"),
+)
 
 
 @contextmanager

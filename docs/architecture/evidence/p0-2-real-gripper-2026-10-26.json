@@ -1,0 +1,710 @@
+{
+  "phase": "P0-2",
+  "date": "2026-10-26",
+  "branch": "test/p0-real-assembly-gripper-2026",
+  "stacked_base_branch": "test/p0-real-golden-mounting-bracket-2026",
+  "stacked_base_sha": "818087a366efdd830d85b37d0705dd2d873464eb",
+  "real_source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+  "parent_pr": "https://github.com/wzyn20051216/solidworks-automation-skill/pull/39",
+  "task_status": "blocked",
+  "acceptance_status": "passed",
+  "manual_review_required": true,
+  "core_scope": "terminal_adaptation_only",
+  "remote_cad_ci_executed": false,
+  "github_settings_changed": false,
+  "manual_preview_review": {
+    "runs": [
+      "run-01",
+      "run-02",
+      "run-03",
+      "run-04",
+      "run-05"
+    ],
+    "views": [
+      "isometric",
+      "front",
+      "top",
+      "right"
+    ],
+    "result": "结构一致；不代替原生几何、Mate 或制造审核"
+  },
+  "metrics": {
+    "run_count": 5,
+    "test_acceptance_count": 5,
+    "task_completion_count": 0,
+    "false_completion_count": 0,
+    "cleanup_success_count": 5,
+    "geometry_success_count": 5,
+    "expected_gate_correct_count": 5,
+    "native_parts_per_run": 5,
+    "assembly_instances_per_run": 9,
+    "mates_per_run": 22,
+    "independent_linear_dofs": 2,
+    "nominal_interference_count_per_run": 0
+  },
+  "runs": [
+    {
+      "run": "run-01",
+      "backend": "real-solidworks-2026",
+      "mock": false,
+      "version": {
+        "revision": "34.1.1",
+        "year": 2026,
+        "major": 34
+      },
+      "source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+      "pid": 51052,
+      "process_created_at": "2026-10-26T04:41:21.148000+00:00",
+      "trace_run_id": "golden_98e242e49c7b4f5d893026285f8e8f03",
+      "task_status": "blocked",
+      "acceptance_status": "passed",
+      "manual_review_required": true,
+      "native_part_file_count": 5,
+      "component_instance_count": 9,
+      "mate_count": 22,
+      "mate_type_counts": {
+        "0": 13,
+        "5": 1,
+        "1": 6,
+        "3": 2
+      },
+      "nominal_interference_count": 0,
+      "nominal_interference_total_volume_mm3": 0,
+      "native_interference_control_count": 2,
+      "native_interference_control_volumes_mm3": [
+        16864.920954,
+        6480.0
+      ],
+      "native_mate_suppression_detected": true,
+      "verified_independent_linear_dofs": 2,
+      "dof_proof": "22 real mates + native constrained states + 14 six-axis solver/pose probes",
+      "private_sdk_direct_dof_count": "unverified; raw diagnostics are not a count",
+      "native_reopen": "pass",
+      "step_reimport": "pass",
+      "bom_quantity": 9,
+      "native_total_volume_mm3": 208099.3550426543,
+      "step_total_volume_mm3": 208099.35504265435,
+      "review_rules": "pass",
+      "review_score": 100,
+      "resolved_templates": {
+        "part": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_part.prtdot",
+          "sha256": "8cfb85c297adeec4ac01861a51fccb20a68a415997659f08a99c1d5e26292bff"
+        },
+        "assembly": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_assembly.asmdot",
+          "sha256": "2c3c276538bb07fa4b50b2523c435a4a3639d4a6a6b2aaa5cc93ba1a40445166"
+        }
+      },
+      "resolved_material_database": {
+        "path": "E:\\SolidWroks2026\\SOLIDWORKS\\lang\\english\\sldmaterials\\solidworks materials.sldmat",
+        "sha256": "636ef75ffb10e8abf7529c910a50dc2cb0d73ce5112c9721e7e4de1824cf57c5"
+      },
+      "cleanup": {
+        "status": "pass",
+        "owned_pid": 51052,
+        "errors": [],
+        "remaining_documents": 0,
+        "exit_requested": true,
+        "processes_after": {}
+      },
+      "verified_sha256_count": 29,
+      "report": "output\\p0-2-real-five-01\\run-01\\report.json",
+      "report_sha256": "a5233b455ec094e1f767b65019687593ebd7aa67554c3e666f80fbeafa7705ec",
+      "manifest_sha256": "7f5369a0c9c1d7b2f5863fb8d8c9fee1e6ed521a0fa36c55153fb0d2cc183f39"
+    },
+    {
+      "run": "run-02",
+      "backend": "real-solidworks-2026",
+      "mock": false,
+      "version": {
+        "revision": "34.1.1",
+        "year": 2026,
+        "major": 34
+      },
+      "source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+      "pid": 6576,
+      "process_created_at": "2026-10-26T04:49:11.494000+00:00",
+      "trace_run_id": "golden_0066564f2d614024b01fedf1dc578871",
+      "task_status": "blocked",
+      "acceptance_status": "passed",
+      "manual_review_required": true,
+      "native_part_file_count": 5,
+      "component_instance_count": 9,
+      "mate_count": 22,
+      "mate_type_counts": {
+        "0": 13,
+        "5": 1,
+        "1": 6,
+        "3": 2
+      },
+      "nominal_interference_count": 0,
+      "nominal_interference_total_volume_mm3": 0,
+      "native_interference_control_count": 2,
+      "native_interference_control_volumes_mm3": [
+        16864.920954,
+        6480.0
+      ],
+      "native_mate_suppression_detected": true,
+      "verified_independent_linear_dofs": 2,
+      "dof_proof": "22 real mates + native constrained states + 14 six-axis solver/pose probes",
+      "private_sdk_direct_dof_count": "unverified; raw diagnostics are not a count",
+      "native_reopen": "pass",
+      "step_reimport": "pass",
+      "bom_quantity": 9,
+      "native_total_volume_mm3": 208099.3550426543,
+      "step_total_volume_mm3": 208099.35504265435,
+      "review_rules": "pass",
+      "review_score": 100,
+      "resolved_templates": {
+        "part": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_part.prtdot",
+          "sha256": "8cfb85c297adeec4ac01861a51fccb20a68a415997659f08a99c1d5e26292bff"
+        },
+        "assembly": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_assembly.asmdot",
+          "sha256": "2c3c276538bb07fa4b50b2523c435a4a3639d4a6a6b2aaa5cc93ba1a40445166"
+        }
+      },
+      "resolved_material_database": {
+        "path": "E:\\SolidWroks2026\\SOLIDWORKS\\lang\\english\\sldmaterials\\solidworks materials.sldmat",
+        "sha256": "636ef75ffb10e8abf7529c910a50dc2cb0d73ce5112c9721e7e4de1824cf57c5"
+      },
+      "cleanup": {
+        "status": "pass",
+        "owned_pid": 6576,
+        "errors": [],
+        "remaining_documents": 0,
+        "exit_requested": true,
+        "processes_after": {}
+      },
+      "verified_sha256_count": 29,
+      "report": "output\\p0-2-real-five-01\\run-02\\report.json",
+      "report_sha256": "cd020245a597c81fc7ce066916140aff6f98d0b37ef2324ce75be5845e0d3d26",
+      "manifest_sha256": "f389fcddef56d4eb38d7734b0e6067a53440d1447ec9389def4ac7a205f2a6d3"
+    },
+    {
+      "run": "run-03",
+      "backend": "real-solidworks-2026",
+      "mock": false,
+      "version": {
+        "revision": "34.1.1",
+        "year": 2026,
+        "major": 34
+      },
+      "source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+      "pid": 48788,
+      "process_created_at": "2026-10-26T04:58:06.241000+00:00",
+      "trace_run_id": "golden_dc02fa46e9cf4b648f856e8836498d86",
+      "task_status": "blocked",
+      "acceptance_status": "passed",
+      "manual_review_required": true,
+      "native_part_file_count": 5,
+      "component_instance_count": 9,
+      "mate_count": 22,
+      "mate_type_counts": {
+        "0": 13,
+        "5": 1,
+        "1": 6,
+        "3": 2
+      },
+      "nominal_interference_count": 0,
+      "nominal_interference_total_volume_mm3": 0,
+      "native_interference_control_count": 2,
+      "native_interference_control_volumes_mm3": [
+        16864.920954,
+        6480.0
+      ],
+      "native_mate_suppression_detected": true,
+      "verified_independent_linear_dofs": 2,
+      "dof_proof": "22 real mates + native constrained states + 14 six-axis solver/pose probes",
+      "private_sdk_direct_dof_count": "unverified; raw diagnostics are not a count",
+      "native_reopen": "pass",
+      "step_reimport": "pass",
+      "bom_quantity": 9,
+      "native_total_volume_mm3": 208099.35504265432,
+      "step_total_volume_mm3": 208099.35504265435,
+      "review_rules": "pass",
+      "review_score": 100,
+      "resolved_templates": {
+        "part": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_part.prtdot",
+          "sha256": "8cfb85c297adeec4ac01861a51fccb20a68a415997659f08a99c1d5e26292bff"
+        },
+        "assembly": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_assembly.asmdot",
+          "sha256": "2c3c276538bb07fa4b50b2523c435a4a3639d4a6a6b2aaa5cc93ba1a40445166"
+        }
+      },
+      "resolved_material_database": {
+        "path": "E:\\SolidWroks2026\\SOLIDWORKS\\lang\\english\\sldmaterials\\solidworks materials.sldmat",
+        "sha256": "636ef75ffb10e8abf7529c910a50dc2cb0d73ce5112c9721e7e4de1824cf57c5"
+      },
+      "cleanup": {
+        "status": "pass",
+        "owned_pid": 48788,
+        "errors": [],
+        "remaining_documents": 0,
+        "exit_requested": true,
+        "processes_after": {}
+      },
+      "verified_sha256_count": 29,
+      "report": "output\\p0-2-real-five-01\\run-03\\report.json",
+      "report_sha256": "6f0e4c9e6412736a076a34bd66f80d57a913301f4629f8d809247890c8f311d0",
+      "manifest_sha256": "f058dc91feb4b210b42147d61d121daf27b73bf4e7926b4fd5c5667a9ca693c6"
+    },
+    {
+      "run": "run-04",
+      "backend": "real-solidworks-2026",
+      "mock": false,
+      "version": {
+        "revision": "34.1.1",
+        "year": 2026,
+        "major": 34
+      },
+      "source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+      "pid": 35240,
+      "process_created_at": "2026-10-26T05:07:06.919000+00:00",
+      "trace_run_id": "golden_13c4e3c5e72c45e1a5a053cae93d4528",
+      "task_status": "blocked",
+      "acceptance_status": "passed",
+      "manual_review_required": true,
+      "native_part_file_count": 5,
+      "component_instance_count": 9,
+      "mate_count": 22,
+      "mate_type_counts": {
+        "0": 13,
+        "5": 1,
+        "1": 6,
+        "3": 2
+      },
+      "nominal_interference_count": 0,
+      "nominal_interference_total_volume_mm3": 0,
+      "native_interference_control_count": 2,
+      "native_interference_control_volumes_mm3": [
+        16864.920954,
+        6480.0
+      ],
+      "native_mate_suppression_detected": true,
+      "verified_independent_linear_dofs": 2,
+      "dof_proof": "22 real mates + native constrained states + 14 six-axis solver/pose probes",
+      "private_sdk_direct_dof_count": "unverified; raw diagnostics are not a count",
+      "native_reopen": "pass",
+      "step_reimport": "pass",
+      "bom_quantity": 9,
+      "native_total_volume_mm3": 208099.35504265432,
+      "step_total_volume_mm3": 208099.35504265432,
+      "review_rules": "pass",
+      "review_score": 100,
+      "resolved_templates": {
+        "part": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_part.prtdot",
+          "sha256": "8cfb85c297adeec4ac01861a51fccb20a68a415997659f08a99c1d5e26292bff"
+        },
+        "assembly": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_assembly.asmdot",
+          "sha256": "2c3c276538bb07fa4b50b2523c435a4a3639d4a6a6b2aaa5cc93ba1a40445166"
+        }
+      },
+      "resolved_material_database": {
+        "path": "E:\\SolidWroks2026\\SOLIDWORKS\\lang\\english\\sldmaterials\\solidworks materials.sldmat",
+        "sha256": "636ef75ffb10e8abf7529c910a50dc2cb0d73ce5112c9721e7e4de1824cf57c5"
+      },
+      "cleanup": {
+        "status": "pass",
+        "owned_pid": 35240,
+        "errors": [],
+        "remaining_documents": 0,
+        "exit_requested": true,
+        "processes_after": {}
+      },
+      "verified_sha256_count": 29,
+      "report": "output\\p0-2-real-five-01\\run-04\\report.json",
+      "report_sha256": "20b90f2d5d59146144e1341603e41309e8d0e2fd7ae599ed5b386eb507c0ad99",
+      "manifest_sha256": "3985559640f354fc4ce10a7a01cf579da74b11784879402df5bd3cac8ac34bfa"
+    },
+    {
+      "run": "run-05",
+      "backend": "real-solidworks-2026",
+      "mock": false,
+      "version": {
+        "revision": "34.1.1",
+        "year": 2026,
+        "major": 34
+      },
+      "source_sha": "b2d0bc4bdc4067f9656b8b41321bbd2efd783d31",
+      "pid": 5276,
+      "process_created_at": "2026-10-26T05:12:19.392000+00:00",
+      "trace_run_id": "golden_612c2c01857445a68bf076274b206bcc",
+      "task_status": "blocked",
+      "acceptance_status": "passed",
+      "manual_review_required": true,
+      "native_part_file_count": 5,
+      "component_instance_count": 9,
+      "mate_count": 22,
+      "mate_type_counts": {
+        "0": 13,
+        "5": 1,
+        "1": 6,
+        "3": 2
+      },
+      "nominal_interference_count": 0,
+      "nominal_interference_total_volume_mm3": 0,
+      "native_interference_control_count": 2,
+      "native_interference_control_volumes_mm3": [
+        16864.920954,
+        6480.0
+      ],
+      "native_mate_suppression_detected": true,
+      "verified_independent_linear_dofs": 2,
+      "dof_proof": "22 real mates + native constrained states + 14 six-axis solver/pose probes",
+      "private_sdk_direct_dof_count": "unverified; raw diagnostics are not a count",
+      "native_reopen": "pass",
+      "step_reimport": "pass",
+      "bom_quantity": 9,
+      "native_total_volume_mm3": 208099.35504265432,
+      "step_total_volume_mm3": 208099.35504265435,
+      "review_rules": "pass",
+      "review_score": 100,
+      "resolved_templates": {
+        "part": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_part.prtdot",
+          "sha256": "8cfb85c297adeec4ac01861a51fccb20a68a415997659f08a99c1d5e26292bff"
+        },
+        "assembly": {
+          "path": "C:\\ProgramData\\SOLIDWORKS\\SOLIDWORKS 2026\\templates\\gb_assembly.asmdot",
+          "sha256": "2c3c276538bb07fa4b50b2523c435a4a3639d4a6a6b2aaa5cc93ba1a40445166"
+        }
+      },
+      "resolved_material_database": {
+        "path": "E:\\SolidWroks2026\\SOLIDWORKS\\lang\\english\\sldmaterials\\solidworks materials.sldmat",
+        "sha256": "636ef75ffb10e8abf7529c910a50dc2cb0d73ce5112c9721e7e4de1824cf57c5"
+      },
+      "cleanup": {
+        "status": "pass",
+        "owned_pid": 5276,
+        "errors": [],
+        "remaining_documents": 0,
+        "exit_requested": true,
+        "processes_after": {}
+      },
+      "verified_sha256_count": 29,
+      "report": "output\\p0-2-real-five-01\\run-05\\report.json",
+      "report_sha256": "499a231b113b27f2e7ea313293ebd398857f004bd91a3ab5f5abe493cb7791e7",
+      "manifest_sha256": "4b5d28b75b5ec3ff2500257965e53ff81865755ced7124c1959377b83c133a03"
+    }
+  ],
+  "mate_contract": [
+    {
+      "name": "support_left_Right",
+      "roles": [
+        "support_left",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Right Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "support_left_Top",
+      "roles": [
+        "support_left",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Top Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "support_left_Front",
+      "roles": [
+        "support_left",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Front Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "support_right_Right",
+      "roles": [
+        "support_right",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Right Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "support_right_Top",
+      "roles": [
+        "support_right",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Top Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "support_right_Front",
+      "roles": [
+        "support_right",
+        "base"
+      ],
+      "type": 5,
+      "plane": "Front Plane",
+      "distance_mm": 128,
+      "flip": true
+    },
+    {
+      "name": "finger_left_Right",
+      "roles": [
+        "finger_left",
+        "slider_left"
+      ],
+      "type": 0,
+      "plane": "Right Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "finger_left_Top",
+      "roles": [
+        "finger_left",
+        "slider_left"
+      ],
+      "type": 0,
+      "plane": "Top Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "finger_left_Front",
+      "roles": [
+        "finger_left",
+        "slider_left"
+      ],
+      "type": 0,
+      "plane": "Front Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "finger_right_Right",
+      "roles": [
+        "finger_right",
+        "slider_right"
+      ],
+      "type": 0,
+      "plane": "Right Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "finger_right_Top",
+      "roles": [
+        "finger_right",
+        "slider_right"
+      ],
+      "type": 0,
+      "plane": "Top Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "finger_right_Front",
+      "roles": [
+        "finger_right",
+        "slider_right"
+      ],
+      "type": 0,
+      "plane": "Front Plane",
+      "distance_mm": 0,
+      "flip": false
+    },
+    {
+      "name": "rod_left_guide",
+      "roles": [
+        "rod_left",
+        "support_left"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": 0,
+      "right_cylinder_x_mm": -18
+    },
+    {
+      "name": "rod_left_axial",
+      "roles": [
+        "rod_left",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Front Plane",
+      "distance_mm": 0
+    },
+    {
+      "name": "rod_left_clock",
+      "roles": [
+        "rod_left",
+        "base"
+      ],
+      "type": 3,
+      "plane": "Top Plane",
+      "distance_mm": 0
+    },
+    {
+      "name": "rod_right_guide",
+      "roles": [
+        "rod_right",
+        "support_left"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": 0,
+      "right_cylinder_x_mm": 18
+    },
+    {
+      "name": "rod_right_axial",
+      "roles": [
+        "rod_right",
+        "base"
+      ],
+      "type": 0,
+      "plane": "Front Plane",
+      "distance_mm": 0
+    },
+    {
+      "name": "rod_right_clock",
+      "roles": [
+        "rod_right",
+        "base"
+      ],
+      "type": 3,
+      "plane": "Top Plane",
+      "distance_mm": 0
+    },
+    {
+      "name": "slider_left_guide",
+      "roles": [
+        "slider_left",
+        "rod_left"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": -18,
+      "right_cylinder_x_mm": 0
+    },
+    {
+      "name": "slider_left_guide_right",
+      "roles": [
+        "slider_left",
+        "rod_right"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": 18,
+      "right_cylinder_x_mm": 0
+    },
+    {
+      "name": "slider_right_guide",
+      "roles": [
+        "slider_right",
+        "rod_left"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": -18,
+      "right_cylinder_x_mm": 0
+    },
+    {
+      "name": "slider_right_guide_right",
+      "roles": [
+        "slider_right",
+        "rod_right"
+      ],
+      "type": 1,
+      "lock_rotation": false,
+      "left_cylinder_x_mm": 18,
+      "right_cylinder_x_mm": 0
+    }
+  ],
+  "verified_sha256_total": 145,
+  "strict_completed_control": "rejected using same real evidence; no additional CAD execution",
+  "offline": {
+    "passed": 999,
+    "skipped": 1,
+    "skip_reason": "桌面内嵌 Skill 尚未生成，既有发布包检查跳过",
+    "deterministic_mock_scenarios": 40,
+    "ci_policy_synthetic_tests": 26,
+    "escaped_mock_false_completion_rate": 0.0,
+    "real_data_in_mock_counts": false
+  },
+  "failures_and_fixes": [
+    {
+      "phase": "offline initial",
+      "result": "26 failed / 33 passed",
+      "reason": "合成夹具预填非 JSON trace，污染 Core JSONL",
+      "fix": "trace 只由 Core 生成；后续定向及完整回归通过",
+      "original_log": "开发执行控制台，未预先落盘完整日志"
+    },
+    {
+      "phase": "real pilot-01",
+      "pid": 46796,
+      "task_status": "failed",
+      "acceptance_status": "failed",
+      "exit_code": 1,
+      "reason": "Z 变换空写入、右支撑反向、滑块重叠；原生 4 项干涉；BOM 属性缺失导致 Review WARN",
+      "fix": "SAFEARRAY(double)、原厂 MathUtility 回读、距离方向与真实 BOM 属性；原始产物全保留",
+      "report": "output/p0-2-pilot-01/run-01/report.json"
+    },
+    {
+      "phase": "assembly probe-02",
+      "scope": "native_assembly_diagnostic_only",
+      "result": "failed",
+      "helper_exit_code": 0,
+      "reason": "pywin32 将 CreateTransform 带参方法绑定为属性；辅助脚本最初未将诊断失败映射非零",
+      "fix": "显式 _FlagAsMethod 并回读；修复辅助脚本退出码，后续失败 probe-03 为 1",
+      "report": "output/p0-2-assembly-probe-02/diagnostic_report.json"
+    },
+    {
+      "phase": "assembly probe-03",
+      "scope": "native_assembly_diagnostic_only",
+      "result": "failed",
+      "exit_code": 1,
+      "reason": "右支撑距离方向错误；仅 LockRotation 标志不足，实际绕 Z 转动被六轴探针检出",
+      "fix": "两根导杆均参与滑块同心 Mate，固定导杆加角向平行 Mate，修正距离方向；不删除检查",
+      "report": "output/p0-2-assembly-probe-03/diagnostic_report.json"
+    },
+    {
+      "phase": "assembly probe-04",
+      "scope": "native_assembly_diagnostic_only",
+      "result": "passed",
+      "exit_code": 0,
+      "counted_as_independent_golden": false,
+      "report": "output/p0-2-assembly-probe-04/diagnostic_report.json"
+    }
+  ],
+  "unverified": [
+    "GetRemainingDOFs 私有返回值的总自由度计数语义",
+    "未采样全行程的碰撞及行程限位",
+    "电机、丝杠、同步带、同步驱动和动力传递",
+    "制造紧固件、导杆保持/轴承、材料认证及公差链",
+    "载荷、刚度、接触、磨损与 Motion Study",
+    "Core 逐步调度 CAD",
+    "远程 CAD CI 与继承的安全配置阻塞",
+    "COM 单次调用永久挂起恢复",
+    "旧 apply_component_transform_x 的其它调用链未做本阶段真机复测"
+  ],
+  "p0_2_1_suggestions": [
+    "补齐导杆夹紧/轴向保持与手指/底座紧固接口，再做公差与装配工程图",
+    "定义机械限位与行程范围，逐状态进行原生碰撞/干涉回归",
+    "单独审核驱动及同步方案，建立独立 Motion/载荷验收",
+    "独立解决远程 Runner 隔离和审批后再做受控 CI，不更改本阶段人工 Review 语义"
+  ]
+}

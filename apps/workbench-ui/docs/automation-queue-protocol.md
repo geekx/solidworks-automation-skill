@@ -281,6 +281,8 @@ queue/reviews/{job_id}.review.json
 
 Worker 在编译 Prompt 前会执行本地优先 RAG：默认检索主 Skill、`references/` 和子技能知识文件，并把来源、SHA-256 与片段注入 Prompt。`uiConfig.knowledgeBase.cloudEnabled=true` 时，Tauri 会服务端派生 `external_network` 能力；只有人工审批完成后才允许调用 HTTPS 云检索端点。
 
+任务中明确出现 `接口.方法` / `接口::方法`，或命中本项目已验证的自然语言操作候选时，Worker 使用共享 API 查证核心（显式引用优先、最多两个候选）。默认访问官方文档，直读失败且无历史缓存时使用匿名 Parallel。请求只包含公开年份、接口、成员和官方链接。`uiConfig.knowledgeBase.officialApiDocsEnabled=false` 禁止本工具联网及下载依赖，并向受控子进程传递 `SW_API_LOOKUP_NETWORK=off`；`parallelApiFallbackEnabled=false` 单独关闭 Parallel 并传递 `SW_API_LOOKUP_PARALLEL=off`。两者不改变 Agent 客户端自身的网络权限。历史缓存标注获取时间，Parallel 和本机帮助的版本证据有各自限制，不等于真机验证。原有云 RAG 的配置和审批规则保持独立。
+
 启用 Codex 执行:
 
 ```powershell

@@ -11,6 +11,7 @@ export type ProjectRecord = {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  stageReview?: ProjectStageReview;
 };
 
 export type ApiIntegrationMode = "codex_cli" | "cc_switch";
@@ -62,6 +63,8 @@ export type ApiIntegrationConfig = {
 };
 export type KnowledgeBaseConfig = {
   cloudEnabled: boolean;
+  officialApiDocsEnabled?: boolean;
+  parallelApiFallbackEnabled?: boolean;
   localRoots: string[];
   endpoint: string;
   namespace: string;
@@ -106,6 +109,22 @@ export type CodexConfig = {
   localCadAutomation: boolean;
 };
 export type AutomationJobKind = "create_shell" | "import_model" | "delivery_package" | "dfm_review" | "codex_task" | "agent_task";
+export type ProjectReviewInputs = Pick<CodexConfig, "objective" | "length" | "width" | "height" | "wallThickness">;
+export type EngineeringChangeRoot = "requirements" | "part-modeling" | "holes-fillet-chamfer" | "assembly-mates" | "drawing-bom";
+export type ProjectStageReview = {
+  inputs: Partial<ProjectReviewInputs>;
+  requirementsRevision: number;
+  geometryRevision: number;
+  chatPhaseRevisions?: Partial<Record<EngineeringChangeRoot, number>>;
+};
+export type EngineeringReviewPhase = {
+  id?: string;
+  name?: string;
+  status?: string;
+  human_gate?: boolean;
+  depends_on?: string[];
+  acceptance?: string[];
+};
 export type AutomationJobStatus = "queued" | "running" | "passed" | "review_required" | "failed" | "cancelled" | "approval_required" | "blocked";
 export type WorkerLogEntry = { status?: string; message?: string; at?: string; worker?: string; runnerId?: string; data?: unknown };
 export type ArtifactRecord = {
@@ -123,7 +142,7 @@ export type ArtifactRecord = {
   isDirectory?: boolean;
   sizeBytes?: number;
   sha256?: string;
-  producedThisRun?: boolean;
+  producedThisRun?: boolean | null;
 };
 export type ReviewCheck = { id?: string; severity?: string; status?: "pass" | "warning" | "fail" | string; message?: string };
 export type DomainEvidence = {
@@ -237,7 +256,7 @@ export type AutomationJob = {
     stdoutTail?: string;
     stderrTail?: string;
     engineeringPlanPath?: string;
-    engineeringPlan?: { phases?: Array<{ id?: string; name?: string; status?: string; human_gate?: boolean }> };
+    engineeringPlan?: { phases?: EngineeringReviewPhase[] };
     backendDiagnostics?: Record<string, BackendDiagnostic> | BackendDiagnostic[];
   };
   uiConfig?: Record<string, unknown>;
