@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/geekx/solidworks-automation-skill/docs/point-and-prompt/selection-context.schema.json",
+  "title": "Point & Prompt SelectionContext",
+  "description": "Point & Prompt 交互层在 Add-in、MCP Server 与 Agent 之间传递的唯一选择上下文 DTO。只传 JSON，不传 COM RCW。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "document", "modelState", "selection", "provenance"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0",
+      "description": "协议版本；破坏性变更必须提升到 2.0。"
+    },
+    "document": { "$ref": "#/$defs/document" },
+    "modelState": { "$ref": "#/$defs/modelState" },
+    "selection": { "$ref": "#/$defs/selection" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "staleness": { "$ref": "#/$defs/staleness" },
+    "extensions": {
+      "type": "object",
+      "description": "按需扩展的上下文（L3/L4），例如邻接关系、装配 Mate、整机约束。不得承载 COM 对象。",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["documentToken", "title", "documentType", "configuration"],
+      "properties": {
+        "documentToken": {
+          "type": "string",
+          "pattern": "^doc-[0-9a-f]{16,40}$",
+          "description": "由规范化路径和文档类型派生的稳定 token；跨会话可复现。"
+        },
+        "path": { "type": "string", "description": "绝对 Windows 路径；未保存的新文档可为空。" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 260 },
+        "documentType": { "enum": ["Part", "Assembly", "Drawing"] },
+        "configuration": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "documentRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "文档级 revision（由 Add-in/桥接层维护），用于识别跨文档误操作。"
+        },
+        "readOnly": { "type": "boolean", "default": false }
+      }
+    },
+    "modelState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "dirty", "units"],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "模型 revision：每次白名单写入或重建成功后递增；所有 Agent 结论必须绑定 revision。"
+        },
+        "dirty": { "type": "boolean", "description": "文档是否有未保存修改。" },
+        "units": { "enum": ["MMGS", "CGS", "MKS", "IPS", "INCH", "UNKNOWN"] },
+        "invalidFeatureCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "重建后处于错误状态的实体/特征数；未知时为 null。"
+        },
+        "lastRebuildAt": { "type": "string", "format": "date-time" },
+        "rebuildError": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectionToken", "mode", "objects"],
+      "properties": {
+        "selectionToken": {
+          "type": "string",
+          "pattern": "^sel-[0-9a-f]{12,40}$",
+          "description": "本次选择集的 token；集合内容或 revision 变化时重算。"
+        },
+        "mode": { "enum": ["hover", "selected", "set", "pinned"] },
+        "objects": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/entity" }
+        },
+        "pinnedAt": { "type": "string", "format": "date-time" },
+        "activeEntityToken": {
+          "type": "string",
+          "description": "多选时当前聚焦（Prompt 锚定）的实体 token。"
+        }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityToken", "entityType"],
+      "properties": {
+        "entityToken": {
+          "type": "string",
+          "pattern": "^ent-[0-9a-f]{12,40}$",
+          "description": "语义实体 token；由类型、所属特征和几何签名派生，禁止使用 Face1/Edge1 作为永久身份。"
+        },
+        "entityType": {
+          "enum": [
+            "Face",
+            "Edge",
+            "Vertex",
+            "Feature",
+            "Sketch",
+            "Dimension",
+            "Component",
+            "DrawingView",
+            "DrawingDimension",
+            "Unknown"
+          ]
+        },
+        "geometryType": {
+          "enum": ["Planar", "Cylinder", "Cone", "Sphere", "Torus", "Line", "Circle", "Arc", "Spline", "Point", "Unknown"],
+          "description": "面/边的几何类别；其他实体可为 Unknown。"
+        },
+        "displayName": { "type": "string", "maxLength": 240 },
+        "persistentReference": {
+          "type": "string",
+          "description": "不透明持久引用（Add-in 生成的 base64/指针快照）；使用前必须重新解析，禁止跨文档复用。"
+        },
+        "approximateGeometry": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "diameterMm": { "type": "number", "exclusiveMinimum": 0 },
+            "radiusMm": { "type": "number", "exclusiveMinimum": 0 },
+            "lengthMm": { "type": "number", "exclusiveMinimum": 0 },
+            "areaMm2": { "type": "number", "minimum": 0 },
+            "centerMm": { "$ref": "#/$defs/point3" },
+            "axis": { "$ref": "#/$defs/point3" },
+            "normal": { "$ref": "#/$defs/point3" },
+            "boxMinMm": { "$ref": "#/$defs/point3" },
+            "boxMaxMm": { "$ref": "#/$defs/point3" }
+          }
+        },
+        "featureCandidates": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/featureCandidate" }
+        },
+        "resolution": { "$ref": "#/$defs/resolution" },
+        "explorerHint": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "仅用于 UI 显示的提示，不得作为执行依据。"
+        }
+      }
+    },
+    "featureCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["featureName", "featureType", "confidence"],
+      "properties": {
+        "featureName": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "featureType": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "例如 Extrude、Cut、Fillet、Chamfer、Sketch、ImportedBody。"
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dimensionNames": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "maxLength": 240 }
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "maxLength": 400 }
+        }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "method"],
+      "properties": {
+        "status": { "enum": ["resolved", "ambiguous", "unresolved"] },
+        "method": {
+          "enum": [
+            "face_get_feature",
+            "edge_adjacent_face",
+            "dimension_full_name",
+            "feature_tree_scan",
+            "selection_type",
+            "imported_body",
+            "none"
+          ]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string", "maxLength": 800 },
+        "evidence": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "maxLength": 400 }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "capturedAt"],
+      "properties": {
+        "source": { "enum": ["addin", "python_com", "bridge_file"] },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "hostVersion": { "type": "string", "maxLength": 80 },
+        "addinVersion": { "type": "string", "maxLength": 40 },
+        "bridgeRevision": { "type": "integer", "minimum": 0 },
+        "user": { "type": "string", "maxLength": 120 }
+      }
+    },
+    "staleness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["fresh", "stale", "unresolved"] },
+        "reason": { "type": "string", "maxLength": 800 },
+        "checkedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "point3": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

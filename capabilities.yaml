@@ -183,6 +183,18 @@
       "requires": ["SolidWorks Routing 加载项", "有效许可证"],
       "review_required": true,
       "notes": ["缺少加载项或许可证时，切换语言无效，必须 blocked"]
+    },
+    {
+      "id": "solidworks_point_prompt",
+      "label": "Point & Prompt 画布交互、上下文与白名单参数修改",
+      "capability_ids": ["solidworks_point_prompt_hover_selection", "solidworks_point_prompt_selection_pin", "solidworks_point_prompt_selection_context", "solidworks_point_prompt_feature_resolution", "solidworks_point_prompt_inline_prompt", "solidworks_point_prompt_edit_plan_preview", "solidworks_point_prompt_parametric_edit_apply", "solidworks_point_prompt_edit_verify_rollback"],
+      "candidates": [
+        {"backend": "solidworks-csharp-addin", "semantics": "exact_managed_addin", "priority": 10},
+        {"backend": "solidworks-com-pywin32", "semantics": "exact_automation", "priority": 20},
+        {"backend": "solidworks-csharp-pia", "semantics": "exact_automation", "priority": 30}
+      ],
+      "review_required": true,
+      "notes": ["Hover/Pin 只由 Add-in 承担；Apply/Verify 由 MCP 写执行器串行执行", "SW2024/SW2025 真机证据出现前，交互类能力保持 pilot 或 not_implemented"]
     }
   ],
   "capabilities": [
@@ -515,6 +527,78 @@
       "dependencies": ["python", "可选 SolidWorks"],
       "limitations": ["孔位阵列识别（栅格/线性/离散、节距/行列/规整度）、3-2-1 基准推测（A|B|C 与定位销候选）、GB/T 1182 位置度/平面度 GD&T 生成、孔表与坐标标注规划、以及真机 B-Rep 证据到孔列表的适配层均为纯函数并离线单测；生成的 drawing_spec 已通过工程图子技能 schema 校验", "已打通真机 3D→分析：analyze_model()/--from-model 复用 sw_review.collect_geometry_measurements（GetPartBox + FaceInSurfaceSense 内部孔壁）抽取孔位快照，该 COM 抽取为 pilot；把基准标签、位置度框、孔表与坐标标注真正落到 SLDDRW 由工程图子技能专项 COM 脚本执行，同为 pilot，须真机与工程复核，分析结果不得当作已自动交付图纸", "孔型无法从纯几何判定默认 clearance（需精确孔型走中性文档 holeKind）；斜向/极坐标阵列、沉头阶梯孔多段标注暂按离散簇/最小径处理；位置度/平面度默认值只是首版建议，最终公差须按功能与配合由工程师确认"],
       "allowed_modes": ["interactive", "reviewed"]
+    },
+    {
+      "id": "solidworks_point_prompt_hover_selection",
+      "label": "图形区 Hover 预选识别",
+      "level": "not_implemented",
+      "backends": ["solidworks-csharp-addin"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", ".NET Framework 4.8", "SolidWorks PIA"],
+      "limitations": ["HoverMonitor 通过反射订阅 DynamicHighlightNotify，事件缺失时标记 hover_unavailable 并降级为 selection-only", "SW2024/SW2025 均未真机验证；不承诺任意实体类型都能预选"]
+    },
+    {
+      "id": "solidworks_point_prompt_selection_pin",
+      "label": "选择集 Pin / Unpin 与上下文锁定",
+      "level": "pilot",
+      "backends": ["solidworks-csharp-addin", "solidworks-com-pywin32"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", ".NET Framework 4.8", "pywin32"],
+      "limitations": ["Add-in 用文档级 NewSelectionNotify/ClearSelectionNotify 维护 Pin；MCP 侧有当前选择快照回退", "文档切换/关闭清空 Pin，模型重建后 token 一律标记 stale 并要求重新解析"]
+    },
+    {
+      "id": "solidworks_point_prompt_selection_context",
+      "label": "SelectionContext 协议与 token 生命周期",
+      "level": "pilot",
+      "backends": ["solidworks-csharp-addin", "solidworks-com-pywin32"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", "pywin32", "jsonschema"],
+      "limitations": ["schema 1.0 由单元测试覆盖结构、token 派生与失效判定；真机几何采集字段（Face/Edge/Vertex）未逐项验证", "单位统一为毫米，内部模型值仍为米；跨单位文档需真机复核"]
+    },
+    {
+      "id": "solidworks_point_prompt_feature_resolution",
+      "label": "面/边 → Feature/Sketch/Dimension 追溯",
+      "level": "pilot",
+      "backends": ["solidworks-com-pywin32", "solidworks-csharp-addin"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", "pywin32"],
+      "limitations": ["实现 Face.GetFeature、Edge 相邻面、Dimension 全名三条路径；导入实体/派生零件返回 unresolved 而非伪造归属", "候选排序只用于提示，不作为可执行证据"]
+    },
+    {
+      "id": "solidworks_point_prompt_inline_prompt",
+      "label": "TaskPane Inline Prompt 与计划卡片",
+      "level": "not_implemented",
+      "backends": ["solidworks-csharp-addin"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", ".NET Framework 4.8"],
+      "limitations": ["Prompt 输入写入 prompt-requests.jsonl，计划卡片读取 plan-previews；Add-in 不调用大模型", "WinForms 卡片布局与高 DPI 未在目标版本真机验证"]
+    },
+    {
+      "id": "solidworks_point_prompt_edit_plan_preview",
+      "label": "白名单 EditPlan 校验与预览",
+      "level": "pilot",
+      "backends": ["local-python"],
+      "verified_versions": [],
+      "dependencies": ["python", "jsonschema"],
+      "limitations": ["Schema + 白名单 + token/revision 比对 + 能力门禁 + 旧值回读 + 确认状态", "只覆盖草图尺寸/特征深度/圆角/倒角四类参数修改；不生成任意代码"]
+    },
+    {
+      "id": "solidworks_point_prompt_parametric_edit_apply",
+      "label": "白名单参数修改执行（写入/重建/回读）",
+      "level": "pilot",
+      "backends": ["solidworks-com-pywin32", "solidworks-csharp-pia"],
+      "verified_versions": [],
+      "dependencies": ["SolidWorks", "pywin32"],
+      "limitations": ["执行器只写尺寸、强制重建、回读；不新增/删除特征", "写入后若重建失败或回读不一致，自动恢复旧值"]
+    },
+    {
+      "id": "solidworks_point_prompt_edit_verify_rollback",
+      "label": "修改验证、事务日志与回滚",
+      "level": "pilot",
+      "backends": ["local-python", "solidworks-com-pywin32"],
+      "verified_versions": [],
+      "dependencies": ["python", "SolidWorks", "pywin32"],
+      "limitations": ["回读容差默认 0.01 mm；Journal 记录 start/commit/rollback/undo", "SolidWorks Undo 不等于事务回滚，失败恢复以参数回写 + 重建为准；回滚失败标记 E_ROLLBACK_FAILED"]
     }
   ]
 }

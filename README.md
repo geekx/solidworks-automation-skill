@@ -406,6 +406,26 @@ claude mcp list
 
 当前 MCP 还包含 `solidworks_health_check`、`solidworks_create_basic_part`、`solidworks_add_component`、`solidworks_add_coincident_mate`、`solidworks_add_distance_mate`、`solidworks_add_concentric_mate`、`solidworks_set_component_fixed`、`solidworks_set_appearance` 等基础工具。复杂圆角/倒角仍建议作为后续专项优化，不作为基准 demo 的成功标准。
 
+### 🖱️ Point & Prompt（画布式交互）
+
+在 C# Add-in 的图形区悬停/点选几何对象，Pin 住目标，在 TaskPane 用自然语言描述修改；
+AI 只生成**白名单结构化计划**，用户确认后由 MCP 串行执行「写入 → 强制重建 → 回读 → 事务日志」，
+失败自动恢复旧值。
+
+- 交互协议与状态机：[`docs/point-and-prompt/interaction-spec.md`](docs/point-and-prompt/interaction-spec.md)
+- 路线图（含并行建模/画图/评估流水线）：[`docs/point-and-prompt/roadmap.md`](docs/point-and-prompt/roadmap.md)
+- 数据契约：[`selection-context.schema.json`](docs/point-and-prompt/selection-context.schema.json)、
+  [`edit-plan.schema.json`](docs/point-and-prompt/edit-plan.schema.json)
+- 审计、决策、测试矩阵、上游同步：[`docs/point-and-prompt/`](docs/point-and-prompt/)
+
+MCP 新增 `solidworks_get_pinned_context`、`solidworks_resolve_feature_candidates`、
+`solidworks_preview_edit_plan`、`solidworks_apply_edit_plan`、`solidworks_verify_edit_result`、
+`solidworks_undo_last_ai_operation` 等 11 个工具。
+
+> 状态说明：Phase 0–4 代码已落地；Hover/Pin 与 Apply 的 SW2024/SW2025 真机证据仍在补齐，
+> 相关能力在 `capabilities.yaml` 中保持 `pilot` / `not_implemented`，不以「代码完成」代替
+> 版本验证。
+
 ### 🎯 使用示例
 
 #### 推荐写法：Session API

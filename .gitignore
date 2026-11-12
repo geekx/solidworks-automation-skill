@@ -67,3 +67,6 @@ desktop.ini
 *.dwg
 output/
 exports/
+
+pytest-of-*/
+.venv-test/

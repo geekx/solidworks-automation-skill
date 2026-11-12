@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -28,6 +29,8 @@ namespace CadStudio.SolidWorks.AddinHost
         private ICommandGroup commandGroup;
         private ITaskpaneView taskPane;
         private TaskPaneControl taskPaneControl;
+        private CadBridgeState bridge;
+        private SelectionManager selectionManager;
         private IPropertyManagerPage2 propertyPage;
         private PropertyPageHandler propertyPageHandler;
         private int addinCookie;
@@ -89,6 +92,8 @@ namespace CadStudio.SolidWorks.AddinHost
                     throw new InvalidOperationException("CommandGroup 激活失败。");
                 }
                 diagnostics.RecordEvent("command_group_ready");
+                AttachPointPrompt();
+                diagnostics.RecordEvent("point_prompt_ready");
                 taskPaneReady = CreateTaskPane();
                 if (!taskPaneReady)
                 {
@@ -158,6 +163,56 @@ namespace CadStudio.SolidWorks.AddinHost
             diagnostics.Flush();
         }
 
+        /// <summary>建立 Point &amp; Prompt 的桥接目录与选择管理器。</summary>
+        private void AttachPointPrompt()
+        {
+            try
+            {
+                bridge = new CadBridgeState();
+                selectionManager = new SelectionManager(swApp, bridge, message => diagnostics.RecordEvent("point_prompt:" + message));
+                selectionManager.AttachActiveDocument();
+            }
+            catch (Exception exception)
+            {
+                diagnostics.RecordError("point_prompt_attach", exception);
+            }
+        }
+
+        /// <summary>CommandManager 回调：把当前选择锁存为 Point &amp; Prompt 目标。</summary>
+        public void PinSelection()
+        {
+            try
+            {
+                if (selectionManager != null)
+                {
+                    selectionManager.RefreshSelection("pinned");
+                }
+                taskPaneControl?.RefreshFromBridge();
+            }
+            catch (Exception exception)
+            {
+                diagnostics.RecordError("pin_selection", exception);
+            }
+        }
+
+        /// <summary>CommandManager 回调：解除 Pin。</summary>
+        public void UnpinSelection()
+        {
+            try
+            {
+                if (bridge != null)
+                {
+                    bridge.SetPinned(null, null, null);
+                    bridge.AppendHistory("unpin", new Dictionary<string, object> { { "reason", "command" } });
+                }
+                taskPaneControl?.RefreshFromBridge();
+            }
+            catch (Exception exception)
+            {
+                diagnostics.RecordError("unpin_selection", exception);
+            }
+        }
+
         /// <summary>CommandManager 启用回调。</summary>
         public int EnableCommand()
         {
@@ -190,6 +245,8 @@ namespace CadStudio.SolidWorks.AddinHost
             commandGroup.AddCommandItem2("打开参数页", -1, "显示通用 PropertyManagerPage", "打开参数页", 0, nameof(ShowPropertyPage), nameof(EnableCommand), 1, itemType);
             commandGroup.AddCommandItem2("显示任务窗格", -1, "显示 CAD Studio TaskPane", "显示任务窗格", 1, nameof(ShowTaskPane), nameof(EnableCommand), 2, itemType);
             commandGroup.AddCommandItem2("刷新诊断", -1, "刷新 Add-in 诊断证据", "刷新诊断", 2, nameof(RefreshDiagnostics), nameof(EnableCommand), 3, itemType);
+            commandGroup.AddCommandItem2("Pin 当前选择", -1, "锁定当前选择为 Point & Prompt 目标", "Pin 当前选择", 3, nameof(PinSelection), nameof(EnableCommand), 4, itemType);
+            commandGroup.AddCommandItem2("解除 Pin", -1, "清除 Point & Prompt 目标", "解除 Pin", 4, nameof(UnpinSelection), nameof(EnableCommand), 5, itemType);
             return commandGroup.Activate();
         }
 
@@ -220,13 +277,24 @@ namespace CadStudio.SolidWorks.AddinHost
         /// <summary>创建 TaskPane 并托管 WinForms 控件句柄。</summary>
         private bool CreateTaskPane()
         {
+            if (bridge == null)
+            {
+                bridge = new CadBridgeState();
+            }
             string icon = CreateIconFile("taskpane.bmp", 20, 1);
             taskPane = swApp.CreateTaskpaneView2(icon, "CAD Studio");
             if (taskPane == null)
             {
                 return false;
             }
-            taskPaneControl = new TaskPaneControl(swApp.RevisionNumber(), diagnostics.DiagnosticPath, ShowPropertyPage, RefreshDiagnostics);
+            taskPaneControl = new TaskPaneControl(
+                swApp.RevisionNumber(),
+                diagnostics.DiagnosticPath,
+                bridge,
+                selectionManager,
+                ShowPropertyPage,
+                RefreshDiagnostics,
+                message => diagnostics.RecordEvent("point_prompt:" + message));
             taskPaneControl.CreateControl();
             bool displayed = taskPane.DisplayWindowFromHandlex64(taskPaneControl.Handle.ToInt64());
             return displayed && taskPane.ShowView();
@@ -303,6 +371,17 @@ namespace CadStudio.SolidWorks.AddinHost
         {
             bool success = true;
             success &= TryRelease("detach_events", DetachApplicationEvents);
+            success &= TryRelease("dispose_point_prompt", delegate
+            {
+                if (selectionManager != null)
+                {
+                    selectionManager.Dispose();
+                }
+                if (bridge != null)
+                {
+                    bridge.UpdateAddinStatus("disconnected", "unavailable", string.Empty);
+                }
+            });
             success &= TryRelease("close_property_page", delegate
             {
                 if (propertyPage != null) { propertyPage.Close(true); }
@@ -323,6 +402,8 @@ namespace CadStudio.SolidWorks.AddinHost
             propertyPageHandler = null;
             taskPane = null;
             taskPaneControl = null;
+            selectionManager = null;
+            bridge = null;
             commandGroup = null;
             commandManager = null;
             swApp = null;
@@ -347,7 +428,19 @@ namespace CadStudio.SolidWorks.AddinHost
             }
         }
 
-        private int OnActiveModelDocChange() { diagnostics.RecordEvent("active_model_doc_change"); return 0; }
+        private int OnActiveModelDocChange()
+        {
+            diagnostics.RecordEvent("active_model_doc_change");
+            try
+            {
+                selectionManager?.AttachActiveDocument();
+            }
+            catch (Exception exception)
+            {
+                diagnostics.RecordError("attach_active_document", exception);
+            }
+            return 0;
+        }
         private int OnFileOpenPost(string fileName) { diagnostics.RecordEvent("file_open_post"); return 0; }
         private int OnFileNew(object newDocument, int documentType, string templateName)
         {

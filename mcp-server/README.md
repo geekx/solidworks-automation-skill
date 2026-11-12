@@ -163,6 +163,30 @@ claude mcp add --scope user solidworks -- python C:\path\to\solidworks-automatio
 | `solidworks_inspect_motion_studies` | 读取算例、马达/外力数量和结果新鲜度 | 否 |
 | `solidworks_validate_motion_study` | 对时长、类型、马达数量、结果存在性和过期状态执行交付门禁 | 否 |
 
+### Point & Prompt 工具
+
+交互上下文通过 `%LOCALAPPDATA%\CAD Studio\SolidWorksAddin\point-and-prompt\` 的文件桥接
+与 C# Add-in 交换；工具只传 JSON，不传 COM 对象。Hover 由 Add-in 本地处理，不进入 MCP。
+
+| 工具 | 说明 | 是否修改 SolidWorks |
+|---|---|---|
+| `solidworks_get_pinned_context` | 读取 Pin 的 SelectionContext（文档、revision、token、staleness） | 否 |
+| `solidworks_get_entity_details` | 按 entityToken 返回实体 DTO 与解析状态 | 否 |
+| `solidworks_resolve_feature_candidates` | 返回面/边背后的 Feature、Sketch、Dimension 候选与置信度 | 否 |
+| `solidworks_preview_edit_plan` | 校验白名单 EditPlan（token/revision/旧值/能力/确认），不写模型 | 否 |
+| `solidworks_apply_edit_plan` | 执行已确认计划：写入 → 强制重建 → 回读 → Journal，失败回滚 | 是 |
+| `solidworks_verify_edit_result` | 重建后再次回读并比对期望值 | 否 |
+| `solidworks_highlight_entities` | 请求 Add-in 高亮语义实体（写 `highlights.json`） | 否 |
+| `solidworks_pin_selection` | 用当前选择生成 SelectionContext 并 Pin（Add-in 缺失时的回退路径） | 否 |
+| `solidworks_unpin_selection` | 清除 Pin 并记录原因 | 否 |
+| `solidworks_get_selection_history` | 读取 pin/plan/apply 历史与 OperationJournal | 否 |
+| `solidworks_undo_last_ai_operation` | 恢复上一次已提交操作前的参数 | 是 |
+
+`EditPlan` 只允许四类白名单操作：草图尺寸、特征深度、圆角半径、倒角距离；其余操作
+返回 `E_UNSUPPORTED_OPERATION`，不执行任何生成代码。协议与状态机见
+`docs/point-and-prompt/interaction-spec.md`，能力等级见 `capabilities.yaml` 的
+`solidworks_point_prompt_*`。
+
 ## 基础装配工具示例
 
 创建圆柱零件：

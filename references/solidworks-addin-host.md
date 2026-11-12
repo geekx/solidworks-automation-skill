@@ -93,6 +93,63 @@ powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 -Action Unreg
 - CommandManager 布局会进入用户配置。GUID、命令组 ID 和命令用户 ID 发布后应保持稳定。
 - Add-in 适合 UI、事件和长期驻留回调；常规建模仍优先现有 Python Automation 封装。
 
+## Point & Prompt 交互层（v1.0 代码，待真机）
+
+### 事件
+
+| 事件 | 来源 | 用途 |
+|---|---|---|
+| `ActiveModelDocChangeNotify` | `SldWorks`（已有） | 切换文档时重挂文档事件 |
+| `NewSelectionNotify` | `PartDoc` / `AssemblyDoc` / `DrawingDoc` | 选择集变化 → 重建 SelectionContext |
+| `ClearSelectionNotify` | 同上 | 清空选择 → 清 Pin、写 `unpin(clear_selection)` |
+| `DynamicHighlightNotify` | 同上 | Hover 预选 → 写 `mode=hover` 上下文（已 Pin 时不覆盖） |
+| `DestroyNotify` | 同上 | 文档关闭 → 清 Pin、写 `unpin(document_closed)` |
+
+Hover 实体读取顺序：`ISelectionMgr.GetPreSelectedObject()` →
+`GetSelectedObject6(-1, -1)`；两者都失败时 `state.json::hover.status` 记为
+`unavailable`，TaskPane 显示「降级为点选」。
+
+### 桥接文件
+
+```text
+%LOCALAPPDATA%\CAD Studio\SolidWorksAddin\point-and-prompt\
+├── context.json          # SelectionContext（Add-in 或 MCP 写）
+├── state.json            # bridgeRevision / pinned / addin / hover / documentRevisions
+├── history.jsonl         # pin / unpin / prompt / highlight
+├── prompt-requests.jsonl # TaskPane 提交的 Prompt
+├── highlights.json       # MCP 请求高亮
+└── plan-previews\*.json  # MCP 写入的计划卡片
+```
+
+`CADSTUDIO_POINT_PROMPT_DIR` 可覆盖目录（测试/多实例）。写入均为临时文件 + 原子替换。
+
+### TaskPane 与命令
+
+- TaskPane 卡片：文档 + 配置 + revision、目标实体（类型/几何/直径）、候选特征、
+  hover 可用性、Prompt 输入、计划卡片（旧值 → 新值、风险、状态）。
+- CommandGroup 新增两条命令：「Pin 当前选择」「解除 Pin」。
+- Add-in 不调用大模型；Prompt 只写文件，计划卡片由 MCP 生成后轮询显示。
+
+### 构建与验证
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\sw_addin_host.ps1 `
+  -Action Build `
+  -SolidWorksApiDir 'C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist'
+```
+
+本轮**未在本机编译**：当前环境没有 SolidWorks `api\redist` 与 PIA，`-Action Build`
+会在 `ValidateSolidWorksApiDir` 目标处明确报错。需在 SW2024/SW2025 机器上构建后，
+再跑 `-Action Probe` 与 `docs/point-and-prompt/test-matrix.md` 的 L4/L5 项。
+
+### 已知限制
+
+- Hover 依赖 `DynamicHighlightNotify`；若目标版本不触发或不提供预选对象，
+  交互降级为「点选 + Pin」，不影响 Apply/Verify。
+- 高亮复用原生选择作为可见反馈（COM 无临时高亮接口）；命中不了 token 时不猜测目标。
+- 未通过 SW2024/SW2025 真机前，`capabilities.yaml` 中 Hover/Inline Prompt 为
+  `not_implemented`，其余 Point & Prompt 能力为 `pilot`。
+
 ## 官方依据
 
 - [ISwAddin Members（SOLIDWORKS API Help 2026）](https://help.solidworks.com/2026/english/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.ISwAddin_members.html)

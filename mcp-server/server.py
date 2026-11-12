@@ -1348,6 +1348,534 @@ def solidworks_addin_host_status(
     return _run_locked(op, params.response_format, load_automation=False)
 
 
+class SolidWorksPinnedContextInput(BaseInput):
+    """Input for reading the Point & Prompt pinned selection context."""
+
+    include_stale: bool = Field(default=True, description="Return stale contexts instead of blocking.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksEntityDetailsInput(BaseInput):
+    """Input for reading one entity from the pinned context."""
+
+    entity_token: str = Field(..., min_length=8, max_length=64, description="Stable entity token, e.g. ent-0123456789ab.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksResolveFeatureInput(BaseInput):
+    """Input for ranking Feature/Sketch candidates of one entity."""
+
+    entity_token: str = Field(..., min_length=8, max_length=64, description="Stable entity token from the pinned context.")
+    include_dimensions: bool = Field(
+        default=False,
+        description="Try to enumerate display dimensions of the resolved feature (requires SolidWorks).",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksPreviewPlanInput(BaseInput):
+    """Input for validating an EditPlan without writing the model."""
+
+    plan: Dict[str, Any] = Field(..., description="Structured EditPlan object (see edit-plan.schema.json).")
+    confirmed: bool = Field(default=False, description="Treat the user confirmation as already given.")
+    check_current_value: bool = Field(default=True, description="Read the current dimension value for the old-value check.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksApplyPlanInput(BaseInput):
+    """Input for executing a confirmed whitelisted EditPlan."""
+
+    plan: Dict[str, Any] = Field(..., description="Structured EditPlan object that already passed preview.")
+    confirmed: bool = Field(default=False, description="Explicit user confirmation for medium/high risk plans.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksVerifyResultInput(BaseInput):
+    """Input for re-reading a dimension after an applied plan."""
+
+    plan_id: str = Field(..., min_length=4, max_length=80)
+    expected_value_mm: float = Field(..., gt=0.0, le=100000.0)
+    dimension: Optional[str] = Field(default=None, max_length=240, description="Dimension full name; defaults to the journal entry.")
+    tolerance_mm: float = Field(default=0.01, gt=0.0, le=10.0)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksHighlightInput(BaseInput):
+    """Input for requesting Add-in highlight of semantic entities."""
+
+    entity_tokens: list[str] = Field(..., min_length=1, max_length=100)
+    color: str = Field(default="#FF8C00", pattern=r"^#[0-9A-Fa-f]{6}$")
+    ttl_seconds: int = Field(default=30, ge=1, le=600)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksPinInput(BaseInput):
+    """Input for pinning the current SolidWorks selection into the bridge."""
+
+    mode: Literal["pinned", "set"] = Field(default="pinned", description="pinned locks the target; set keeps a multi-selection set.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksUnpinInput(BaseInput):
+    """Input for clearing the pinned context."""
+
+    reason: str = Field(default="user_request", max_length=200)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksSelectionHistoryInput(BaseInput):
+    """Input for reading Point & Prompt interaction history and journal."""
+
+    limit: int = Field(default=20, ge=1, le=200)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksUndoPointPromptInput(BaseInput):
+    """Input for undoing the last applied Point & Prompt operation."""
+
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+def _bridge_module():
+    """Import the bridge lazily so health tools keep working without COM."""
+    from scripts import sw_cad_bridge
+
+    return sw_cad_bridge
+
+
+def _selection_context_module():
+    """Import the selection-context module lazily."""
+    from scripts import sw_selection_context
+
+    return sw_selection_context
+
+
+def _try_active_model():
+    """Load COM modules lazily and return the active document, or raise."""
+    if not _automation_loaded:
+        _load_automation_modules()
+    return _active_model_required()
+
+
+def _capability_note(capability_id: str) -> Dict[str, Any]:
+    """Return level + limitations for one atomic capability."""
+    from scripts.sw_edit_plan import load_capabilities
+
+    for capability in load_capabilities().get("capabilities", []):
+        if capability.get("id") == capability_id:
+            return {
+                "id": capability_id,
+                "level": capability.get("level"),
+                "limitations": capability.get("limitations", []),
+            }
+    return {"id": capability_id, "level": "not_implemented", "limitations": []}
+
+
+def _require_context(include_stale: bool = True) -> Dict[str, Any]:
+    """Read the pinned context or raise an actionable error."""
+    context = _bridge_module().read_context()
+    if not isinstance(context, dict):
+        raise RuntimeError(
+            "No pinned Point & Prompt context. Select entities in SolidWorks and call "
+            "solidworks_pin_selection first (or pin them in the Add-in TaskPane)."
+        )
+    if not include_stale:
+        status = (context.get("staleness") or {}).get("status", "fresh")
+        if status != "fresh":
+            raise RuntimeError(f"Pinned context is {status}; re-select the target and pin again.")
+    return context
+
+
+@mcp.tool(
+    name="solidworks_get_pinned_context",
+    title="Get Point & Prompt Pinned Context",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_get_pinned_context(
+    params: SolidWorksPinnedContextInput = SolidWorksPinnedContextInput(),
+) -> str:
+    """Return the pinned SelectionContext with document, revision and staleness."""
+
+    def op():
+        bridge = _bridge_module()
+        context_module = _selection_context_module()
+        context = bridge.read_context()
+        if context is None:
+            return {
+                "status": "blocked",
+                "error_code": "E_NO_PINNED_CONTEXT",
+                "message": "No pinned context. Pin a selection first.",
+                "retryable": True,
+                "capability": _capability_note("solidworks_point_prompt_selection_context"),
+            }
+        document_token = (context.get("document") or {}).get("documentToken", "")
+        revision = bridge.document_revision(document_token) if document_token else None
+        staleness = context_module.check_staleness(
+            context,
+            current_revision=revision,
+            current_document_token=document_token or None,
+        )
+        context_module.stamp_staleness(context, staleness)
+        payload = {
+            "status": "ok" if staleness["status"] != "unresolved" else "unresolved",
+            "context": context,
+            "staleness": staleness,
+            "errors": context_module.validate_context(context),
+            "capability": _capability_note("solidworks_point_prompt_selection_context"),
+        }
+        if not params.include_stale and staleness["status"] != "fresh":
+            payload.update({"status": "blocked", "error_code": "E_STALE_CONTEXT", "retryable": True})
+        return payload
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_get_entity_details",
+    title="Get Point & Prompt Entity Details",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_get_entity_details(params: SolidWorksEntityDetailsInput) -> str:
+    """Return one entity DTO plus its resolution status and ranked candidates."""
+
+    def op():
+        context_module = _selection_context_module()
+        resolver = importlib.import_module("scripts.sw_feature_resolver")
+        context = _require_context()
+        entity = context_module.find_entity(context, params.entity_token)
+        if entity is None:
+            return {
+                "status": "blocked",
+                "error_code": "E_STALE_CONTEXT",
+                "message": "Entity token is not part of the pinned context; re-select and pin again.",
+                "retryable": True,
+            }
+        return {
+            "status": "ok",
+            "entity": entity,
+            "resolution": resolver.resolve_entity_context(entity),
+            "contextRevision": (context.get("modelState") or {}).get("revision"),
+            "staleness": context.get("staleness"),
+        }
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_resolve_feature_candidates",
+    title="Resolve Feature Candidates",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_resolve_feature_candidates(params: SolidWorksResolveFeatureInput) -> str:
+    """Rank Feature/Sketch/Dimension candidates behind a picked face or edge."""
+
+    def op():
+        context_module = _selection_context_module()
+        resolver = importlib.import_module("scripts.sw_feature_resolver")
+        context = _require_context()
+        entity = context_module.find_entity(context, params.entity_token)
+        if entity is None:
+            return {
+                "status": "blocked",
+                "error_code": "E_STALE_CONTEXT",
+                "message": "Entity token is not part of the pinned context.",
+                "retryable": True,
+            }
+        ranked = resolver.resolve_entity_context(entity)
+        payload: Dict[str, Any] = {
+            "status": ranked.get("status"),
+            "entityToken": params.entity_token,
+            "ranked": ranked,
+            "capability": _capability_note("solidworks_point_prompt_feature_resolution"),
+        }
+        if params.include_dimensions and ranked.get("status") == "resolved":
+            feature_name = (ranked.get("best") or {}).get("featureName")
+            try:
+                _, model = _try_active_model()
+                feature = _find_feature_by_name(model, str(feature_name))
+                payload["dimensionNames"] = resolver.list_feature_dimensions(feature) if feature is not None else []
+                if feature is None:
+                    payload["dimensionHint"] = f"Feature {feature_name} not found in the active document tree."
+            except Exception as exc:  # noqa: BLE001 - COM is optional for candidate ranking
+                payload["dimensionNames"] = []
+                payload["dimensionHint"] = f"Live dimension lookup unavailable: {type(exc).__name__}: {exc}"
+        return payload
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+def _find_feature_by_name(model, feature_name: str):
+    """Walk the feature tree and return the matching feature (COM, best effort)."""
+    if not feature_name:
+        return None
+    try:
+        feature = model.FirstFeature()
+    except Exception:  # noqa: BLE001
+        return None
+    seen = 0
+    while feature is not None and seen < 2000:
+        seen += 1
+        try:
+            name = get_com_member(feature, "Name")
+        except Exception:  # noqa: BLE001
+            name = None
+        if name and str(name) == feature_name:
+            return feature
+        try:
+            feature = feature.GetNextFeature()
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
+@mcp.tool(
+    name="solidworks_preview_edit_plan",
+    title="Preview Point & Prompt Edit Plan",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_preview_edit_plan(params: SolidWorksPreviewPlanInput) -> str:
+    """Validate an EditPlan against the pinned context without writing the model."""
+
+    def op():
+        bridge = _bridge_module()
+        edit_plan = importlib.import_module("scripts.sw_edit_plan")
+        context = _bridge_module().read_context()
+        current_value = None
+        if params.check_current_value:
+            try:
+                _, model = _try_active_model()
+                adapter = importlib.import_module("scripts.sw_apply_plan").ComDocumentAdapter(model)
+                dimension = edit_plan.plan_dimension(params.plan)
+                if dimension:
+                    current_value = adapter.read_dimension_mm(dimension)
+            except Exception:  # noqa: BLE001 - preview must work without COM
+                current_value = None
+        preview = edit_plan.preview_plan(params.plan, context, current_value_mm=current_value, confirmed=params.confirmed)
+        payload = {
+            "status": preview["status"],
+            "planId": preview.get("planId"),
+            "preview": preview,
+            "capability": _capability_note("solidworks_point_prompt_edit_plan_preview"),
+        }
+        try:
+            bridge.write_plan_preview(str(preview.get("planId") or "plan"), {"plan": params.plan, "preview": preview, "status": preview["status"]})
+        except Exception:  # noqa: BLE001
+            pass
+        return payload
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_apply_edit_plan",
+    title="Apply Point & Prompt Edit Plan",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_apply_edit_plan(params: SolidWorksApplyPlanInput) -> str:
+    """Execute a confirmed whitelisted EditPlan, rebuild, read back and journal the transaction."""
+
+    def op():
+        bridge = _bridge_module()
+        context_module = _selection_context_module()
+        apply_module = importlib.import_module("scripts.sw_apply_plan")
+        context = bridge.read_context()
+        _, model = _active_model_required()
+        token = str((context or {}).get("document", {}).get("documentToken") or "")
+        adapter = apply_module.ComDocumentAdapter(model, document_token_value=token)
+        result = apply_module.apply_plan(params.plan, context, adapter, confirmed=params.confirmed)
+        if result.get("status") == "applied" and context:
+            revision = int(result.get("revisionAfter") or 0)
+            if revision:
+                refreshed = apply_module.refresh_context_after_apply(context, revision)
+                bridge.write_context(refreshed)
+        return result
+
+    return _run_locked(op, params.response_format, load_automation=True)
+
+
+@mcp.tool(
+    name="solidworks_verify_edit_result",
+    title="Verify Point & Prompt Edit Result",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_verify_edit_result(params: SolidWorksVerifyResultInput) -> str:
+    """Re-read the target dimension and compare it with the expected value."""
+
+    def op():
+        bridge = _bridge_module()
+        apply_module = importlib.import_module("scripts.sw_apply_plan")
+        _, model = _active_model_required()
+        adapter = apply_module.ComDocumentAdapter(model)
+        dimension = params.dimension
+        commits = [entry for entry in bridge.read_journal(limit=200) if entry.get("planId") == params.plan_id and entry.get("event") == "commit"]
+        if not dimension and commits:
+            dimension = str(commits[-1].get("dimension") or "")
+        if not dimension:
+            return {
+                "status": "blocked",
+                "error_code": "E_PLAN_INVALID",
+                "message": "Dimension is unknown; pass it explicitly or apply the plan first.",
+                "retryable": False,
+            }
+        value = adapter.read_dimension_mm(dimension)
+        matched = value is not None and abs(float(value) - float(params.expected_value_mm)) <= params.tolerance_mm
+        payload = {
+            "status": "PASS" if matched else "FAIL",
+            "planId": params.plan_id,
+            "dimension": dimension,
+            "expectedMm": params.expected_value_mm,
+            "readbackMm": value,
+            "toleranceMm": params.tolerance_mm,
+            "error_code": None if matched else "E_READBACK_MISMATCH",
+            "capability": _capability_note("solidworks_point_prompt_edit_verify_rollback"),
+        }
+        try:
+            bridge.append_journal(
+                {
+                    "entryId": f"verify-{params.plan_id}",
+                    "at": _utc_now_text(),
+                    "event": "verify",
+                    "planId": params.plan_id,
+                    "dimension": dimension,
+                    "readbackMm": value,
+                    "expectedMm": params.expected_value_mm,
+                    "status": payload["status"],
+                }
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return payload
+
+    return _run_locked(op, params.response_format, load_automation=True)
+
+
+@mcp.tool(
+    name="solidworks_highlight_entities",
+    title="Highlight Point & Prompt Entities",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_highlight_entities(params: SolidWorksHighlightInput) -> str:
+    """Request the Add-in to highlight semantic entities on the canvas."""
+
+    def op():
+        bridge = _bridge_module()
+        path = bridge.write_highlight_request(params.entity_tokens, color=params.color, ttl_seconds=params.ttl_seconds)
+        return {
+            "status": "queued",
+            "entities": len(params.entity_tokens),
+            "bridgeFile": str(path),
+            "note": "Add-in applies the highlight when it polls highlights.json; no COM object is passed to MCP.",
+        }
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_pin_selection",
+    title="Pin Point & Prompt Selection",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_pin_selection(params: SolidWorksPinInput = SolidWorksPinInput()) -> str:
+    """Snapshot the current SolidWorks selection into the bridge and pin it."""
+
+    def op():
+        bridge = _bridge_module()
+        context_module = _selection_context_module()
+        _, model = _active_model_required()
+        context = context_module.collect_selection(model, mode=params.mode)
+        if not (context.get("selection") or {}).get("objects"):
+            return {
+                "status": "blocked",
+                "error_code": "E_NO_PINNED_CONTEXT",
+                "message": "Nothing is selected in SolidWorks; select a face/edge/feature first.",
+                "retryable": True,
+            }
+        bridge.write_context(context)
+        selection = context["selection"]
+        bridge.set_pinned(
+            context["document"]["documentToken"],
+            selection["selectionToken"],
+            [entity["entityToken"] for entity in selection["objects"]],
+        )
+        bridge.append_history(
+            "pin",
+            documentToken=context["document"]["documentToken"],
+            selectionToken=selection["selectionToken"],
+            mode=params.mode,
+            objects=[entity["entityType"] for entity in selection["objects"]],
+        )
+        return {
+            "status": "pinned",
+            "context": context,
+            "capability": _capability_note("solidworks_point_prompt_selection_pin"),
+        }
+
+    return _run_locked(op, params.response_format, load_automation=True)
+
+
+@mcp.tool(
+    name="solidworks_unpin_selection",
+    title="Unpin Point & Prompt Selection",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_unpin_selection(params: SolidWorksUnpinInput = SolidWorksUnpinInput()) -> str:
+    """Clear the pinned context and record the reason."""
+
+    def op():
+        bridge = _bridge_module()
+        bridge.set_pinned(None, None)
+        bridge.append_history("unpin", reason=params.reason)
+        return {"status": "unpinned", "reason": params.reason}
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_get_selection_history",
+    title="Get Point & Prompt History",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_get_selection_history(params: SolidWorksSelectionHistoryInput = SolidWorksSelectionHistoryInput()) -> str:
+    """Return recent pin/plan/apply history plus the operation journal."""
+
+    def op():
+        bridge = _bridge_module()
+        return {
+            "status": "ok",
+            "history": bridge.read_history(limit=params.limit),
+            "journal": bridge.read_journal(limit=params.limit),
+            "state": bridge.read_state(),
+        }
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_undo_last_ai_operation",
+    title="Undo Last Point & Prompt Operation",
+    annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_undo_last_ai_operation(
+    params: SolidWorksUndoPointPromptInput = SolidWorksUndoPointPromptInput(),
+) -> str:
+    """Restore the previous dimension value recorded by the last applied plan."""
+
+    def op():
+        apply_module = importlib.import_module("scripts.sw_apply_plan")
+        _, model = _active_model_required()
+        adapter = apply_module.ComDocumentAdapter(model)
+        return apply_module.undo_last_operation(adapter)
+
+    return _run_locked(op, params.response_format, load_automation=True)
+
+
+def _utc_now_text() -> str:
+    """RFC 3339 UTC timestamp for journal entries."""
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 @mcp.tool(
     name="cadstudio_fea_preflight",
     title="Probe Open FEA Solver",

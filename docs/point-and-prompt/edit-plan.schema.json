@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/geekx/solidworks-automation-skill/docs/point-and-prompt/edit-plan.schema.json",
+  "title": "Point & Prompt EditPlan",
+  "description": "白名单参数化修改计划。Agent 只能生成本 Schema 允许的操作，禁止生成任意 Python/VBA 代码后直接执行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "planId", "createdAt", "target", "operation", "risk", "requiresConfirmation"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "planId": {
+      "type": "string",
+      "pattern": "^plan-[A-Za-z0-9._-]{3,80}$"
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "summary": {
+      "type": "string",
+      "maxLength": 400,
+      "description": "一句话描述计划，用于计划卡片标题。"
+    },
+    "target": { "$ref": "#/$defs/target" },
+    "operation": { "$ref": "#/$defs/operation" },
+    "invariants": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^[a-z0-9_]{3,80}$" },
+      "description": "必须保持的设计条件，例如 preserve_hole_center。"
+    },
+    "risk": { "enum": ["low", "medium", "high", "critical"] },
+    "requiresConfirmation": { "type": "boolean" },
+    "gate": {
+      "type": "boolean",
+      "default": false,
+      "description": "高风险微操作门禁：评估 FAIL 时由 Coordinator 回退，不自动进入下一步。"
+    },
+    "preconditions": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "maxLength": 240 }
+    },
+    "expectedChanges": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "from", "to"],
+        "properties": {
+          "path": { "type": "string", "maxLength": 240 },
+          "from": {},
+          "to": {}
+        }
+      }
+    },
+    "evidenceRequirements": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "enum": ["before_params", "after_params", "rebuild_result", "readback", "geometry_checks", "review_report", "journal"]
+      }
+    },
+    "notes": { "type": "string", "maxLength": 2000 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "risk": { "enum": ["high", "critical"] } }, "required": ["risk"] },
+      "then": { "properties": { "requiresConfirmation": { "const": true } } }
+    }
+  ],
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["documentToken", "documentRevision", "selectionToken", "entityToken"],
+      "properties": {
+        "documentToken": { "type": "string", "pattern": "^doc-[0-9a-f]{16,40}$" },
+        "documentRevision": { "type": "integer", "minimum": 0 },
+        "selectionToken": { "type": "string", "pattern": "^sel-[0-9a-f]{12,40}$" },
+        "entityToken": { "type": "string", "pattern": "^ent-[0-9a-f]{12,40}$" },
+        "configuration": { "type": "string", "maxLength": 240 }
+      }
+    },
+    "operation": {
+      "oneOf": [
+        { "$ref": "#/$defs/modifySketchDimension" },
+        { "$ref": "#/$defs/modifyFeatureDepth" },
+        { "$ref": "#/$defs/modifyFilletRadius" },
+        { "$ref": "#/$defs/modifyChamferDistance" }
+      ]
+    },
+    "dimensionName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 240,
+      "pattern": "^[^@\\s]+(@[^@\\s]+)+$",
+      "description": "SOLIDWORKS 尺寸全名，例如 D1@Sketch4 或 D2@Cut-Extrude3。"
+    },
+    "millimetreValue": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100000
+    },
+    "modifySketchDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "dimension", "oldValueMm", "newValueMm"],
+      "properties": {
+        "kind": { "const": "modify_sketch_dimension" },
+        "dimension": { "$ref": "#/$defs/dimensionName" },
+        "feature": { "type": "string", "maxLength": 240 },
+        "oldValueMm": { "$ref": "#/$defs/millimetreValue" },
+        "newValueMm": { "$ref": "#/$defs/millimetreValue" }
+      }
+    },
+    "modifyFeatureDepth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "feature", "dimension", "oldValueMm", "newValueMm"],
+      "properties": {
+        "kind": { "const": "modify_feature_depth" },
+        "feature": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "dimension": { "$ref": "#/$defs/dimensionName" },
+        "oldValueMm": { "$ref": "#/$defs/millimetreValue" },
+        "newValueMm": { "$ref": "#/$defs/millimetreValue" }
+      }
+    },
+    "modifyFilletRadius": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "feature", "oldValueMm", "newValueMm"],
+      "properties": {
+        "kind": { "const": "modify_fillet_radius" },
+        "feature": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "dimension": { "$ref": "#/$defs/dimensionName" },
+        "oldValueMm": { "$ref": "#/$defs/millimetreValue" },
+        "newValueMm": { "$ref": "#/$defs/millimetreValue" }
+      }
+    },
+    "modifyChamferDistance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "feature", "oldValueMm", "newValueMm"],
+      "properties": {
+        "kind": { "const": "modify_chamfer_distance" },
+        "feature": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "dimension": { "$ref": "#/$defs/dimensionName" },
+        "oldValueMm": { "$ref": "#/$defs/millimetreValue" },
+        "newValueMm": { "$ref": "#/$defs/millimetreValue" }
+      }
+    }
+  }
+}
