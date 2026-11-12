@@ -24,6 +24,8 @@ import fea_analysis  # noqa: E402
 def test_capability_manifest_marks_unverified_workflows():
     index = capability_index(load_capabilities())
     assert index["part_and_features"]["level"] == "verified"
+    assert index["external_spur_gear_geometry"]["level"] == "pilot"
+    assert index["external_spur_gear_geometry"]["verified_versions"] == ["2026"]
     assert index["parameter_updates"]["level"] == "pilot"
     assert index["custom_properties_and_bom"]["level"] == "pilot"
     assert index["pack_and_go"]["level"] == "pilot"

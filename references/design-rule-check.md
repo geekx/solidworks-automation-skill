@@ -66,7 +66,7 @@ python scripts/cad_studio.py check-drc --input part.cadstudio.json --output out/
 | DRC-HOLE-003 | holes | 螺纹啮合深度 | threadEngagementRatio |
 | DRC-HOLE-004 | holes | 孔尺寸有效性 | — |
 | DRC-STD-001 | standard_parts | 齿轮尖齿 | — |
-| DRC-STD-002 | standard_parts | 齿轮根切齿数 | gearMinTeeth |
+| DRC-STD-002 | standard_parts | 齿轮根切齿数：按压力角/齿顶高系数/变位现算 `z_min=2(ha*-x)/sin²α`（20° 为 17.097→18），`gearMinTeeth` 仅作可选覆盖；与上游真机验证的 `sw_gear` 判定交叉校验一致 | （现算）/ gearMinTeeth 覆盖 |
 | DRC-STD-003 | standard_parts | 弹簧指数范围 | springIndexMin/Max/HardMin/HardMax |
 | DRC-STD-004 | standard_parts | 弹簧实体/自由长度 | — |
 | DRC-STD-005 | standard_parts | 链轮最小齿数 | sprocketMinTeeth |
@@ -142,6 +142,15 @@ CLI：`check-drc --baseline prev.json --waivers waivers.json --as-of 2026-09-08`
 
 发现可配置项：`list-drc-rule-packs` / MCP `cadstudio_list_drc_rule_packs`；用法
 `check-drc --rule-pack drilling_panel`。规则包本身也是声明式数据，可复制改成企业自有包。
+
+## 回归门禁（设计变更把关）
+
+`design_audit.assert_no_regression(baseline, candidate)`：候选版本相对基线**风险分变高**，或**新增 critical**（即使总分因别处改善而下降），即拒绝；已让步(waived)的不计。
+用法：`check-drc --baseline prev.json --fail-on-regression [--regression-tolerance N]`，或 MCP `cadstudio_check_drc` 的 `regression_gate=true`；结果在 `report.regressionGate`，未提供 baseline 时**明确失败**而非静默通过。
+
+## 电机扭矩核验（DRC-DRV-*）
+
+见 [`drive-sizing.md`](drive-sizing.md)。输入为 `metadata.drives[]`，阈值 `driveTorqueSafetyFactor / driveRmsUtilizationMax / driveInertiaRatioWarn / driveInertiaRatioMax` 可经 Profile 覆盖（多 Profile 合并取更严）。
 
 ## 边界
 

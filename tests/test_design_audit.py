@@ -86,3 +86,56 @@ def test_summarize_audit_end_to_end():
     assert result["risk"]["band"] in {"low", "medium", "high", "none"}
     assert result["waivers"]["applied"]
     assert "diff" in result
+
+
+# ---- 回归门禁 ----
+
+
+def _f(rid, status, severity, target=None, **extra):
+    d = {"id": rid, "category": "x", "status": status, "severity": severity, "target": target, "message": rid}
+    d.update(extra)
+    return d
+
+
+def test_regression_gate_passes_when_improved():
+    baseline = [_f("A", "fail", "major", "H1"), _f("B", "warning", "warning")]
+    candidate = [_f("B", "warning", "warning")]  # A 已修复
+    r = audit.assert_no_regression(baseline, candidate)
+    assert r["passed"] is True
+    assert r["delta"] < 0 and r["fixedCount"] == 1 and r["newCount"] == 0
+
+
+def test_regression_gate_passes_when_unchanged():
+    checks = [_f("A", "fail", "major", "H1")]
+    assert audit.assert_no_regression(checks, checks)["passed"] is True
+
+
+def test_regression_gate_rejects_higher_risk():
+    baseline = [_f("B", "warning", "warning")]
+    candidate = [_f("B", "warning", "warning"), _f("C", "fail", "major", "H2")]
+    r = audit.assert_no_regression(baseline, candidate)
+    assert r["passed"] is False
+    assert r["delta"] == pytest.approx(5.0)
+    assert any("风险分" in reason for reason in r["reasons"])
+
+
+def test_regression_gate_rejects_new_critical_even_if_score_drops():
+    """修好了两个 major(-10)，却引入一个新的 critical(+10)：总分持平/下降也不能放行。"""
+    baseline = [_f("A", "fail", "major", "H1"), _f("B", "fail", "major", "H2"), _f("K", "fail", "critical", "S9")]
+    candidate = [_f("K", "fail", "critical", "S9"), _f("N", "fail", "critical", "S1")]  # 新增 critical N
+    r = audit.assert_no_regression(baseline, candidate, tolerance=100.0)  # 容差放大，只剩 critical 规则起作用
+    assert r["passed"] is False
+    assert r["newBlocking"] == [{"id": "N", "target": "S1", "severity": "critical"}]
+
+
+def test_regression_gate_tolerance_allows_small_increase():
+    baseline = [_f("B", "warning", "warning")]
+    candidate = [_f("B", "warning", "warning"), _f("M", "warning", "minor")]  # +1
+    assert audit.assert_no_regression(baseline, candidate, tolerance=0.0)["passed"] is False
+    assert audit.assert_no_regression(baseline, candidate, tolerance=1.0)["passed"] is True
+
+
+def test_regression_gate_ignores_waived_findings():
+    baseline = [_f("B", "warning", "warning")]
+    candidate = [_f("B", "warning", "warning"), _f("N", "fail", "critical", "S1", waived=True)]
+    assert audit.assert_no_regression(baseline, candidate)["passed"] is True  # 已让步的新 critical 不计

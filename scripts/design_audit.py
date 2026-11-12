@@ -213,3 +213,52 @@ def summarize_audit(
     if baseline_checks is not None:
         audit["diff"] = diff_findings(baseline_checks, processed)
     return audit
+
+
+def assert_no_regression(
+    baseline_checks: Sequence[Mapping[str, Any]],
+    candidate_checks: Sequence[Mapping[str, Any]],
+    *,
+    weights: Mapping[str, float] | None = None,
+    tolerance: float = 0.0,
+    block_new_severities: Sequence[str] = ("critical",),
+) -> dict[str, Any]:
+    """@brief 回归门禁：候选版本相对基线不得变差，否则拒绝。
+
+    “变差”有两种，任一成立即拒绝：
+    1. 未让步 finding 的加权风险分高于基线（超过 tolerance）；
+    2. 出现了 block_new_severities（默认 critical）级别的**新增**未让步 finding——
+       即使总分因别处改善而下降，也不能用一个新的致命问题去换分数。
+    已让步(waived)的 finding 不计入。用于“修改/修复方案是否让设计更差”的把关，
+    与 diff_findings / risk_score 共用同一套指纹与权重，所以结论可解释、可追溯。
+    """
+    baseline = attach_fingerprints(baseline_checks)
+    candidate = attach_fingerprints(candidate_checks)
+    base_risk = risk_score(baseline, weights=weights)
+    cand_risk = risk_score(candidate, weights=weights)
+    diff = diff_findings(baseline, candidate)
+    delta = round(cand_risk["score"] - base_risk["score"], 6)
+
+    blocked_new = [
+        f for f in diff["new"]
+        if not f.get("waived") and str(f.get("severity")) in set(block_new_severities)
+    ]
+    reasons: list[str] = []
+    if delta > float(tolerance):
+        reasons.append(f"风险分由 {base_risk['score']:g} 升至 {cand_risk['score']:g}（+{delta:g}，容差 {float(tolerance):g}）")
+    for finding in blocked_new:
+        reasons.append(f"新增 {finding.get('severity')} 级问题 {finding.get('id')}（{finding.get('target') or '-'}）：{finding.get('message', '')}")
+
+    return {
+        "passed": not reasons,
+        "reasons": reasons,
+        "baselineScore": base_risk["score"],
+        "candidateScore": cand_risk["score"],
+        "delta": delta,
+        "tolerance": float(tolerance),
+        "blockedNewSeverities": list(block_new_severities),
+        "newCount": diff["counts"]["new"],
+        "fixedCount": diff["counts"]["fixed"],
+        "persistingCount": diff["counts"]["persisting"],
+        "newBlocking": [{"id": f.get("id"), "target": f.get("target"), "severity": f.get("severity")} for f in blocked_new],
+    }

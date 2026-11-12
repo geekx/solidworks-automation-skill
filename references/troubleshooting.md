@@ -604,6 +604,157 @@ ok = apply_component_transform_x(component, 0.1, 0.0, 0.0, deg(30))
 4. 仍不稳定时，让用户确认后重启 `SLDWORKS.exe`。
 5. 脚本内记录失败组件和失败 API，不要只打印“完成”。
 
+### FeatureFillet 报"非选择性的参数"
+
+场景：`model.FeatureManager.FeatureFillet(195, radius, 0, 0, None, None, None)` 报
+
+```text
+com_error: (-2147352561, '非选择性的参数。', None, None)
+```
+
+原因：`IFeatureManager::FeatureFillet` **只接受 4 个参数**：`(Options, Radius, R1, R2)`。
+传 7 个参数（末尾补三个 `None`）会在 SolidWorks 2024 和 2026 上都失败。旧文档和早期
+封装里有这个错误写法，真机实测确认。
+
+稳定写法：
+
+```python
+from sw_edge_select import select_edges
+from sw_part import fillet
+from sw_connect import mm
+
+# 必须先建立非空的边线选择集
+selection = select_edges(model, {"axis": "z", "convex_only": True})
+if selection["status"] != "ok":
+    raise RuntimeError(f"未选中边线: {selection['errors']}")
+feature = fillet(model, mm(4))
+```
+
+`sw_part.fillet()` 会在选择集为空时抛 `ValueError` 而不是继续——选择集为空时
+SolidWorks 会对"当前轮廓"执行圆角，产生难以排查的错误特征。
+
+### 圆角/倒角选到错误的边
+
+场景：脚本没报错，但圆角加到了不该加的边上；或者模型改了尺寸后再跑，圆角位置全变了。
+
+原因：`SelectByID2("Edge1", "EDGE", x, y, z, ...)` 依赖实体的坐标魔法值，模型一改就失效，
+而且失败是静默的（返回 `False` 但后续特征不报错）。
+
+稳定写法：改用 `sw_edge_select.select_edges()` 按 B-Rep 几何条件选边。详见
+[references/edge-selection.md](references/edge-selection.md)。
+
+```python
+from sw_edge_select import select_edges
+
+# 先预览选中了哪些边，以及每条被排除的边的原因
+preview = select_edges(model, {"axis": "z", "convex_only": True})
+print(preview["selected_count"], preview["selected"])
+print(preview["rejected_sample"])
+```
+
+### IEdge.Select4 报"类型不匹配"
+
+场景：`edge.Select4(True, None, False)` 报
+
+```text
+com_error: (-2147352571, '类型不匹配。', None, None)
+```
+
+原因：`Select4(Append, Callout)` 的第二个参数是 **Callout 对象**，必须是 Dispatch VARIANT，
+不能是 Python 的 `None`。
+
+稳定写法：优先用 `Select2(Append, Mark)`，它没有这个问题；必须用 Select4 时传
+`create_empty_dispatch_variant()`。
+
+```python
+from sw_connect import create_empty_dispatch_variant
+
+edge.Select2(True, 0)                                    # 首选
+edge.Select4(True, create_empty_dispatch_variant())      # 回退
+```
+
+### 孔"创建成功"但模型上没有孔
+
+场景：`create_through_hole()` 返回特征证据，但特征树里没有切除，或报
+`SolidWorks 未创建特征`。
+
+逐项排查：
+
+1. **单位**。`sw_hole_features` 的 `center` / `diameter` / `depth` 全部期望**米**。
+   传毫米（例如把 10 当成 10mm）会得到 1000 倍大的草图，切除完全落在实体之外而被
+   静默拒绝。实测把 100x60x6mm 的板撑到 13300mm 的包围盒就是这个原因。
+   ```python
+   from sw_connect import mm
+   create_through_hole(model, center=(mm(10), mm(10)), diameter=mm(6.6))
+   ```
+2. **孔位是否在实体范围内**。切除草图完全在实体外时 SolidWorks 不报错、只返回 `None`。
+   用 `build_from_spec.validate_holes_inside_base()` 或自己核对边界。
+3. **返回值取错键**。`HoleFeatureEvidence.to_dict()` 的键是 `feature_names`（元组），
+   没有 `status` / `feature_name`。写成 `result.get("status")` 会把成功的孔判成失败。
+
+### 特征返回值判空而不是判真
+
+SolidWorks 大多数特征 API 在失败时返回 `None`。**不要**只写 `if feature:` 就继续保存，
+也不要忽略返回值。每次创建特征后检查，失败就中止或降级：
+
+```python
+feature = extrude_boss(model, sketch_ref, mm(8))
+if feature is None:
+    raise RuntimeError("拉伸失败：检查草图是否闭合、方向是否正确、深度是否非零")
+```
+
+### 读取包围盒得到 1000 倍或 0.001 倍的尺寸
+
+场景：`model.GetPartBox(True)` 的返回值被当成毫米或米用错。
+
+原因：`GetPartBox` 有两个模式，单位不同：
+
+| 调用 | 返回单位 |
+|---|---|
+| `GetPartBox(True)` | **米**（系统单位） |
+| `GetPartBox(False)` | **毫米**（文档单位，受文档单位制影响） |
+
+`sw_measure.collect_bounding_box()` 统一使用 `True` 并换算为毫米，直接用封装即可。
+
+```python
+from sw_measure import collect_bounding_box
+box = collect_bounding_box(model)
+print(box["size_mm"])   # [长, 宽, 高]，毫米
+```
+
+### 质量属性提示"未分配材料"
+
+场景：`collect_mass_properties()` 返回的 `warnings` 里有"文档未分配材料"。
+
+原因：SolidWorks 对未分配材料的文档按默认密度（1000 kg/m³）计算。数值算得出来，
+但**不能直接用于工程判断**（电机选型、运输重量、成本估算都会偏）。
+
+处理：在文档里分配材料，或显式传入密度覆盖：
+
+```python
+result = collect_mass_properties(model, density_kg_m3=7850.0)   # 45 钢
+```
+
+另外，`IMassProperty.Status` 在部分版本（实测 SW2024 SP5）不可用，返回 `status: null`
+是正常的，不影响质量数值。
+
+### MCP 调用长时间无响应
+
+场景：调用任何 SolidWorks MCP 工具后一直不返回，后续工具调用也全部挂起。
+
+原因：SolidWorks 弹出模态对话框（模板选择、许可证提示、文件覆盖确认）时不会响应
+Automation 调用，而且不会超时。持锁的上一个操作因此卡死。
+
+处理：
+
+1. 调用 `solidworks_recover` 诊断——它会枚举 SolidWorks 窗口，报告检测到的模态对话框
+   和当前持锁的操作。
+2. 切到 SolidWorks 窗口**手动**关闭对话框。需要自动关闭时传
+   `{"dismiss_dialogs": true}`，但注意 `WM_CLOSE` 可能丢弃未保存的更改，故默认关闭。
+3. 窗口完全无响应时，用任务管理器结束 `SLDWORKS.exe`，再调用 `solidworks_connect`。
+
+锁超时上限为 300 秒；超过后工具返回结构化错误而不是永久阻塞。
+
 ## 未封装 API 调用
 
 当需要使用本 skill 尚未封装的 SolidWorks API 时：
