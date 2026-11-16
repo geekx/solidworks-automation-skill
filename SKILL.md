@@ -107,7 +107,7 @@ from sw_part import sketch, sketch_circle, extrude_boss
 from sw_sketch_quality import fully_define_sketch
 from sw_session import SolidWorksSession
 
-with SolidWorksSession(version=2026) as session:
+with SolidWorksSession(version=None) as session:  # None=自动检测；也可显式传 2024/2025/2026
     model = session.new_part()
 
     with sketch(model, "Front Plane") as sketch_name:
