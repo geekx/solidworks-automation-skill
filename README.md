@@ -234,7 +234,7 @@ Artifacts + Evidence
 
 近期原生 SolidWorks 回归以 **2026 SP1.1** 为基线，部分能力另有 **2024** 真机记录。以 [能力清单](capabilities.yaml) 中对应能力的 `verified_versions`、等级和限制为准；未列出的版本需单独验证。环境诊断只检查安装和运行条件，工程功能按实际任务验收。
 
-**完整模式暴露 69 个命名工具；默认发现模式只暴露 3 个检索入口**（`sw_search_tools` /
+**完整模式暴露 84 个命名工具；默认发现模式只暴露 3 个检索入口**（`sw_search_tools` /
 `sw_describe_tool` / `sw_call_tool`）。原有命名工具保持兼容；发现模式
 按需检索；写操作经过策略检查，审批行为与信任边界取决于配置。模式切换、审批与回滚见
 [`mcp-server/README.md`](mcp-server/README.md)。

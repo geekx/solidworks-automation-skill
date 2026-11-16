@@ -400,7 +400,7 @@ def test_full_mode_hides_discovery_entries_and_search_mode_hides_tools(tmp_path)
                          ledger=ApprovalLedger(tmp_path / "b"))
     names = {tool.name for tool in full_gate.list_tools()}
     assert names.isdisjoint(DISCOVERY_TOOLS)
-    assert len(names) == 81
+    assert len(names) == 84
 
 
 def test_describe_preserves_original_input_and_output_schema(tmp_path):
@@ -608,7 +608,7 @@ def test_stdio_full_mode_keeps_legacy_surface(tmp_path):
     async def handler(session):
         listed = await session.list_tools()
         names = {tool.name for tool in listed.tools}
-        assert len(names) == 81
+        assert len(names) == 84
         assert names.isdisjoint(DISCOVERY_TOOLS)
         assert "solidworks_save_document" in names
 

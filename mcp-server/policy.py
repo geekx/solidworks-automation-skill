@@ -51,6 +51,7 @@ _READ: frozenset[str] = frozenset({
     "solidworks_highlight_entities",
     "solidworks_unpin_selection",
     "solidworks_get_selection_history",
+    "solidworks_capability_map",
 })
 
 _WRITE: frozenset[str] = frozenset({
@@ -105,6 +106,8 @@ _WRITE: frozenset[str] = frozenset({
     "solidworks_pin_selection",
     "solidworks_apply_edit_plan",
     "solidworks_undo_last_ai_operation",
+    "solidworks_create_gear",
+    "solidworks_create_sheet_metal_flange",
 })
 
 # 覆盖或批量写入：一旦参数写错，损失是"已经覆盖的文件"而不是"多一个特征"。

@@ -10,7 +10,7 @@ metadata: { "openclaw": { "homepage": "https://github.com/wzyn20051216/solidwork
 
 ### 环境要求
 
-- Windows 系统；原生 SolidWorks 操作以 SolidWorks 2026 为支持与验收目标，开放格式无头写入不要求安装 CAD 软件
+- Windows 系统；原生 SolidWorks 操作以 2024/2026 为已验证基线，**2025（含 SP1）可连接并按 pilot 使用**；开放格式无头写入不要求安装 CAD 软件
 - Python 3.10+；原生 Windows CAD 自动化另需 `pywin32` / `comtypes`
 - MCP/工具化调用需要 `mcp` / `pydantic`
 - 工程图最终交付审查需要 `PyMuPDF`；它从 SolidWorks 导出 PDF 回读实际尺寸文字边界，已包含在 `requirements.txt`
@@ -32,6 +32,33 @@ python SKILL_DIR/scripts/cad_studio.py doctor
 ```
 
 `capabilities.yaml` 是 Skill、MCP、队列和 UI 共用的能力唯一真源。能力等级为 `verified`、`pilot`、`reference_only` 或 `not_implemented`；后两者不得作为无人值守交付。该清单还维护 Python、C# PIA/Add-in、原生 C++、SWBasic、OCCT 和外部求解器的原子操作路由；执行前可用 `python scripts/backend_router.py --list` 查询，规则见 `references/language-backend-routing.md`。
+
+## 能力地图（先查，不要写 probe）
+
+执行任何建模/装配/出图任务前，先拿到能力清单；**不要为了试探“能不能”反复写 `probe_*.py` 直接调 COM**。
+
+1. MCP：调用 `solidworks_capability_map`（发现模式下用 `sw_call_tool` 调用它），按工程域返回能力等级、对应 MCP 工具与脚本；可选 `domain` 只看一个域：`part_modeling`、`sheet_metal`、`weldments`、`standard_parts`、`assembly`、`motion`、`drawing`、`export`、`review`、`configuration`、`point_prompt`、`fea`、`routing`、`open_format`、`platform`。
+2. Skill/CLI：`python scripts/capability_map.py --domain part_modeling`（不带 `--domain` 输出全部）。
+3. 查到能力后再用 `sw_search_tools` / `sw_describe_tool` 选具体工具；工具不存在时读 `references/` 或 `scripts/` 的既有封装，仍不足才做最小实现，并在交付中说明限制。
+
+只有能力地图显示未知、或需要验证本机版本/API 行为时，才使用**只读**的 `scripts/sw_capability_probe.py` 或 `scripts/sw_api_lookup.py`。
+
+| 能力域 | 主要入口 | 等级 |
+|---|---|---|
+| 零件建模：草图/拉伸/切除/旋转/圆角/倒角/抽壳/阵列/镜像/孔 | `solidworks_sketch_and_extrude`、`solidworks_revolve`、`solidworks_fillet`、`solidworks_shell`、`solidworks_create_hole_feature` | verified |
+| 钣金：基体法兰/折弯 | `solidworks_create_sheet_metal_flange`、`scripts/sw_sheet_metal.py` | pilot |
+| 焊件：结构构件/切割清单 | `scripts/sw_weldment.py`（需本机 `.sldlfp` 型材；MCP 未封装） | pilot |
+| 标准件：直齿轮/压缩弹簧/链轮 | `solidworks_create_gear`、`scripts/sw_gear.py`、`sw_spring.py` | pilot |
+| 装配：组件/Mate/干涉/替换 | `solidworks_add_component`、`solidworks_add_*_mate`、`solidworks_interference_check` | verified |
+| 运动：Motion Study/马达/结果门禁 | `solidworks_add_rotary_motor`、`solidworks_validate_motion_study` | pilot |
+| 工程图：GB/T 图/尺寸链/孔表/BOM | `solidworks_generate_drawing`、`solidworks_inspect_drawing`、`solidworks_review_drawing` | verified/pilot |
+| 导出/交付：STEP/STL/PDF/DXF/BOM/Pack and Go | `solidworks_export_active`、`solidworks_batch_export_files`、`solidworks_pack_and_go` | verified/pilot |
+| 审查：预览/DFM/DRC | `solidworks_review_active`、`cadstudio_check_dfm`、`cadstudio_check_drc` | verified/pilot |
+| 配置/属性/公差/改名 | `solidworks_*configuration*`、`solidworks_set_custom_properties`、`sw_tolerance_extract.py` | pilot |
+| 仿真/路由/开放格式 | `cadstudio_*` | pilot |
+| Point & Prompt | `solidworks_pin_selection` → `solidworks_preview_edit_plan` → `solidworks_apply_edit_plan` | pilot |
+
+版本策略：SW2024/2026 为 verified 基线；**SW2025 按 pilot**。不要把 2026 的通过直接当成 2025 的通过，升级等级必须补目标版本真机证据。
 
 ### 多入口与多后端
 
@@ -107,9 +134,10 @@ with SolidWorksSession(version=2026) as session:
 
 | 需求 | 脚本 | 参考文档 |
 |---|---|---|
+| 能力清单/“能做什么”/能力等级 | `scripts/capability_map.py`（`--domain` 可选） | `capabilities.yaml` |
 | 入口自检与依赖补齐 | `scripts/sw_preflight.py` | `references/troubleshooting.md` |
 | 无 CAD 开放格式写入 | `scripts/headless_cad_writer.py`、`scripts/cad_studio.py write-open-format` | `capabilities.yaml`、公共 CAD Core Schema |
-| 高级能力/类型库探测 | `scripts/sw_capability_probe.py` | `references/complex-mechanical-routing.md` |
+| 高级能力/类型库探测（只读） | `scripts/sw_capability_probe.py` | `references/complex-mechanical-routing.md` |
 | Python/C#/C++/SWBasic/OCCT 后端选择 | `scripts/backend_router.py` | `references/language-backend-routing.md`、`capabilities.yaml` |
 | C# 进程内 Add-in 宿主、事件与 UI | `scripts/sw_addin_host.ps1`、`scripts/sw_addin_host.py` | `references/solidworks-addin-host.md` |
 | 多模型宏生成防护 | `scripts/sw_macro_guard.py` | `references/openclaw.md` |
@@ -165,6 +193,8 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 6. 如果需要更完整的 OpenClaw 工作流、提示词示例和排障建议，再读取 `references/openclaw.md`。
 
 ## 使用流程
+
+0. **先查能力地图**：MCP 调 `solidworks_capability_map`，Skill/CLI 运行 `python scripts/capability_map.py`。确认目标域的真实等级与入口后再动手；不要写临时 probe 脚本猜能力。
 
 1. 先根据原子操作运行 `backend_router.py`，再结合 `preferredBackend`、`requiredOutputs`、`nativeFormatRequired` 和 `fallbackPolicy` 判定后端；不要先假定 Python、C# 或 SolidWorks 必然可用。普通任务优先 Automation 等价接口，明确要求仅非托管 C++ 支持的原始 `I*` 指针语义时才升级到原生 C++。
    事件订阅、PropertyManagerPage、TaskPane 或长期驻留 UI 走 `solidworks_addin_ui_events` 路由，优先 C# Add-in；必须检查 HKLM 注册、64 位 TLB 注册和 `host-status.json`，不能只凭 `LoadAddIn=0` 宣称成功。SW2026 的 PMP Handler 必须公开、COM 可见并提供 `IDispatch` class interface。
@@ -228,14 +258,14 @@ from sw_connect import connect_solidworks, mm, deg, new_document
 1. 读取 `mcp-server/README.md`。
 2. 若用户要求自动配置 MCP，优先运行多客户端注册器：`powershell -ExecutionPolicy Bypass -File mcp-server/register_all_ai_mcp.ps1 -InstallDependencies`；它会尝试注册 Codex、Claude Code、Claude Desktop、Cursor、Windsurf。
 3. 使用本地 `stdio` MCP server：`python mcp-server/server.py`；默认是发现模式（`SW_MCP_DISCOVERY=search`），只暴露 `sw_search_tools` / `sw_describe_tool` / `sw_call_tool`。需要全部命名工具时设 `SW_MCP_DISCOVERY=full`。
-4. 发现模式按「检索 → 读 Schema → 执行」使用：先 `sw_search_tools` 用中英文说法找候选，再 `sw_describe_tool` 确认参数，最后 `sw_call_tool`。不要凭猜测直接调用工具名。
+4. 发现模式按「能力地图 → 检索 → 读 Schema → 执行」使用：先 `sw_call_tool` 调 `solidworks_capability_map` 看有哪些域与工具，再 `sw_search_tools` 用中英文说法找候选，`sw_describe_tool` 确认参数，最后 `sw_call_tool`。不要凭猜测直接调用工具名，也不要为了确认能力去写临时 probe 脚本。
 5. 默认发现模式信任客户端已经取得当前任务的授权；在用户授权范围内执行建模，不要逐项
    要求额外批准。涉及用户未授权的覆盖、关闭或其他高风险操作时仍须取得明确授权。
    可为已保存文档的活动文档写操作提供 `document_target`（绝对 `path` 和 SolidWorks
    `process_id`），以校验目标；未提供时使用工具原有的活动文档行为。
    如用户显式启用 `server` 逐次审批，工具返回请求 ID 时请用户在服务端运行
    `python scripts/sw_mcp_approve.py approve <请求ID>`；目标无法核验时停止并说明限制。
-6. 无 CAD 开放格式写入优先调用 `cadstudio_write_open_format`；DFM、Routing、FEA 和复杂几何分别调用 `cadstudio_check_dfm`、`cadstudio_check_routing`、`cadstudio_routing_preflight`、`cadstudio_fea_preflight`、`cadstudio_prepare_fea`、`cadstudio_run_fea`、`cadstudio_run_fea_convergence`、`cadstudio_review_advanced_geometry`、`cadstudio_create_ocp_loft`、`cadstudio_create_ocp_surface`；SolidWorks 原生操作再调用白名单 `solidworks_*` 工具。
+6. 无 CAD 开放格式写入优先调用 `cadstudio_write_open_format`；DFM、Routing、FEA 和复杂几何分别调用 `cadstudio_check_dfm`、`cadstudio_check_routing`、`cadstudio_routing_preflight`、`cadstudio_fea_preflight`、`cadstudio_prepare_fea`、`cadstudio_run_fea`、`cadstudio_run_fea_convergence`、`cadstudio_review_advanced_geometry`、`cadstudio_create_ocp_loft`、`cadstudio_create_ocp_surface`；SolidWorks 原生操作再调用白名单 `solidworks_*` 工具（含 `solidworks_capability_map`、`solidworks_create_gear`、`solidworks_create_sheet_metal_flange`）。
 7. 不要暴露任意 Python/VBA 执行工具；新增 MCP 工具时应复用 `scripts/sw_*.py` 中已验证封装。
 8. SolidWorks COM 操作必须串行执行；MCP server 内部已使用全局锁降低桌面会话冲突。
 9. 基准 demo 使用 `examples/08_mini_fan_motion_assembly.py`；它验证自动建模、装配、Mate 和 Motion Study，不承诺圆角/倒角外观完美。

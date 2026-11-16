@@ -4354,6 +4354,181 @@ _register_native_wire_tools(
 )
 
 
+class SolidWorksCapabilityMapInput(BaseInput):
+    """Input for the grouped capability map."""
+
+    domain: Optional[str] = Field(default=None, max_length=64, description="Optional domain id, e.g. part_modeling / sheet_metal / assembly.")
+    include_tools: bool = Field(default=True, description="List MCP tool names per domain.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksGearInput(BaseInput):
+    """Input for creating a standard external involute spur gear."""
+
+    module_mm: float = Field(..., gt=0.0, le=50.0, description="Gear module in millimetres.")
+    teeth: int = Field(..., ge=4, le=200, description="Number of teeth.")
+    face_width_mm: float = Field(..., gt=0.0, le=500.0, description="Face width in millimetres.")
+    pressure_angle_deg: float = Field(default=20.0, gt=10.0, lt=35.0)
+    bore_diameter_mm: float = Field(default=0.0, ge=0.0, le=500.0, description="0 means no bore.")
+    plane_name: str = Field(default="Front Plane", min_length=1, max_length=120)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+
+class SolidWorksSheetMetalFlangeInput(BaseInput):
+    """Input for a native base flange from a closed or open sketch outline."""
+
+    outline_points_mm: list[list[float]] = Field(
+        ...,
+        min_length=3,
+        max_length=200,
+        description="Polyline points [[x_mm, y_mm], ...] on the sketch plane; closed=False keeps it an open bend profile.",
+    )
+    closed: bool = Field(default=True, description="Close the outline (flat plate) or leave it open (flanged profile).")
+    thickness_mm: float = Field(..., gt=0.0, le=50.0)
+    bend_radius_mm: Optional[float] = Field(default=None, ge=0.0, le=500.0, description="Defaults to thickness.")
+    k_factor: float = Field(default=0.42, gt=0.0, lt=1.0)
+    depth_mm: Optional[float] = Field(default=None, gt=0.0, le=5000.0, description="Base-flange depth; defaults to thickness.")
+    reverse_direction: bool = Field(default=False)
+    reverse_thickness: bool = Field(default=False)
+    plane_name: str = Field(default="Front Plane", min_length=1, max_length=120)
+    response_format: ResponseFormat = Field(default=ResponseFormat.JSON, description="Return format.")
+
+    @field_validator("outline_points_mm")
+    @classmethod
+    def outline_points_valid(cls, value):
+        for point in value:
+            if len(point) != 2:
+                raise ValueError("每个轮廓点必须是 [x_mm, y_mm] 两个数")
+        return value
+
+
+def _feature_summary(feature) -> Dict[str, Any]:
+    """Return name/type of a SolidWorks feature without leaking COM objects."""
+    if feature is None:
+        return {"name": None, "type": None}
+    return {
+        "name": get_com_member(feature, "Name", default=None),
+        "type": get_com_member(feature, "GetTypeName2", default=None),
+    }
+
+
+@mcp.tool(
+    name="solidworks_capability_map",
+    title="SolidWorks Capability Map",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def solidworks_capability_map(params: SolidWorksCapabilityMapInput = SolidWorksCapabilityMapInput()) -> str:
+    """按工程域列出本仓库真正支持的原生能力、等级（verified/pilot/not_implemented）和对应 MCP 工具。
+
+    覆盖零件建模、钣金、焊件、齿轮/弹簧、装配、运动、工程图、导出、审查、配置、仿真、
+    Routing、开放格式与 Point & Prompt；任何建模/装配/出图任务开始前先调用本工具，
+    不要为了探测能力去写临时 COM 脚本。
+    """
+
+    def op():
+        from scripts.capability_map import build_map
+
+        try:
+            return build_map(domain=params.domain, include_tools=params.include_tools)
+        except ValueError as exc:
+            return {
+                "status": "blocked",
+                "error_code": "E_UNKNOWN_DOMAIN",
+                "message": str(exc),
+                "retryable": False,
+            }
+
+    return _run_locked(op, params.response_format, load_automation=False)
+
+
+@mcp.tool(
+    name="solidworks_create_gear",
+    title="Create Standard Spur Gear",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_create_gear(params: SolidWorksGearInput) -> str:
+    """在活动零件中创建标准外啮合渐开线直齿轮（模数/齿数/压力角/齿宽/轴孔）。"""
+
+    def op():
+        _, model = _active_part_required()
+        from scripts.sw_connect import mm
+        from scripts.sw_gear import SpurGearSpec, create_external_spur_gear
+
+        spec = SpurGearSpec(
+            module_mm=params.module_mm,
+            teeth=params.teeth,
+            face_width_mm=params.face_width_mm,
+            pressure_angle_deg=params.pressure_angle_deg,
+            bore_diameter_mm=params.bore_diameter_mm,
+        )
+        feature, evidence = create_external_spur_gear(model, spec, params.plane_name)
+        payload = {
+            "status": "created",
+            "feature": _feature_summary(feature),
+            "evidence": evidence,
+            "capability": _capability_note("external_spur_gear_geometry"),
+        }
+        payload["message"] = "标准直齿轮已创建；斜齿/锥齿/变位与制造级齿形仍需专用路线或人工复核。"
+        return payload
+
+    return _run_locked(op, params.response_format)
+
+
+@mcp.tool(
+    name="solidworks_create_sheet_metal_flange",
+    title="Create Sheet Metal Base Flange",
+    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+)
+def solidworks_create_sheet_metal_flange(params: SolidWorksSheetMetalFlangeInput) -> str:
+    """用给定轮廓创建原生钣金基体法兰并回读钣金证据（厚度、折弯半径、K 因子）。"""
+
+    def op():
+        _, model = _active_part_required()
+        from scripts.sw_connect import mm
+        from scripts.sw_part import sketch, sketch_line
+        from scripts.sw_sheet_metal import BaseFlangeSpec, create_base_flange, sheet_metal_evidence
+
+        points = [(mm(float(x)), mm(float(y))) for x, y in params.outline_points_mm]
+        with sketch(model, params.plane_name) as profile:
+            for start, end in zip(points, points[1:]):
+                sketch_line(model, start[0], start[1], end[0], end[1])
+            if params.closed:
+                sketch_line(model, points[-1][0], points[-1][1], points[0][0], points[0][1])
+
+        bend_radius = params.bend_radius_mm if params.bend_radius_mm is not None else params.thickness_mm
+        depth = params.depth_mm if params.depth_mm is not None else params.thickness_mm
+        spec = BaseFlangeSpec(
+            thickness=mm(params.thickness_mm),
+            bend_radius=mm(bend_radius),
+            depth=mm(depth),
+            k_factor=params.k_factor,
+            reverse_direction=params.reverse_direction,
+            reverse_thickness=params.reverse_thickness,
+        )
+        feature = create_base_flange(model, profile, spec)
+        try:
+            model.ForceRebuild3(False)
+        except Exception:
+            pass
+        evidence = sheet_metal_evidence(model)
+        return {
+            "status": "created",
+            "feature": _feature_summary(feature),
+            "evidence": evidence,
+            "inputs": {
+                "closed": params.closed,
+                "thicknessMm": params.thickness_mm,
+                "bendRadiusMm": bend_radius,
+                "kFactor": params.k_factor,
+                "depthMm": depth,
+            },
+            "capability": _capability_note("sheet_metal"),
+            "message": "钣金基体法兰已创建；展开图与折弯顺序仍需人工复核。",
+        }
+
+    return _run_locked(op, params.response_format)
+
+
 # ---------------------------------------------------------------------------
 # 工具发现（默认）与原生完整模式
 # ---------------------------------------------------------------------------
@@ -4375,7 +4550,11 @@ mcp._tool_manager = _gate
     annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
 )
 def sw_search_tools(query: str, limit: int = 5) -> str:
-    """按中英文 CAD 术语、命令名或别名检索工具，返回少量候选及其副作用等级；不执行任何操作。"""
+    """按中英文 CAD 术语、命令名或别名检索工具，返回少量候选及其副作用等级；不执行任何操作。
+
+    不确定本仓库支持哪些能力时，先用 ``sw_call_tool`` 调用 ``solidworks_capability_map``
+    （或检索“能力地图”），不要为了探测能力去写临时 COM 脚本。
+    """
     try:
         results = _gate.search(query, limit)
     except ValueError as exc:

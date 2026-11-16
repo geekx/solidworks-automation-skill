@@ -74,6 +74,14 @@ _CONCEPTS: tuple[tuple[str, ...], ...] = (
     ("高级几何", "曲面审查", "advanced geometry"),
     ("放样", "loft"),
     ("曲面", "加厚", "knit", "thicken", "surface"),
+    # 钣金 / 焊件 / 标准件
+    ("钣金", "钣金件", "基体法兰", "折弯", "展开图", "sheet metal", "base flange", "flange", "bend"),
+    ("焊件", "结构构件", "型材", "切割清单", "weldment", "structural member", "cut list"),
+    ("齿轮", "直齿轮", "渐开线", "标准件", "gear", "spur gear", "involute"),
+    ("弹簧", "压缩弹簧", "spring", "helical spring"),
+    # 零件与能力总览
+    ("支架", "安装座", "底板", "bracket", "mounting plate", "mounting bracket"),
+    ("能力地图", "能力清单", "能做什么", "支持什么", "有哪些能力", "钣金", "焊件", "齿轮", "capability map", "capabilities", "capability catalog"),
     # 线缆与路由
     ("线缆", "布线", "管路", "routing", "cable"),
     ("布线检查", "管路检查", "routing review"),
